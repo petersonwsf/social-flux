@@ -1,0 +1,65 @@
+# Gateway do ambiente de desenvolvimento (docker compose).
+# Em produção o Caddy do servidor faz o mesmo papel, com HTTPS e o seu domínio.
+#
+#   /                                    -> frontend
+#   /auth/*, /.well-known                -> authentication_service (login, refresh, logout, me, reset de senha, JWKS)
+#   /api/usuarios*, PATCH /api/img/usuarios/*, /media/avatars/*
+#                                        -> profile_service (perfil, busca, foto de perfil)
+#   /api/*                               -> backend legado, depois de validar o token no authentication_service (forward_auth)
+#   /internal/*                          -> bloqueado para o público
+#
+# IMPORTANTE: os blocos `handle` são avaliados NA ORDEM em que aparecem; as rotas específicas vêm antes de `/api/*`.
+{
+	auto_https off
+	admin off
+}
+
+:80 {
+	# Nunca confiar em identidade vinda do cliente: estes cabeçalhos só podem ser definidos pelo forward_auth.
+	request_header -X-User-Id
+	request_header -X-Account-Id
+
+	# Rotas entre serviços nunca saem pelo gateway. Precisa ser um `handle` (e vir primeiro): um `respond` solto perde para o
+	# `handle` genérico do frontend na ordem de diretivas do Caddy (verificado: /internal/* respondia pelo frontend, não 404).
+	@internal path /internal/*
+	handle @internal {
+		respond 404
+	}
+
+	@auth path /auth/* /.well-known/jwks.json
+	handle @auth {
+		reverse_proxy {$AUTH_UPSTREAM:authentication_service:8081}
+	}
+
+	# Avatares: públicos e imutáveis (o nome muda a cada troca de foto), sem autenticação.
+	handle /media/avatars/* {
+		reverse_proxy {$PROFILE_UPSTREAM:profile_service:8082}
+	}
+
+	# Perfil. O profile_service é um resource server (valida o JWT sozinho); o forward_auth acrescenta a checagem de
+	# REVOGAÇÃO imediata (logout geral, troca de senha, conta excluída) feita pelo authentication_service.
+	@profile path /api/usuarios /api/usuarios/* /api/img/usuarios/*
+	handle @profile {
+		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
+
+		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
+			uri /internal/auth/verify
+		}
+		reverse_proxy {$PROFILE_UPSTREAM:profile_service:8082}
+	}
+
+	handle /api/* {
+		# O navegador envia o JWT em cookie HttpOnly; os serviços internos recebem só `Authorization: Bearer`.
+		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
+
+		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
+			uri /internal/auth/verify
+			copy_headers X-User-Id X-Account-Id
+		}
+		reverse_proxy {$LEGACY_UPSTREAM:legacy_backend:8000}
+	}
+
+	handle {
+		reverse_proxy {$FRONTEND_UPSTREAM:frontend:8080}
+	}
+}

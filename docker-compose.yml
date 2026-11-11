@@ -1,0 +1,263 @@
+# Ambiente de desenvolvimento completo do Social Flux.
+#
+#   cp .env.example .env                          # ajuste as senhas
+#
+# 1) Só a infraestrutura (bancos + broker + mailpit); as aplicações rodam na sua máquina:
+#      docker compose up -d                       # postgres, mysql, rabbitmq, mailpit
+#      docker compose --profile host up -d        # + gateway (Caddy) apontando para as apps no host
+# 2) Tudo em containers:
+#      docker compose --profile apps up -d --build   ->  http://localhost:8080
+#
+# Serviços:
+#   postgres                 UMA instância PostgreSQL; um BANCO por serviço (identity = auth, profile = perfil)
+#   profile_db_init          cria o banco `profile` se não existir (roda uma vez e sai; funciona em volume já existente)
+#   mysql                    banco do backend legado (relações, postagens... e a PROJEÇÃO `usuario` do perfil)
+#   rabbitmq                 broker de eventos entre serviços (painel em http://localhost:15672)
+#   mailpit                  SMTP de desenvolvimento + caixa de entrada em http://localhost:8025
+#   authentication_service   login/cadastro/sessão (JWT RS256 em cookie HttpOnly)
+#   profile_service          perfil, busca, foto de perfil (resource server: valida o JWT pelo JWKS do auth)
+#   legacy_backend           backend Javalin legado, em modo `gateway` (só aceita X-User-Id do gateway)
+#   frontend                 SPA (nginx)
+#   gateway                  Caddy: mesma origem para frontend, /auth, /api e /media
+name: social-flux
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${IDENTITY_DB_NAME:-identity}
+      POSTGRES_USER: ${IDENTITY_DB_USER:-identity}
+      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:?defina IDENTITY_DB_PASSWORD no .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Cria o banco do profile_service na MESMA instância (D2: um banco por serviço), reutilizando as credenciais do
+  # authentication_service. Idempotente; roda também em volumes que já existiam antes do profile_service.
+  profile_db_init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${IDENTITY_DB_USER:-identity}
+      PGPASSWORD: ${IDENTITY_DB_PASSWORD}
+      PGDATABASE: ${IDENTITY_DB_NAME:-identity}
+      PROFILE_DB: ${PROFILE_DB_NAME:-profile}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$PROFILE_DB'" | grep -q 1 \
+          || psql -v ON_ERROR_STOP=1 -c "create database \"$$PROFILE_DB\""
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${LEGACY_DB_ROOT_PASSWORD:?defina LEGACY_DB_ROOT_PASSWORD no .env}
+      MYSQL_DATABASE: ${LEGACY_DB_NAME:-social_flux}
+      MYSQL_USER: ${LEGACY_DB_USER:-social}
+      MYSQL_PASSWORD: ${LEGACY_DB_PASSWORD:?defina LEGACY_DB_PASSWORD no .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # Esquema do legado (a tabela `usuario` é uma PROJEÇÃO do perfil). Só roda na primeira criação do volume.
+      - ./infra/mysql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD no .env}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"            # AMQP (serviços rodando no host)
+      - "127.0.0.1:${RABBITMQ_UI_PORT:-15672}:15672"       # painel de administração
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"   # caixa de entrada (e-mails de verificação/reset)
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+
+  authentication_service:
+    profiles: ["apps"]
+    build: ./authentication_service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      IDENTITY_DB_URL: jdbc:postgresql://postgres:5432/${IDENTITY_DB_NAME:-identity}
+      IDENTITY_DB_USER: ${IDENTITY_DB_USER:-identity}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      # JWT RS256 (gere com authentication_service/scripts/generate-jwt-key.sh)
+      JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64:-}
+      JWT_KEY_ID: ${JWT_KEY_ID:-}
+      JWT_PUBLIC_KEYS_B64: ${JWT_PUBLIC_KEYS_B64:-}
+      AUTH_ALLOW_EPHEMERAL_KEY: ${AUTH_ALLOW_EPHEMERAL_KEY:-false}
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-PT2H}
+      JWT_RENEW_WINDOW: ${JWT_RENEW_WINDOW:-PT10M}
+      JWT_REFRESH_GRACE: ${JWT_REFRESH_GRACE:-PT5M}
+      SESSION_ABSOLUTE_MAX: ${SESSION_ABSOLUTE_MAX:-P7D}
+      # Cookies: em desenvolvimento (http) sem Secure e sem prefixo __Host-; em produção use os padrões.
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-at}
+      AUTH_COOKIE_REFRESH_NAME: ${AUTH_COOKIE_REFRESH_NAME:-rt}
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
+      AUTH_PUBLIC_BASE_URL: ${AUTH_PUBLIC_BASE_URL:-http://localhost:8080}
+      # E-mail (Mailpit em desenvolvimento)
+      AUTH_MAIL_ENABLED: "true"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      MAIL_FROM: ${MAIL_FROM:-no-reply@socialflux.local}
+      # Perfil (cadastro orquestrado pelo auth) e eventos account.*
+      PROFILE_SERVICE_URL: http://profile_service:8082
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    ports:
+      - "127.0.0.1:${AUTH_SERVICE_PORT:-8081}:8081"   # só para depuração local; não exponha na internet
+
+  profile_service:
+    profiles: ["apps"]
+    build: ./profile_service
+    restart: unless-stopped
+    depends_on:
+      profile_db_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    environment:
+      # Banco próprio, mesmas credenciais do auth (sobrescreva com PROFILE_DB_USER/PROFILE_DB_PASSWORD para um role próprio)
+      PROFILE_DB_URL: jdbc:postgresql://postgres:5432/${PROFILE_DB_NAME:-profile}
+      PROFILE_DB_USER: ${PROFILE_DB_USER:-${IDENTITY_DB_USER:-identity}}
+      PROFILE_DB_PASSWORD: ${PROFILE_DB_PASSWORD:-${IDENTITY_DB_PASSWORD}}
+      # Valida o JWT com a chave PÚBLICA do auth
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      PROFILE_SERVICE_AUDIENCE: ${PROFILE_SERVICE_AUDIENCE:-profile-service}
+      PROFILE_STORAGE_DIR: /data/avatars
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # Projeção temporária do perfil na tabela `usuario` do MySQL legado
+      PROFILE_LEGACY_ENABLED: "true"
+      LEGACY_DB_URL: jdbc:mysql://mysql:3306/${LEGACY_DB_NAME:-social_flux}
+      LEGACY_DB_USER: ${LEGACY_DB_USER:-social}
+      LEGACY_DB_PASSWORD: ${LEGACY_DB_PASSWORD}
+    volumes:
+      - profile_avatars:/data/avatars
+    ports:
+      - "127.0.0.1:${PROFILE_SERVICE_PORT:-8082}:8082"   # só para depuração local; não exponha na internet
+
+  legacy_backend:
+    profiles: ["apps"]
+    build: ./BackEnd
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      AUTH_MODE: gateway
+      PORTA_SERVIDOR: "8000"
+      SQLDB_URL: jdbc:mysql://mysql:3306/${LEGACY_DB_NAME:-social_flux}
+      SQLDB_USERNAME: ${LEGACY_DB_USER:-social}
+      SQLDB_PASSWORD: ${LEGACY_DB_PASSWORD}
+    volumes:
+      - legacy_images:/app/src/main/resources/public/images
+    # Sem `ports`: só o gateway (rede interna) alcança este serviço, senão X-User-Id poderia ser forjado.
+    expose:
+      - "8000"
+
+  frontend:
+    profiles: ["apps"]
+    build:
+      context: ./FrontEnd
+      args:
+        VITE_API_URL: ""   # mesma origem (via gateway)
+    restart: unless-stopped
+    expose:
+      - "8080"
+
+  # Gateway quando as aplicações rodam NA SUA MÁQUINA (só a infra em containers):
+  #   docker compose --profile host up -d     (sobe bancos + broker + mailpit + este gateway)
+  # Encaminha para authentication_service (8081), profile_service (8082), backend legado (8000) e Vite (5173) no host.
+  gateway_host:
+    profiles: ["host"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-at}
+      AUTH_UPSTREAM: host.docker.internal:8081
+      PROFILE_UPSTREAM: host.docker.internal:8082
+      LEGACY_UPSTREAM: host.docker.internal:8000
+      FRONTEND_UPSTREAM: host.docker.internal:5173
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  gateway:
+    profiles: ["apps"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - authentication_service
+      - profile_service
+      - legacy_backend
+      - frontend
+    environment:
+      AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-at}
+      # Para desenvolver o frontend com HMR: FRONTEND_UPSTREAM=host.docker.internal:5173
+      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-frontend:8080}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres_data:
+  mysql_data:
+  rabbitmq_data:
+  profile_avatars:
+  legacy_images:

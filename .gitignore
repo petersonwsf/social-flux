@@ -1,0 +1,9 @@
+# Segredos e configuração local
+.env
+*.pem
+
+# Dados locais
+node_modules/
+
+# Avatares gravados em disco quando o profile_service roda no host
+profile_service/data/
