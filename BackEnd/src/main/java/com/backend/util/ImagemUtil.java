@@ -21,7 +21,7 @@ public class ImagemUtil {
             if (!formatoPermitido(uploadedFile)) throw new IllegalArgumentException("Formato de imagem não é permitido");
             String extensaoArquivo = buscarExtensao(uploadedFile);
             String novoNomeArquivo = UUID.randomUUID() + "." + extensaoArquivo;
-            String diretorio = "src/main/resources/imagens/"+id+"/";
+            String diretorio = "src/main/resources/public/images/"+id+"/";
             Files.createDirectories(Path.of(diretorio));
             File destino = new File(diretorio + novoNomeArquivo);
             try (InputStream inputStream = uploadedFile.content()) {
@@ -35,7 +35,7 @@ public class ImagemUtil {
 
     public static String inserirImagem(BufferedImage imagemRedimensionada, Integer id, String extensaoArquivo) throws IOException {
         String novoNomeArquivo = UUID.randomUUID() + "." + extensaoArquivo;
-        String diretorio = "src/main/resources/imagens/" + id + "/";
+        String diretorio = "src/main/resources/public/images/" + id + "/";
         Files.createDirectories(Path.of(diretorio));
         File destino = new File(diretorio + novoNomeArquivo);
 
@@ -77,7 +77,7 @@ public class ImagemUtil {
 
     public static void removerImagem(Integer id, String imageName) {
 
-        File image = new File("src/main/resources/imagens/"+id+"/"+imageName);
+        File image = new File("src/main/resources/public/images/"+id+"/"+imageName);
 
         if (image.exists()) {
             image.delete();

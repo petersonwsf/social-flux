@@ -7,7 +7,6 @@ import com.backend.model.entities.Usuario;
 import com.backend.services.PostagemService;
 import com.backend.util.AuthMiddleware;
 import com.backend.util.ImagemUtil;
-import com.backend.util.JWT;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.javalin.http.Context;
@@ -32,9 +31,7 @@ public class PostagemController {
 
         try {
 
-            String bearerToken = ctx.header("Authorization");
-            String userJson = JWT.getToken(bearerToken);
-            Usuario usuario = mapper.readValue(userJson, Usuario.class);
+            Usuario usuario = AuthMiddleware.currentUser(ctx);
 
             UploadedFile uploadedFile = ctx.uploadedFile("imagem");
             String legenda = ctx.formParam("legenda");
@@ -51,7 +48,7 @@ public class PostagemController {
                     postagem.setUsuario(usuario);
                     postagem.setData_postagem(LocalDateTime.now());
                     postagemService.criarPostagem(postagem, id_postagem);
-                    ctx.status(201);
+                    ctx.status(201).json(new Mensagem("Postagem criada com sucesso!", true));
                 } catch (IllegalArgumentException e) {
                     logger.error("Erro ao armazenar imagem: " + e);
                     ctx.status(500).json(new Mensagem(e.getMessage(), false));
@@ -65,7 +62,7 @@ public class PostagemController {
                 postagem.setLegenda(legenda);
                 postagem.setData_postagem(LocalDateTime.now());
                 postagemService.criarPostagem(postagem, id_postagem);
-                ctx.status(201);
+                ctx.status(201).json(new Mensagem("Postagem criada com sucesso!", true));;
             } else {
                 ctx.status(400).json(new Mensagem("Não é possível criar uma postagem vazia, coloque uma imagem, ou um texto", false));
             }
@@ -137,6 +134,10 @@ public class PostagemController {
 
             Integer id = Integer.parseInt(ctx.pathParam("id"));
             Postagem postagem = postagemService.buscarPostagemPorId(id);
+            if (postagem == null) {
+                ctx.status(404).json(new Mensagem("Postagem não encontrada", false));
+                return;
+            }
             ctx.status(200).json(postagem);
 
         } catch (NumberFormatException e) {
@@ -153,19 +154,28 @@ public class PostagemController {
 
         AuthMiddleware.AuthValidate(ctx);
 
+
+
         try {
+            Usuario usuario = AuthMiddleware.currentUser(ctx);
+
+
             Integer id = Integer.parseInt(ctx.pathParam("id"));
             Postagem postagem = postagemService.buscarPostagemPorId(id);
+            if (postagem.getUsuario().getId() != usuario.getId()) {
+                ctx.status(422).json(new Mensagem("Não Autorizado!", false));
+                return;
+            }
             if (postagem.getImagem() != null) {
                 ImagemUtil.removerImagem(postagem.getUsuario().getId(), postagem.getImagem());
             }
             postagemService.excluirPostagem(id);
-            ctx.status(200);
+            ctx.status(200).json(new Mensagem("Postagem removida com sucesso", true));
         } catch (NumberFormatException e) {
             logger.info("ID inválido: " + e);
             ctx.status(400).json(new Mensagem("ID inválido", false));
         } catch (Exception e) {
-            logger.info("Excessão não tratada: " + e);
+            logger.error("Excessão não tratada: " + e);
             ctx.status(500).json(new Mensagem("Excessão não tratada", false));
         }
     }

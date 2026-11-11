@@ -21,7 +21,7 @@ public class ImagemController {
         String id_usuario = ctx.pathParam("id_usuario");
         String id_imagem = ctx.pathParam("id_imagem");
 
-        File imagem = new File("src/main/resources/imagens/"+id_usuario+"/"+id_imagem);
+        File imagem = new File("src/main/resources/public/images/"+id_usuario+"/"+id_imagem);
         try {
             String extensao = ImagemUtil.buscarExtensao(imagem);
             ctx.contentType("image/"+extensao);

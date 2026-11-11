@@ -104,6 +104,7 @@ public class RelacaoController {
 
     public static void aceitarRelacao(Context ctx) {
         AuthMiddleware.AuthValidate(ctx);
+
         RelacaoService relacaoService = ctx.appData(Keys.AMIZADE_SERVICE.key());
         String id = ctx.pathParam("id");
         if (id.matches("\\d+")) {

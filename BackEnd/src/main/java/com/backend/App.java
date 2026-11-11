@@ -1,8 +1,9 @@
 package com.backend;
 
 import com.backend.controllers.*;
+import com.backend.database.SQLRepository;
 import com.backend.services.*;
-import com.backend.database.SQLDBRepository;
+import com.backend.util.AuthMode;
 import com.backend.util.PropertiesUtil;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
@@ -10,6 +11,7 @@ import io.javalin.http.staticfiles.Location;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Properties;
 import java.util.function.Consumer;
 
@@ -35,6 +37,7 @@ public class App {
             logger.error("Erro não tratado {}",e);
             ctx.status(500);
         });
+
     }
 
     private void registrarServicos(JavalinConfig config, Connection connection) {
@@ -50,7 +53,9 @@ public class App {
         int porta = getPortaServidor();
         logger.info("Iniciando aplicação na porta {}", porta);
         Consumer<JavalinConfig> configConsumer = this::configureJavalin;
-        return Javalin.create(configConsumer).start(porta);
+        Javalin app = Javalin.create(configConsumer).start(porta);
+        logger.info("Servidor inicado com sucesso");
+        return app;
     }
 
     private void configureJavalin(JavalinConfig config) {
@@ -77,16 +82,9 @@ public class App {
 
     }
 
-    private Connection iniciarSQLRepository() {
-        String sqlURL = properties.getProperty(SQL_URL);
-        String username = properties.getProperty(USERNAME);
-        String password = properties.getProperty(PASSWORD);
-        if (sqlURL == null || username == null || password == null) {
-            logger.error("Defina os parâmetros para conexão no application.properties");
-            System.exit(1);
-        }
+    private Connection iniciarSQLRepository() throws SQLException {
         logger.info("Conectando ao banco de dados SQL");
-        Connection connection = SQLDBRepository.getConnection(sqlURL, username, password);
+        Connection connection = SQLRepository.getDataSource().getConnection();
         if (connection == null) {
             logger.error("Não foi possível recuperar a conexão com o banco de dados");
             System.exit(1);
@@ -113,31 +111,22 @@ public class App {
 
 
 
+        // Com cookies (credenciais) a origem permitida precisa ser exata, nunca "*".
+        String origemPermitida = PropertiesUtil.getProperties().getProperty("cors.allowed-origin", "http://165.227.76.216");
+
         app.before(ctx -> {
-            ctx.header("Access-Control-Allow-Origin", "http://localhost:5173");
+            ctx.header("Access-Control-Allow-Origin", origemPermitida);
+            ctx.header("Vary", "Origin");
             ctx.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
             ctx.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
             ctx.header("Access-Control-Allow-Credentials", "true");
         });
 
-        app.options("/*", ctx -> {
-            ctx.header("Access-Control-Allow-Origin", "http://localhost:5173");
-            ctx.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-            ctx.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            ctx.status(200);
-        });
+        app.options("/*", ctx -> ctx.status(200));
 
-        //USUARIOS
-        app.get("/api/usuarios", UsuarioController::buscarUsuario);
-        app.patch("/api/usuarios/{id}", UsuarioController::atualizarDadosPerfil);
-        app.get("/api/usuarios/search", UsuarioController::buscarUsuariosPesquisados);
-        app.patch("/api/img/usuarios/{id}", UsuarioController::atualizarFoto);
-        app.delete("/api/usuarios/{id}", UsuarioController::excluirUsuario);
-
-
-        // AUTH
-        app.post("/login", AuthController::authenticateUser);
-        app.post("/register", AuthController::registerUser);
+        // USUÁRIOS / PERFIL / FOTO DE PERFIL e AUTENTICAÇÃO (login, cadastro, sessão):
+        // migrados para o profile_service e o authentication_service. O gateway (Caddy) nem encaminha essas rotas para cá.
+        // A tabela `usuario` deste banco é só uma PROJEÇÃO de leitura do perfil (usada nos JOINs abaixo).
 
         //AMIZADE
         app.post("/api/relacao", RelacaoController::criarRelacao);
@@ -171,6 +160,7 @@ public class App {
 
     public static void main(String[] args) {
         try {
+            logger.info("Iniciando programa");
             new App().iniciar();
         } catch (Exception exception) {
             logger.error("Erro ao iniciar a aplicação ", exception);

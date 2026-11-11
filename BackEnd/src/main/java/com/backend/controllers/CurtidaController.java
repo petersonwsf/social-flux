@@ -50,9 +50,9 @@ public class CurtidaController {
                     ctx.status(200).json(curtida);
                 }
             } else if (ctx.queryParam("id_usuario") != null) {
-                ctx.status(200);
+                ctx.status(200).json(new Mensagem("Oloco", true));
             } else if (ctx.queryParam("id_conteudo") != null) {
-                ctx.status(200);
+                ctx.status(200).json(new Mensagem("Sei lá", true));
             }
         } catch (NumberFormatException e) {
             logger.info("Parâmetros inválidos ao buscar curtidas: " + e);
@@ -70,7 +70,7 @@ public class CurtidaController {
             Integer id = Integer.parseInt(ctx.pathParam("id"));
 
             curtidaService.removerCurtida(id);
-            ctx.status(200);
+            ctx.status(200).json(new Mensagem("Curtida removida", false));
         } catch (NumberFormatException e) {
             logger.info("ID Inválido: " + e);
             ctx.status(400).json(new Mensagem("ID inválido", false));

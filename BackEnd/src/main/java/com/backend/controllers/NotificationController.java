@@ -42,7 +42,7 @@ public class NotificationController {
             notificationService.insertNotification(notification);
         } catch (JsonProcessingException e) {
             logger.error(e);
-            ctx.status(500);
+            ctx.status(500).json(new Mensagem("Erro interno no sistema", false));
         }
     }
 
