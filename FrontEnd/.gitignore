@@ -13,7 +13,6 @@ dist-ssr
 *.local
 
 
-src/config/apiConfig.js
 src/config/secretJwt.js
 
 # Editor directories and files
@@ -26,3 +25,7 @@ src/config/secretJwt.js
 *.njsproj
 *.sln
 *.sw?
+
+.env
+.env.*
+!.env.example
