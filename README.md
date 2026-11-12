@@ -7,7 +7,7 @@
 | `FrontEnd/` | SPA React + TypeScript (Vite) |
 | `BackEnd/` | Backend **legado** (Javalin + MySQL), sendo substituído domínio a domínio |
 | `infra/` | Caddy (gateway) e esquema MySQL de desenvolvimento |
-| `docs/` | Análise do backend e planos de migração |
+| `docs/` | Arquitetura geral (`ARCHITECTURE.md`), análise do backend e planos de migração. Cada app tem também o seu `docs/ARCHITECTURE.md` (e o FrontEnd, `docs/COMPONENTS.md`) |
 | `docker-compose.yml` | Ambiente de desenvolvimento completo |
 
 ## Rodando

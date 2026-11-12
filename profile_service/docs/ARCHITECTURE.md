@@ -1,0 +1,159 @@
+# Arquitetura — profile_service
+
+Serviço de **perfil de usuário**: dados do perfil, busca, foto de perfil (avatar) e privacidade da conta. É um
+**resource server** JWT (valida pelo JWKS do authentication_service), publica eventos `profile.*` por outbox e, enquanto o
+legado existir, mantém a **projeção** do perfil na tabela `usuario` do MySQL.
+Spring Boot 4 · Java 21 · Spring Security (OAuth2 Resource Server) · JPA + Flyway · PostgreSQL (banco `profile`) · RabbitMQ · porta **8082**.
+
+API pública/interna, eventos e configuração: [`../README.md`](../README.md). Decisões D1–D12:
+[`../../docs/plano-dominio-perfil-servico-proprio.md`](../../docs/plano-dominio-perfil-servico-proprio.md).
+
+## Camadas
+
+```
+web (ProfileController, InternalProfileController, MediaController, DTOs, erros)
+  └─► service (ProfileService, AvatarService, ProfileRules, RateLimiter)
+        ├─► domain (Profile + ProfileRepository) ─► PostgreSQL
+        ├─► storage (AvatarProcessor, StorageService → disco) 
+        └─► events/Outbox ─► OutboxRelay ─► RabbitMQ ─┬─► legacy/ (projeção no MySQL)
+                                                     └─► outros consumidores
+events/AccountEventsListener ◄─ RabbitMQ (account.*) ─► AccountEventHandler ─► ProfileService
+security (JwtDecoder via JWKS, JwtAuthorities, OriginCheckFilter, SecurityConfig) envolve tudo.
+```
+
+## Árvore de diretórios
+
+```
+profile_service/
+├── Dockerfile                    build Maven multi-stage; runtime Temurin 21 JRE, usuário sem root
+├── .gitignore                    exclui target/, data/ (avatares locais) e arquivos de IDE
+├── pom.xml                       dependências (Spring Boot 4, Security/Resource Server, JPA, Flyway, AMQP, MySQL driver; testes: embedded-postgres, H2)
+├── README.md                     relação com os outros serviços, API, eventos e configuração
+├── docs/ARCHITECTURE.md          este arquivo
+├── data/avatars/                 (não versionado) avatares gravados quando o serviço roda no host
+└── src/
+    ├── main/java/com/socialflux/profile/
+    │   ├── config/               relógio e propriedades tipadas
+    │   ├── domain/               entidade Profile e repositório
+    │   ├── events/               topologia RabbitMQ, outbox, inbox e consumo dos eventos da conta
+    │   ├── legacy/               projeção TEMPORÁRIA do perfil no MySQL do legado
+    │   ├── security/             validação do JWT, autoridades, CSRF e cadeia de segurança
+    │   ├── service/              regras de perfil e avatar
+    │   ├── storage/              processamento e armazenamento de avatares
+    │   ├── util/                 UUIDv7
+    │   └── web/                  controllers, DTOs e erros
+    ├── main/resources/
+    │   ├── application.yml       datasource, multipart (5 MB), RabbitMQ (retry + DLQ), Actuator e bloco `profile.*`
+    │   └── db/migration/         migrations Flyway
+    └── test/java/com/socialflux/profile/   testes de integração e unidade
+```
+
+## Arquivos
+
+### Raiz do pacote
+
+| Arquivo | O que representa |
+| --- | --- |
+| `ProfileServiceApplication.java` | Classe `main`; habilita `@ConfigurationPropertiesScan` e `@EnableScheduling` (relay e limpeza do outbox, limpeza do limitador) |
+
+### `config/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `ClockConfig.java` | Bean `Clock` em UTC (injetado em vez de `Instant.now()`, para os testes controlarem o tempo) |
+| `ProfileProperties.java` | Record `@ConfigurationProperties(prefix = "profile")` validado: segurança (JWKS, issuer, audiências), origens permitidas, armazenamento (diretório, limites de bytes/pixels), eventos e conexão com o MySQL legado |
+
+### `domain/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `Profile.java` | Entidade `profile`: UUID (= conta), `legacy_id`, username, nome de exibição, bio, chave do avatar, privado, dados pessoais (telefone, sexo, nascimento), status, versão e datas |
+| `ProfileRepository.java` | Busca por username / id legado / ids, perfis pendentes antigos e a pesquisa por username/nome ordenada por relevância (curingas escapados) |
+| `ProfileStatus.java` | Enum `PENDING` (aguardando `account.registered.v1`), `ACTIVE`, `DELETED` (dados pessoais apagados) |
+
+### `events/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `Amqp.java` | Topologia: exchange topic `socialflux.events`, filas `profile-service.account-events` e `profile-service.legacy-projection`, DLX/DLQ |
+| `AccountEventsListener.java` | `@RabbitListener` da fila de eventos da conta; repassa ao handler |
+| `AccountEventHandler.java` | `account.registered.v1` ativa o perfil; `account.deleted.v1` apaga os dados pessoais. Idempotente e tolerante a tipos desconhecidos |
+| `Inbox.java` | Idempotência de consumidor: executa o efeito só uma vez por id de mensagem (tabela `processed_message`) |
+| `Outbox.java` | Grava `profile.created/updated/privacy-changed/deleted.v1` em `outbox_event` na mesma transação da mudança |
+| `OutboxRelay.java` | Tarefas agendadas: publica os pendentes em ordem, com nova tentativa, e expurga os já publicados |
+| `EventPublisher.java` | Porta de saída dos eventos |
+| `AmqpEventPublisher.java` | Implementação RabbitMQ com mensagem persistente e publisher confirms |
+
+### `legacy/` (temporário — some quando os domínios do legado migrarem)
+
+| Arquivo | O que representa |
+| --- | --- |
+| `LegacyProjectionListener.java` | `@RabbitListener` da fila `profile-service.legacy-projection` (só liga com `profile.legacy.enabled`) |
+| `LegacyProjectionHandler.java` | Traduz os eventos `profile.*` em escritas idempotentes na tabela `usuario` |
+| `LegacyUsuarioWriter.java` | Pool próprio do MySQL e o upsert/remoção em `usuario`, protegido por `profile_version` (só versão maior sobrescreve) |
+
+### `security/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `SecurityConfig.java` | Nega tudo por padrão; `/api/**` exige token de usuário (`ROLE_USER`), `/internal/**` exige token de serviço com escopo, `GET /media/avatars/**` e `/actuator/health` públicos |
+| `JwtDecoderConfig.java` | `JwtDecoder` só RS256 pelo JWKS do auth (recarrega em `kid` novo), valida issuer, audiência e expiração |
+| `JwtAuthorities.java` | Separa token de usuário (`sub` UUID → `ROLE_*`) de token de serviço (`sub` `svc:` → `SCOPE_*`) |
+| `OriginCheckFilter.java` | Defesa CSRF em métodos não seguros (`Sec-Fetch-Site` e `Origin`) |
+
+### `service/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `ProfileService.java` | Regras do perfil: criação (interna), leitura com visão pública × do dono, busca, edição, privacidade, ativação, exclusão e descarte de pendentes; cada mudança grava o evento no outbox |
+| `AvatarService.java` | Troca da foto: limita a frequência (10/h), processa a imagem, grava com chave nova e só então atualiza o banco; se o banco falhar, apaga o arquivo órfão |
+| `ProfileRules.java` | Validações no servidor: formato do username e nomes reservados, nome, bio (≤ 500), telefone, sexo e idade mínima |
+| `RateLimiter.java` | Janela deslizante em memória (busca, troca de foto) |
+
+### `storage/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `AvatarProcessor.java` | Valida tamanho e bytes mágicos (PNG/JPEG), confere dimensões antes de decodificar, recorta o centro e re-codifica em JPEG 256×256 (sem EXIF/alfa) |
+| `AvatarKeys.java` | Gera e valida chaves `av_<uuidv7>.jpg` (o cliente nunca informa nome ou caminho) |
+| `StorageService.java` | Interface de armazenamento (`put`/`get`/`delete`), trocável por S3/MinIO |
+| `LocalDiskStorage.java` | Implementação em disco com caminho normalizado e conferido contra o diretório-base |
+
+### `util/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `Uuids.java` | Gerador de UUIDv7 |
+
+### `web/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `ProfileController.java` | `GET /api/usuarios` (`?username=`/`?id=`), `GET /api/usuarios/me`, `GET /api/usuarios/search`, `PATCH /api/usuarios/{id}`, `PATCH /api/img/usuarios/{id}` (multipart); quem age vem sempre do token |
+| `InternalProfileController.java` | `/internal/profiles`: `PUT`/`DELETE /{uuid}` (`profiles:write`), `GET /{uuid}`, `POST /batch-get` e listagem paginada para bootstrap (`profiles:read`) |
+| `MediaController.java` | `GET /media/avatars/{key}`: JPEG com tipo fixo, `nosniff` e cache imutável |
+| `Dtos.java` | `PublicProfile` (o que qualquer usuário vê), `OwnerProfile` (inclui dados pessoais) e requisições, com nomes do contrato do frontend |
+| `ApiError.java` | Corpo de erro `{ mensagem, sucesso: false, codigo }` |
+| `ApiException.java` | Erro de negócio com status e código estável (inclui `TooManyRequests`) |
+| `GlobalExceptionHandler.java` | Converte exceções (inclusive upload grande demais e validação) em `ApiError` |
+
+### `src/main/resources/db/migration/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `V1__profile.sql` | Sequence `legacy_id_seq` (temporária) e tabelas `profile`, `outbox_event`, `processed_message` |
+
+### `src/test/java/com/socialflux/profile/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `ProfileApiTest.java` | Criação interna, validações, leitura pública × do dono, edição e privacidade |
+| `SearchTest.java` | Pesquisa por username/nome, ordem por relevância, escape de curingas |
+| `SecurityTest.java` | 401 JSON, só RS256 válido, separação token de usuário × serviço, escopos |
+| `AvatarTest.java` | Upload de avatar ponta a ponta (formato, tamanho, chave gerada, entrega em `/media`) |
+| `AvatarProcessorTest.java` | Unidade do processamento de imagem (limites, bytes mágicos, re-codificação) |
+| `EventsTest.java` | Reação a `account.*` (idempotência) e eventos `profile.*` gerados no outbox |
+| `LegacyProjectionTest.java` | Projeção na tabela `usuario` (H2 em modo MySQL) a partir dos eventos reais |
+| `support/AbstractProfileTest.java` | Base: serviço em porta aleatória com PostgreSQL embutido e servidor JWKS local de teste; helpers de tokens, contas e outbox |
+| `support/Http.java` | Cliente HTTP mínimo dos testes (JSON e multipart) |
+| `support/TestSupportConfig.java` | Publicador de eventos em memória (substitui o RabbitMQ e simula broker fora do ar) |

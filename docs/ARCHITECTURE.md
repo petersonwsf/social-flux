@@ -1,0 +1,96 @@
+# Arquitetura — visão geral do monorepo
+
+O Social Flux é uma rede social em **migração gradual, um domínio por vez**, de um backend legado (Javalin + MySQL) para
+serviços Spring Boot com banco próprio, ligados por eventos no RabbitMQ e expostos por um gateway Caddy na mesma origem.
+
+| Domínio | Onde está hoje |
+| --- | --- |
+| Identidade e acesso (conta, senha, sessão, e-mail) | `authentication_service/` |
+| Perfil (username, nome, bio, foto, privacidade, busca) | `profile_service/` |
+| Relações (seguir), postagens/comentários, curtidas, imagens de postagem, notificações | `BackEnd/` (legado) |
+
+Cada aplicação tem o seu próprio `docs/ARCHITECTURE.md`:
+[`FrontEnd`](../FrontEnd/docs/ARCHITECTURE.md) · [`authentication_service`](../authentication_service/docs/ARCHITECTURE.md) ·
+[`profile_service`](../profile_service/docs/ARCHITECTURE.md) · [`BackEnd`](../BackEnd/docs/ARCHITECTURE.md).
+Este arquivo descreve só o que é da raiz e transversal.
+
+## Árvore da raiz
+
+```
+social_flux/
+├── CLAUDE.md                     regras do projeto para o Claude Code
+├── README.md                     visão geral, como rodar e como as peças se falam
+├── .env.example                  nomes das variáveis do ambiente (copiar para .env, que não é versionado)
+├── .gitignore                    ignora .env, *.pem, node_modules e os avatares locais do profile_service
+├── docker-compose.yml            ambiente de desenvolvimento completo (perfis `host` e `apps`)
+├── docs/                         documentação transversal (este diretório)
+├── infra/                        configuração de infraestrutura compartilhada
+│   ├── caddy/Caddyfile
+│   └── mysql/schema.sql
+├── scripts/dev/                  scripts para rodar os backends na máquina com o .env da raiz
+├── FrontEnd/                     SPA React + TypeScript (Vite)
+├── authentication_service/       serviço de identidade (Spring Boot + PostgreSQL)
+├── profile_service/              serviço de perfil (Spring Boot + PostgreSQL)
+├── BackEnd/                      backend legado (Javalin + MySQL)
+└── .github/modernize/            artefatos locais da ferramenta "modernize/java-upgrade" (hooks de registro); não fazem parte do sistema
+```
+
+## Arquivos da raiz
+
+| Arquivo | O que representa |
+| --- | --- |
+| `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init` (cria o banco `profile`), `mysql` (legado, inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, as quatro aplicações (perfil `apps`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `profile_avatars`, `legacy_images` |
+| `.env.example` | Senhas dos bancos e do RabbitMQ, chave JWT RS256, TTLs da sessão, nomes dos cookies, URLs públicas e remetente de e-mail. Só nomes/valores de exemplo |
+| `README.md` | Ponto de entrada: tabela das pastas, comandos para subir o ambiente e o diagrama de comunicação |
+| `CLAUDE.md` | Contexto, stack, comandos e regras de trabalho para o Claude Code |
+
+## `docs/`
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| `ARCHITECTURE.md` | Este arquivo |
+| `rodando-localmente.md` | Passo a passo para rodar a infra em containers e as apps no host, e tabela de problemas comuns |
+| `analise-backend-e-migracao-spring-boot.md` | Análise do backend legado: falhas de segurança (SEC-xx), bugs de lógica (LOG-xx) e o plano de migração para Spring Boot |
+| `plano-dominio-identidade-servico-proprio.md` | Plano (implementado) do domínio de identidade: serviço próprio com JWT RS256 em cookies |
+| `plano-dominio-perfil-servico-proprio.md` | Plano (implementado) do domínio de perfil e da comunicação entre serviços — decisões D1–D12 |
+| `plano-dominio-identidade-spring-auth0.md` | Plano **substituído** (Auth0 descartado); mantido só como registro da alternativa avaliada |
+
+## `infra/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `caddy/Caddyfile` | Gateway (mesma origem). Remove `X-User-Id`/`X-Account-Id` vindos do cliente; bloqueia `/internal/*` (404); `/auth/*` e `/.well-known/jwks.json` → authentication_service; `/media/avatars/*` → profile_service (público); `/api/usuarios*` e `/api/img/usuarios/*` → profile_service após `forward_auth`; demais `/api/*` → legado após `forward_auth` (copia `X-User-Id`); o resto → frontend. Converte o cookie de acesso em `Authorization: Bearer`. Os upstreams vêm de variáveis (`AUTH_UPSTREAM`, `PROFILE_UPSTREAM`, `LEGACY_UPSTREAM`, `FRONTEND_UPSTREAM`) |
+| `mysql/schema.sql` | Esquema do MySQL do legado (`usuario` — projeção do perfil —, `relacao`, `postagem`, `curtida`, `notification`). As tabelas além de `usuario` foram inferidas do código. Só roda na criação do volume |
+
+## `scripts/dev/`
+
+| Arquivo | O que faz |
+| --- | --- |
+| `load-env.ps1` | Funções PowerShell compartilhadas: carrega o `.env` da raiz no processo (`Import-DotEnv`) e lê variáveis com padrão (`Get-EnvOr`) |
+| `run-auth.ps1` / `run-auth.sh` | Roda o `authentication_service` no host (porta 8081) com as credenciais do `.env` |
+| `run-profile.ps1` / `run-profile.sh` | Roda o `profile_service` no host (porta 8082), com JWKS do auth e projeção no MySQL ligada |
+| `run-legacy.ps1` / `run-legacy.sh` | Roda o backend legado no host (porta 8000) em `AUTH_MODE=gateway` |
+
+## Comunicação entre as peças
+
+```
+Navegador ─► Caddy :8080 (mesma origem)
+              ├─ /                          FrontEnd (nginx :8080 no container / Vite :5173 no host)
+              ├─ /auth/*, /.well-known      authentication_service :8081 ─► PostgreSQL (banco identity)
+              ├─ /api/usuarios*, /api/img/usuarios/*, /media/avatars/*
+              │                             profile_service :8082 ─► PostgreSQL (banco profile) + disco (avatares)
+              ├─ /api/* (demais) ─ forward_auth ─► authentication_service /internal/auth/verify
+              │                └─ X-User-Id ─► BackEnd legado :8000 (rede interna) ─► MySQL
+              └─ /internal/*                404
+
+authentication_service ──PUT /internal/profiles/{uuid} (token de serviço)──► profile_service   (cadastro)
+authentication_service ──account.registered.v1 | account.deleted.v1──► RabbitMQ ──► profile_service
+profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► projeção `usuario` no MySQL
+```
+
+- **Identidade:** conta (auth) e perfil (profile) têm o mesmo UUIDv7 (`sub` do JWT). O id inteiro (`legacy_id`, `X-User-Id`,
+  claim `legacy_uid`) é temporário, só para os domínios ainda no legado.
+- **Sessão:** JWT RS256 de acesso (cookie `at`/`__Host-at`) + refresh token opaco rotativo (cookie `rt`/`__Secure-rt`, só em `/auth`).
+  Os serviços validam o JWT pelo JWKS; a revogação imediata é checada pelo `forward_auth` no gateway.
+- **Eventos:** exchange topic `socialflux.events`, routing key = tipo do evento, outbox transacional no produtor, inbox
+  idempotente no consumidor, fila de mensagens mortas `socialflux.events.dead`.
