@@ -53,6 +53,7 @@ social_flux/
 | `analise-backend-e-migracao-spring-boot.md` | Análise do backend legado: falhas de segurança (SEC-xx), bugs de lógica (LOG-xx) e o plano de migração para Spring Boot |
 | `plano-dominio-identidade-servico-proprio.md` | Plano (implementado) do domínio de identidade: serviço próprio com JWT RS256 em cookies |
 | `plano-dominio-perfil-servico-proprio.md` | Plano (implementado) do domínio de perfil e da comunicação entre serviços — decisões D1–D12 |
+| `plano-dominio-relacoes-grafo-social.md` | Plano (**proposta, não implementado**) do domínio Relações: `social_graph_service`, análise SQL × NoSQL, seguir/solicitações — decisões D1–D14 |
 | `plano-dominio-identidade-spring-auth0.md` | Plano **substituído** (Auth0 descartado); mantido só como registro da alternativa avaliada |
 
 ## `infra/`
