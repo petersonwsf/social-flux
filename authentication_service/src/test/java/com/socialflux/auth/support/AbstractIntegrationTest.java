@@ -24,7 +24,7 @@ import java.util.UUID;
                 "auth.cookie.refresh-name=rt",
                 "auth.rate-limit.max-failures-per-ip=100000",
                 "auth.jwt.issuer=http://auth.test",
-                "auth.events.enabled=false",
+                "socialflux.events.enabled=false",
                 "spring.flyway.enabled=true"
         })
 @Import(TestSupportConfig.class)
@@ -63,7 +63,7 @@ public abstract class AbstractIntegrationTest {
     protected TestSupportConfig.RecordingPublisher publisher;
 
     @Autowired
-    protected com.socialflux.auth.events.OutboxRelay relay;
+    protected com.socialflux.events.OutboxRelay relay;
 
     @Autowired
     protected org.springframework.jdbc.core.simple.JdbcClient jdbc;

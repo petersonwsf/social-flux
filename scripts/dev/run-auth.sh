@@ -16,4 +16,6 @@ export RABBITMQ_HOST=localhost RABBITMQ_PORT="${RABBITMQ_PORT:-5672}"
 
 echo "authentication_service -> $IDENTITY_DB_URL como '$IDENTITY_DB_USER'; perfil: $PROFILE_SERVICE_URL; broker: $RABBITMQ_HOST:$RABBITMQ_PORT"
 cd "$root/authentication_service"
+# Instala a biblioteca compartilhada de eventos (libs/socialflux-events) no repositório Maven local.
+mvn -q -f "$root/libs/socialflux-events/pom.xml" -DskipTests install
 exec mvn spring-boot:run

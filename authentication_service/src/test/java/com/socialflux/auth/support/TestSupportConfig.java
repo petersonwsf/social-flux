@@ -1,6 +1,6 @@
 package com.socialflux.auth.support;
 
-import com.socialflux.auth.events.EventPublisher;
+import com.socialflux.events.EventPublisher;
 import com.socialflux.auth.mail.MailService;
 import com.socialflux.auth.profile.NewProfile;
 import com.socialflux.auth.profile.ProfileCreated;

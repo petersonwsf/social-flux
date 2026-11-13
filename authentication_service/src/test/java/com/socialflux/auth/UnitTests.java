@@ -29,8 +29,7 @@ class UnitTests {
                 List.of(), "http://localhost",
                 new AuthProperties.RateLimit(5, 50, Duration.ofMinutes(15)),
                 new AuthProperties.Mail(false, "a@b.c"),
-                new AuthProperties.Profile("http://localhost:8082", "profile-service", Duration.ofSeconds(2), Duration.ofSeconds(5)),
-                new AuthProperties.Events(false, "socialflux.events", true, Duration.ofSeconds(1)));
+                new AuthProperties.Profile("http://localhost:8082", "profile-service", Duration.ofSeconds(2), Duration.ofSeconds(5)));
     }
 
     private static String pem(String type, byte[] der) {

@@ -15,4 +15,6 @@ export LEGACY_DB_URL="jdbc:mysql://localhost:${MYSQL_PORT:-3306}/${LEGACY_DB_NAM
 
 echo "profile_service -> $PROFILE_DB_URL como '${PROFILE_DB_USER:-$IDENTITY_DB_USER}'; JWKS: $AUTH_JWKS_URI; broker: $RABBITMQ_HOST:$RABBITMQ_PORT"
 cd "$root/profile_service"
+# Instala a biblioteca compartilhada de eventos (libs/socialflux-events) no repositório Maven local.
+mvn -q -f "$root/libs/socialflux-events/pom.xml" -DskipTests install
 exec mvn spring-boot:run

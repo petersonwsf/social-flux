@@ -23,7 +23,6 @@ class AvatarProcessorTest {
         return new ProfileProperties(
                 new ProfileProperties.Security("http://x/jwks", "iss", "aud", "svc", java.time.Duration.ofSeconds(60)),
                 List.of(), new ProfileProperties.Storage(dir.toString(), maxBytes, maxPixels),
-                new ProfileProperties.Events(false, "ex", java.time.Duration.ofSeconds(1)),
                 new ProfileProperties.Legacy(false, null, null, null));
     }
 

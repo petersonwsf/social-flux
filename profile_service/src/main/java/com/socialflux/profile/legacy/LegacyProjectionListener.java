@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 
 @Component
-@ConditionalOnProperty(prefix = "profile.events", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "socialflux.events", name = "enabled", havingValue = "true")
 public class LegacyProjectionListener {
 
     private final java.util.Optional<LegacyProjectionHandler> handler;

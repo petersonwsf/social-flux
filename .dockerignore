@@ -1,0 +1,18 @@
+# Contexto de build da RAIZ (authentication_service e profile_service, que incluem libs/socialflux-events).
+# FrontEnd/ e BackEnd/ usam o próprio diretório como contexto e têm o seu .dockerignore.
+.git
+.github
+.claude
+**/.idea
+**/*.iml
+**/target
+**/node_modules
+**/*.pem
+**/.env
+.env
+docs
+infra
+scripts
+FrontEnd
+BackEnd
+profile_service/data

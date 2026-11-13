@@ -20,6 +20,7 @@ Identity and Profile are already migrated; Relations, Posts, Likes, Images and N
 | `FrontEnd/` | SPA. Talks only to its own origin (`/auth`, `/api`, `/media`); Vite proxies to the gateway in dev | 5173 |
 | `authentication_service/` | Identity & access: register, login, sliding session (HttpOnly cookies), password reset, e-mail verification, JWKS, gateway `forward_auth` | 8081 |
 | `profile_service/` | User profile: profile data, search, avatar, privacy; JWT resource server; publishes `profile.*` events and projects them into the legacy `usuario` table | 8082 |
+| `libs/socialflux-events/` | Shared event library (transactional outbox, relay, idempotent inbox, RabbitMQ topology) used by every Spring service; auto-configured, `socialflux.events.*` properties | — |
 | `BackEnd/` | **Legacy** Javalin backend (relations, posts, likes, post images, notifications). Runs in `AUTH_MODE=gateway`: trusts only `X-User-Id` from the gateway | 8000 (never published) |
 | `infra/` | `caddy/Caddyfile` (gateway routing) and `mysql/schema.sql` (legacy schema, inferred from code) | 8080 (gateway) |
 | `scripts/dev/` | Scripts that run each backend on the host using the root `.env` (`.ps1` and `.sh`) | — |
@@ -51,7 +52,7 @@ domains still in the legacy backend.
 - **Everything in containers:** `docker compose --profile apps up -d --build` → http://localhost:8080
 - **Stop:** `docker compose down` (never with `-v` without asking)
 - **Backends on host** (from the repo root, read `.env`): `scripts/dev/run-auth.ps1`, `run-profile.ps1`, `run-legacy.ps1` (or the `.sh` versions)
-- **Spring services:** `mvn test` (integration tests use embedded PostgreSQL, no Docker needed) · `mvn spring-boot:run`
+- **Spring services:** from the root, `mvn -pl <service> -am test` (also builds `libs/socialflux-events`; integration tests use embedded PostgreSQL, no Docker needed) · inside a service folder, `mvn test` / `mvn spring-boot:run` after `mvn -pl libs/socialflux-events install` from the root · the root `pom.xml` is only an aggregator
 - **Legacy:** `mvn compile exec:java` (no tests)
 - **Frontend** (`FrontEnd/`): `npm ci` · `npm run dev` · `npm run typecheck` · `npm run lint` · `npm run build` (no test runner)
 - Dev mailbox: http://localhost:8025 · RabbitMQ panel: http://localhost:15672
@@ -82,7 +83,7 @@ domains still in the legacy backend.
 
 ## Legacy backend — frozen
 - **No new features in `BackEnd/`**: only bug/security fixes and the minimum needed to keep it working during the migration.
-- A new or migrated domain becomes its own Spring service (same patterns as `profile_service`: own database, Flyway, outbox, JWT resource server, README + `docs/ARCHITECTURE.md`), plus a route in the `Caddyfile` and a service in `docker-compose.yml`.
+- A new or migrated domain becomes its own Spring service (same patterns as `profile_service`: own database, Flyway, outbox via `libs/socialflux-events`, JWT resource server, README + `docs/ARCHITECTURE.md`), plus a route in the `Caddyfile` and a service in `docker-compose.yml`.
 - The legacy backend must never be reachable without the gateway (`X-User-Id` would be forgeable): do not publish its port.
 
 ## Service contracts

@@ -15,8 +15,8 @@ web (ProfileController, InternalProfileController, MediaController, DTOs, erros)
   └─► service (ProfileService, AvatarService, ProfileRules, RateLimiter)
         ├─► domain (Profile + ProfileRepository) ─► PostgreSQL
         ├─► storage (AvatarProcessor, StorageService → disco) 
-        └─► events/Outbox ─► OutboxRelay ─► RabbitMQ ─┬─► legacy/ (projeção no MySQL)
-                                                     └─► outros consumidores
+        └─► Outbox ─► OutboxRelay ─► RabbitMQ ─┬─► legacy/ (projeção no MySQL)     (libs/socialflux-events)
+                                              └─► outros consumidores
 events/AccountEventsListener ◄─ RabbitMQ (account.*) ─► AccountEventHandler ─► ProfileService
 security (JwtDecoder via JWKS, JwtAuthorities, OriginCheckFilter, SecurityConfig) envolve tudo.
 ```
@@ -25,7 +25,7 @@ security (JwtDecoder via JWKS, JwtAuthorities, OriginCheckFilter, SecurityConfig
 
 ```
 profile_service/
-├── Dockerfile                    build Maven multi-stage; runtime Temurin 21 JRE, usuário sem root
+├── Dockerfile                    build Maven multi-stage (contexto = raiz do repo, para incluir libs/socialflux-events); runtime Temurin 21 JRE, usuário sem root
 ├── .gitignore                    exclui target/, data/ (avatares locais) e arquivos de IDE
 ├── pom.xml                       dependências (Spring Boot 4, Security/Resource Server, JPA, Flyway, AMQP, MySQL driver; testes: embedded-postgres, H2)
 ├── README.md                     relação com os outros serviços, API, eventos e configuração
@@ -75,14 +75,13 @@ profile_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `Amqp.java` | Topologia: exchange topic `socialflux.events`, filas `profile-service.account-events` e `profile-service.legacy-projection`, DLX/DLQ |
+| `Amqp.java` | Filas `profile-service.account-events` (`account.#`) e `profile-service.legacy-projection` (`profile.#`) e suas ligações; o exchange e a DLX/DLQ vêm da biblioteca |
 | `AccountEventsListener.java` | `@RabbitListener` da fila de eventos da conta; repassa ao handler |
 | `AccountEventHandler.java` | `account.registered.v1` ativa o perfil; `account.deleted.v1` apaga os dados pessoais. Idempotente e tolerante a tipos desconhecidos |
-| `Inbox.java` | Idempotência de consumidor: executa o efeito só uma vez por id de mensagem (tabela `processed_message`) |
-| `Outbox.java` | Grava `profile.created/updated/privacy-changed/deleted.v1` em `outbox_event` na mesma transação da mudança |
-| `OutboxRelay.java` | Tarefas agendadas: publica os pendentes em ordem, com nova tentativa, e expurga os já publicados |
-| `EventPublisher.java` | Porta de saída dos eventos |
-| `AmqpEventPublisher.java` | Implementação RabbitMQ com mensagem persistente e publisher confirms |
+
+`Outbox`, `OutboxRelay`, `Inbox`, `EventPublisher`/`AmqpEventPublisher` e `EventEnvelope` vêm da biblioteca
+[`libs/socialflux-events`](../../libs/socialflux-events/README.md) (`com.socialflux.events.*`, configurada em
+`socialflux.events.*`). `ProfileService` grava `profile.created/updated/privacy-changed/deleted.v1` com `Outbox.add`.
 
 ### `legacy/` (temporário — some quando os domínios do legado migrarem)
 

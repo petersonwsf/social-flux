@@ -19,4 +19,7 @@ if (-not $env:JWT_PRIVATE_KEY_B64) { $env:AUTH_ALLOW_EPHEMERAL_KEY = 'true' }
 
 Write-Host "authentication_service -> $($env:IDENTITY_DB_URL) como '$($env:IDENTITY_DB_USER)'; perfil: $($env:PROFILE_SERVICE_URL); broker: $($env:RABBITMQ_HOST):$($env:RABBITMQ_PORT)"
 Set-Location "$root\authentication_service"
+# Instala a biblioteca compartilhada de eventos (libs/socialflux-events) no repositório Maven local.
+mvn -q -f "$root\libs\socialflux-events\pom.xml" -DskipTests install
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 mvn spring-boot:run

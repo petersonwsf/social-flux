@@ -4,6 +4,7 @@
 | --- | --- |
 | `authentication_service/` | **Novo** serviço de identidade e acesso (Spring Boot, PostgreSQL, JWT RS256 em cookies HttpOnly) |
 | `profile_service/` | **Novo** serviço de perfil (Spring Boot, PostgreSQL próprio, busca, foto de perfil, eventos via RabbitMQ) |
+| `libs/socialflux-events/` | Biblioteca compartilhada de eventos (outbox, inbox, RabbitMQ) dos serviços Spring Boot |
 | `FrontEnd/` | SPA React + TypeScript (Vite) |
 | `BackEnd/` | Backend **legado** (Javalin + MySQL), sendo substituído domínio a domínio |
 | `infra/` | Caddy (gateway) e esquema MySQL de desenvolvimento |

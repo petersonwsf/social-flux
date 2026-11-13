@@ -45,6 +45,9 @@ Se já houver Postgres/MySQL na sua máquina nas mesmas portas, mude `POSTGRES_P
 
 ## 2. authentication_service (porta 8081)
 
+> Os serviços dependem da biblioteca `libs/socialflux-events`. Os scripts de `scripts/dev/` já a instalam; rodando à mão,
+> instale uma vez (e depois de mudar a biblioteca), na raiz: `mvn -q -pl libs/socialflux-events -DskipTests install`.
+
 Use as **mesmas** senhas do `.env`. Em um terminal, em `authentication_service/`:
 
 **bash (Git Bash / Linux / macOS)**

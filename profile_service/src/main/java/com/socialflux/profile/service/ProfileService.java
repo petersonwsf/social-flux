@@ -1,9 +1,9 @@
 package com.socialflux.profile.service;
 
+import com.socialflux.events.Outbox;
 import com.socialflux.profile.domain.Profile;
 import com.socialflux.profile.domain.ProfileRepository;
 import com.socialflux.profile.domain.ProfileStatus;
-import com.socialflux.profile.events.Outbox;
 import com.socialflux.profile.storage.AvatarKeys;
 import com.socialflux.profile.storage.StorageService;
 import com.socialflux.profile.web.ApiException;

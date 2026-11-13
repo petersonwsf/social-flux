@@ -82,6 +82,9 @@ auth:
     service-audience: ${PROFILE_SERVICE_AUDIENCE:profile-service}
     connect-timeout: ${PROFILE_CONNECT_TIMEOUT:PT2S}
     read-timeout: ${PROFILE_READ_TIMEOUT:PT5S}
+
+# Eventos de conta (account.registered.v1, account.deleted.v1): outbox + RabbitMQ compartilhados (libs/socialflux-events).
+socialflux:
   events:
     enabled: ${AUTH_EVENTS_ENABLED:true}
     exchange: ${EVENTS_EXCHANGE:socialflux.events}

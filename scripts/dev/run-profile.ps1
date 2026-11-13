@@ -20,4 +20,7 @@ $env:LEGACY_DB_URL = "jdbc:mysql://localhost:$mysqlPort/" + (Get-EnvOr 'LEGACY_D
 
 Write-Host "profile_service -> $($env:PROFILE_DB_URL) como '$((Get-EnvOr 'PROFILE_DB_USER' (Get-EnvOr 'IDENTITY_DB_USER' 'profile')))'; JWKS: $($env:AUTH_JWKS_URI); broker: $($env:RABBITMQ_HOST):$($env:RABBITMQ_PORT)"
 Set-Location "$root\profile_service"
+# Instala a biblioteca compartilhada de eventos (libs/socialflux-events) no repositório Maven local.
+mvn -q -f "$root\libs\socialflux-events\pom.xml" -DskipTests install
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 mvn spring-boot:run

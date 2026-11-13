@@ -12,7 +12,7 @@ Rotas, variáveis de ambiente e fluxo de cadastro: [`../README.md`](../README.md
 web (controllers, DTOs, erros, cookies)
   └─► service (regras: contas, tokens, senhas, revogação, limites)
         ├─► domain (entidades JPA + repositórios) ─► PostgreSQL
-        ├─► events (outbox) ─► OutboxRelay ─► RabbitMQ
+        ├─► Outbox (libs/socialflux-events) ─► OutboxRelay ─► RabbitMQ
         ├─► profile (cliente HTTP do profile_service + token de serviço)
         └─► mail (e-mails transacionais)
 security (filtros JWT/Origin + SecurityConfig) envolve tudo; config carrega propriedades e chaves.
@@ -22,8 +22,8 @@ security (filtros JWT/Origin + SecurityConfig) envolve tudo; config carrega prop
 
 ```
 authentication_service/
-├── Dockerfile                    build Maven multi-stage; runtime Temurin 21 JRE Alpine, usuário sem root
-├── .dockerignore / .gitignore    exclui target/, IDE, *.pem e .env
+├── Dockerfile                    build Maven multi-stage (contexto = raiz do repo, para incluir libs/socialflux-events); runtime Temurin 21 JRE Alpine, usuário sem root
+├── .gitignore                    exclui target/, IDE, *.pem e .env (o .dockerignore é o da raiz)
 ├── pom.xml                       dependências (Spring Boot 4.1, Security, OAuth2 JOSE, JPA, Flyway, AMQP, Mail, BouncyCastle; testes: embedded-postgres, H2)
 ├── README.md                     decisões, API, configuração, rotação de chaves, cadastro e eventos
 ├── docs/ARCHITECTURE.md          este arquivo
@@ -76,14 +76,11 @@ authentication_service/
 | `AuditEvent.java` | Entidade `audit_event`: trilha de auditoria (ação, IP, user-agent, detalhe) |
 | `AuditEventRepository.java` | Repositório JPA da auditoria |
 
-### `events/`
+### Eventos (sem pacote próprio)
 
-| Arquivo | O que representa |
-| --- | --- |
-| `EventPublisher.java` | Porta de saída: publica uma mensagem e só retorna após a confirmação do broker |
-| `AmqpEventPublisher.java` | Implementação RabbitMQ: mensagem persistente, publisher confirms e `mandatory` (evento sem fila fica pendente) |
-| `Outbox.java` | Grava o evento (`account.registered.v1`, `account.deleted.v1`) na tabela `outbox_event`, na mesma transação da mudança da conta |
-| `OutboxRelay.java` | Tarefas agendadas: publica os pendentes em ordem e em lotes (nova tentativa em falha) e expurga os publicados há mais de 7 dias |
+Outbox, relay e publicador RabbitMQ vêm da biblioteca [`libs/socialflux-events`](../../libs/socialflux-events/README.md)
+(`com.socialflux.events.*`), configurada em `socialflux.events.*` no `application.yml` com `mandatory=true` (evento sem fila
+fica pendente). `AccountService` grava `account.registered.v1` e `account.deleted.v1` com `Outbox.add` na transação da conta.
 
 ### `mail/`
 

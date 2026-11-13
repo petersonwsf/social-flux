@@ -52,6 +52,13 @@ management:
       probes:
         enabled: true
 
+# Outbox/inbox/RabbitMQ compartilhados (libs/socialflux-events).
+socialflux:
+  events:
+    enabled: ${PROFILE_EVENTS_ENABLED:true}
+    exchange: ${EVENTS_EXCHANGE:socialflux.events}
+    relay-interval: ${PROFILE_OUTBOX_INTERVAL:PT0.5S}
+
 profile:
   security:
     # JWKS do authentication_service (chave pública). O serviço NUNCA conhece a chave privada.
@@ -66,10 +73,6 @@ profile:
     dir: ${PROFILE_STORAGE_DIR:./data/avatars}
     max-bytes: ${PROFILE_AVATAR_MAX_BYTES:5242880}
     max-pixels: ${PROFILE_AVATAR_MAX_PIXELS:16000000}
-  events:
-    enabled: ${PROFILE_EVENTS_ENABLED:true}
-    exchange: ${EVENTS_EXCHANGE:socialflux.events}
-    relay-interval: ${PROFILE_OUTBOX_INTERVAL:PT0.5S}
   legacy:
     # Projeção temporária do perfil na tabela `usuario` do MySQL legado (JOINs do backend Javalin).
     enabled: ${PROFILE_LEGACY_ENABLED:false}

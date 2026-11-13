@@ -35,7 +35,7 @@ public class DevServer {
                 "--auth.cookie.secure=false",
                 "--auth.cookie.access-name=at",
                 "--auth.cookie.refresh-name=rt",
-                "--auth.events.enabled=false"));
+                "--socialflux.events.enabled=false"));
         properties.addAll(java.util.List.of(args));
         new SpringApplicationBuilder(AuthenticationServiceApplication.class, DevConfig.class)
                 .run(properties.toArray(new String[0]));

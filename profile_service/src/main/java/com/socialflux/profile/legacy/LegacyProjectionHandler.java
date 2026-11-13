@@ -1,5 +1,6 @@
 package com.socialflux.profile.legacy;
 
+import com.socialflux.events.EventEnvelope;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
@@ -22,13 +23,12 @@ public class LegacyProjectionHandler {
     }
 
     public void handle(String json) {
-        JsonNode event = mapper.readTree(json);
-        String type = event.path("type").asString();
-        long version = event.path("aggregateVersion").asLong();
-        JsonNode data = event.path("data");
+        EventEnvelope event = EventEnvelope.parse(mapper, json);
+        long version = event.aggregateVersion();
+        JsonNode data = event.data();
         int legacyId = data.path("legacyId").asInt();
 
-        switch (type) {
+        switch (event.type()) {
             case "profile.created.v1", "profile.updated.v1" -> writer.upsert(
                     legacyId,
                     data.path("username").asString(),

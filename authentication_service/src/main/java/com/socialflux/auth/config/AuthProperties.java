@@ -21,8 +21,7 @@ public record AuthProperties(
         @NotBlank String publicBaseUrl,
         @Valid @NotNull RateLimit rateLimit,
         @Valid @NotNull Mail mail,
-        @Valid @NotNull Profile profile,
-        @Valid @NotNull Events events) {
+        @Valid @NotNull Profile profile) {
 
     public record Jwt(
             @NotBlank String issuer,
@@ -66,13 +65,5 @@ public record AuthProperties(
             @NotBlank String serviceAudience,
             @DefaultValue("PT2S") Duration connectTimeout,
             @DefaultValue("PT5S") Duration readTimeout) {
-    }
-
-    /** Eventos de conta (account.registered.v1, account.deleted.v1) via outbox + RabbitMQ. */
-    public record Events(
-            boolean enabled,
-            @NotBlank String exchange,
-            boolean mandatory,
-            @DefaultValue("PT0.5S") Duration relayInterval) {
     }
 }

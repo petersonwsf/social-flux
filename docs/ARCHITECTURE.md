@@ -22,12 +22,15 @@ social_flux/
 ├── README.md                     visão geral, como rodar e como as peças se falam
 ├── .env.example                  nomes das variáveis do ambiente (copiar para .env, que não é versionado)
 ├── .gitignore                    ignora .env, *.pem, node_modules e os avatares locais do profile_service
+├── .dockerignore                 contexto de build da raiz (auth e profile): exclui .git, target, node_modules, segredos, FrontEnd e BackEnd
+├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, authentication_service, profile_service
 ├── docker-compose.yml            ambiente de desenvolvimento completo (perfis `host` e `apps`)
 ├── docs/                         documentação transversal (este diretório)
 ├── infra/                        configuração de infraestrutura compartilhada
 │   ├── caddy/Caddyfile
 │   └── mysql/schema.sql
 ├── scripts/dev/                  scripts para rodar os backends na máquina com o .env da raiz
+├── libs/socialflux-events/       biblioteca compartilhada de eventos (outbox, relay, inbox, RabbitMQ) usada pelos serviços Spring
 ├── FrontEnd/                     SPA React + TypeScript (Vite)
 ├── authentication_service/       serviço de identidade (Spring Boot + PostgreSQL)
 ├── profile_service/              serviço de perfil (Spring Boot + PostgreSQL)
@@ -39,6 +42,8 @@ social_flux/
 
 | Arquivo | O que representa |
 | --- | --- |
+| `pom.xml` | Agregador Maven: `mvn -pl <serviço> -am test` na raiz testa um serviço compilando a biblioteca de eventos junto; `mvn test` testa tudo. Não é parent de ninguém; o legado fica de fora |
+| `.dockerignore` | Usado pelos builds de `authentication_service` e `profile_service`, que têm a raiz como contexto para copiar `libs/socialflux-events` |
 | `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init` (cria o banco `profile`), `mysql` (legado, inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, as quatro aplicações (perfil `apps`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `profile_avatars`, `legacy_images` |
 | `.env.example` | Senhas dos bancos e do RabbitMQ, chave JWT RS256, TTLs da sessão, nomes dos cookies, URLs públicas e remetente de e-mail. Só nomes/valores de exemplo |
 | `README.md` | Ponto de entrada: tabela das pastas, comandos para subir o ambiente e o diagrama de comunicação |
@@ -68,8 +73,8 @@ social_flux/
 | Arquivo | O que faz |
 | --- | --- |
 | `load-env.ps1` | Funções PowerShell compartilhadas: carrega o `.env` da raiz no processo (`Import-DotEnv`) e lê variáveis com padrão (`Get-EnvOr`) |
-| `run-auth.ps1` / `run-auth.sh` | Roda o `authentication_service` no host (porta 8081) com as credenciais do `.env` |
-| `run-profile.ps1` / `run-profile.sh` | Roda o `profile_service` no host (porta 8082), com JWKS do auth e projeção no MySQL ligada |
+| `run-auth.ps1` / `run-auth.sh` | Instala `libs/socialflux-events` e roda o `authentication_service` no host (porta 8081) com as credenciais do `.env` |
+| `run-profile.ps1` / `run-profile.sh` | Instala `libs/socialflux-events` e roda o `profile_service` no host (porta 8082), com JWKS do auth e projeção no MySQL ligada |
 | `run-legacy.ps1` / `run-legacy.sh` | Roda o backend legado no host (porta 8000) em `AUTH_MODE=gateway` |
 
 ## Comunicação entre as peças
@@ -94,4 +99,4 @@ profile_service ──profile.created|updated|privacy-changed|deleted.v1──�
 - **Sessão:** JWT RS256 de acesso (cookie `at`/`__Host-at`) + refresh token opaco rotativo (cookie `rt`/`__Secure-rt`, só em `/auth`).
   Os serviços validam o JWT pelo JWKS; a revogação imediata é checada pelo `forward_auth` no gateway.
 - **Eventos:** exchange topic `socialflux.events`, routing key = tipo do evento, outbox transacional no produtor, inbox
-  idempotente no consumidor, fila de mensagens mortas `socialflux.events.dead`.
+  idempotente no consumidor, fila de mensagens mortas `socialflux.events.dead` — tudo pela biblioteca `libs/socialflux-events`.

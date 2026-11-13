@@ -48,7 +48,8 @@ docker compose up -d --build      # http://localhost:8080 (caixa de e-mail: http
 ### Sem Docker (testes e depuração)
 Os testes de integração usam um **PostgreSQL real embutido** (zonky), sem precisar de Docker:
 ```bash
-mvn test
+mvn test        # na pasta do serviço, depois de instalar a biblioteca: mvn -f ../libs/socialflux-events/pom.xml install
+# ou, na raiz: mvn -pl authentication_service -am test
 ```
 E há um servidor de desenvolvimento com Postgres embutido, chave efêmera, perfil legado em memória e e-mails no log:
 ```bash

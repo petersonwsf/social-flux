@@ -18,7 +18,6 @@ public record ProfileProperties(
         @Valid @NotNull Security security,
         @DefaultValue List<String> allowedOrigins,
         @Valid @NotNull Storage storage,
-        @Valid @NotNull Events events,
         @Valid @NotNull Legacy legacy) {
 
     public record Security(
@@ -30,9 +29,6 @@ public record ProfileProperties(
     }
 
     public record Storage(@NotBlank String dir, @Min(1024) long maxBytes, @Min(1) long maxPixels) {
-    }
-
-    public record Events(boolean enabled, @NotBlank String exchange, @DefaultValue("PT0.5S") Duration relayInterval) {
     }
 
     public record Legacy(boolean enabled, String url, String username, String password) {

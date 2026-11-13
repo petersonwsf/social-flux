@@ -1,10 +1,11 @@
 package com.socialflux.profile.events;
 
+import com.socialflux.events.EventEnvelope;
+import com.socialflux.events.Inbox;
 import com.socialflux.profile.service.ProfileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.UUID;
@@ -32,15 +33,13 @@ public class AccountEventHandler {
     }
 
     public void handle(String json) {
-        JsonNode event = mapper.readTree(json);
-        UUID messageId = UUID.fromString(event.path("id").asString());
-        String type = event.path("type").asString();
-        UUID accountId = UUID.fromString(event.path("aggregateId").asString());
+        EventEnvelope event = EventEnvelope.parse(mapper, json);
+        UUID accountId = event.aggregateId();
 
-        switch (type) {
-            case REGISTERED -> inbox.once(messageId, () -> profiles.activate(accountId));
-            case DELETED -> inbox.once(messageId, () -> profiles.deleteAccountData(accountId));
-            default -> log.debug("Evento ignorado: {}", type);
+        switch (event.type()) {
+            case REGISTERED -> inbox.once(event.id(), () -> profiles.activate(accountId));
+            case DELETED -> inbox.once(event.id(), () -> profiles.deleteAccountData(accountId));
+            default -> log.debug("Evento ignorado: {}", event.type());
         }
     }
 }

@@ -53,7 +53,8 @@ O token de serviço é um JWT RS256 de 5 min emitido pelo authentication_service
 Publica (via **outbox transacional**): `profile.created.v1`, `profile.updated.v1`, `profile.privacy-changed.v1`,
 `profile.deleted.v1`. O payload é o estado **público** + `aggregateVersion` (consumidores ignoram versões antigas); **nunca**
 carrega telefone, sexo, nascimento ou e-mail. Consome: `account.registered.v1` (ativa o perfil `PENDING → ACTIVE`) e
-`account.deleted.v1` (apaga dados pessoais e libera o username). Consumo idempotente (tabela `processed_message`).
+`account.deleted.v1` (apaga dados pessoais e libera o username). Consumo idempotente (tabela `processed_message`). Outbox, inbox e publicador vêm da biblioteca
+[`libs/socialflux-events`](../libs/socialflux-events/README.md).
 Falhas repetidas vão para a fila `socialflux.events.dead`.
 
 **Novo serviço consumidor:** declare a sua fila, ligue ao exchange com `profile.#` e faça o bootstrap por
@@ -78,7 +79,8 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/run-profile.ps1    # 8082  
 Testes (PostgreSQL real embutido, JWKS local e JWT RS256 de verdade; sem Docker):
 
 ```bash
-mvn test
+mvn test        # na pasta do serviço, depois de instalar a biblioteca: mvn -f ../libs/socialflux-events/pom.xml install
+# ou, na raiz: mvn -pl profile_service -am test
 ```
 
 ## Configuração (variáveis de ambiente)

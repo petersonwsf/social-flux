@@ -8,8 +8,8 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.socialflux.events.OutboxRelay;
 import com.socialflux.profile.events.AccountEventHandler;
-import com.socialflux.profile.events.OutboxRelay;
 import com.sun.net.httpserver.HttpServer;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +37,7 @@ import java.util.UUID;
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
-                "profile.events.enabled=false",
+                "socialflux.events.enabled=false",
                 "profile.security.issuer=http://auth.test",
                 "spring.flyway.enabled=true"
         })

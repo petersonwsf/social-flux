@@ -106,7 +106,9 @@ services:
 
   authentication_service:
     profiles: ["apps"]
-    build: ./authentication_service
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events
+      dockerfile: authentication_service/Dockerfile
     restart: unless-stopped
     depends_on:
       postgres:
@@ -151,7 +153,9 @@ services:
 
   profile_service:
     profiles: ["apps"]
-    build: ./profile_service
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events
+      dockerfile: profile_service/Dockerfile
     restart: unless-stopped
     depends_on:
       profile_db_init:
