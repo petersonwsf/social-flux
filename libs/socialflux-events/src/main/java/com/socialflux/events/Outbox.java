@@ -1,8 +1,6 @@
-package com.socialflux.auth.events;
+package com.socialflux.events;
 
-import com.socialflux.auth.util.Uuids;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
@@ -17,10 +15,10 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Transactional outbox: {@link #add} grava o evento na MESMA transação da mudança da conta (exige transação ativa);
- * o {@link OutboxRelay} publica depois. Evita "gravei a conta mas perdi o evento" e o inverso.
+ * Transactional outbox: {@link #add} grava o evento na MESMA transação da mudança de dados (por isso exige uma transação
+ * ativa); o {@link OutboxRelay} publica depois. Isso evita "gravei no banco mas perdi o evento" e vice-versa.
+ * <p>Requer a tabela {@code outbox_event} na migração do serviço (ver README da biblioteca).
  */
-@Component
 public class Outbox {
 
     public record Row(UUID id, String type, String payload) {
@@ -36,10 +34,13 @@ public class Outbox {
         this.clock = clock;
     }
 
-    /** Envelope: {id, type, occurredAt, aggregateId, aggregateVersion, data}. Nunca inclui e-mail ou senha. */
+    /**
+     * Envelope: {id, type, occurredAt, aggregateId, aggregateVersion, data}. Só mudanças aditivas por versão de tipo;
+     * {@code data} nunca carrega dados pessoais (e-mail, senha, telefone, sexo, nascimento).
+     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void add(String type, UUID aggregateId, long aggregateVersion, Map<String, Object> data) {
-        UUID id = Uuids.v7(clock);
+        UUID id = EventIds.v7(clock);
         Instant now = clock.instant();
         Map<String, Object> envelope = new LinkedHashMap<>();
         envelope.put("id", id.toString());
@@ -59,6 +60,7 @@ public class Outbox {
                 .update();
     }
 
+    /** Eventos ainda não publicados, em ordem, travados contra outras instâncias do relay. */
     @Transactional(propagation = Propagation.MANDATORY)
     public List<Row> lockPending(int limit) {
         return jdbc.sql("select id, type, payload from outbox_event where published_at is null "
@@ -80,5 +82,9 @@ public class Outbox {
         return jdbc.sql("delete from outbox_event where published_at is not null and published_at < :limit")
                 .param("limit", OffsetDateTime.ofInstant(limit, ZoneOffset.UTC))
                 .update();
+    }
+
+    public long countPending() {
+        return jdbc.sql("select count(*) from outbox_event where published_at is null").query(Long.class).single();
     }
 }
