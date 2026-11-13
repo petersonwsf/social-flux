@@ -21,5 +21,6 @@
         <module>libs/socialflux-events</module>
         <module>authentication_service</module>
         <module>profile_service</module>
+        <module>social_graph_service</module>
     </modules>
 </project>

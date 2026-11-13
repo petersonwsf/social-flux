@@ -20,6 +20,7 @@ Identity and Profile are already migrated; Relations, Posts, Likes, Images and N
 | `FrontEnd/` | SPA. Talks only to its own origin (`/auth`, `/api`, `/media`); Vite proxies to the gateway in dev | 5173 |
 | `authentication_service/` | Identity & access: register, login, sliding session (HttpOnly cookies), password reset, e-mail verification, JWKS, gateway `forward_auth` | 8081 |
 | `profile_service/` | User profile: profile data, search, avatar, privacy; JWT resource server; publishes `profile.*` events and projects them into the legacy `usuario` table | 8082 |
+| `social_graph_service/` | Social graph: follow/unfollow, followers/following, follow requests for private accounts; JWT resource server; consumes `profile.*`, publishes `follow.*`, projects accepted relations into the legacy `relacao` table. **Implemented, not yet wired into compose/gateway/frontend** | 8083 |
 | `libs/socialflux-events/` | Shared event library (transactional outbox, relay, idempotent inbox, RabbitMQ topology) used by every Spring service; auto-configured, `socialflux.events.*` properties | — |
 | `BackEnd/` | **Legacy** Javalin backend (relations, posts, likes, post images, notifications). Runs in `AUTH_MODE=gateway`: trusts only `X-User-Id` from the gateway | 8000 (never published) |
 | `infra/` | `caddy/Caddyfile` (gateway routing) and `mysql/schema.sql` (legacy schema, inferred from code) | 8080 (gateway) |

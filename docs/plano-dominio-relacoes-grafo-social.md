@@ -10,7 +10,10 @@ Data: 2026-11-12 · Complementa `analise-backend-e-migracao-spring-boot.md` e `p
 > público, “em comum” visível a qualquer logado, remover seguidor incluído, limites antiabuso com os valores recomendados
 > (configuráveis), sem token de serviço por enquanto, seguir idempotente, notificação de seguir continua pelo frontend.
 >
-> **Nada deste plano foi implementado nem executado.** Base: leitura de `BackEnd/`
+> **Implementação (2026-11-13): Fases 0.5–4 prontas** — biblioteca `libs/socialflux-events` e o serviço `social_graph_service/`
+> (rotas, regras, cópia local por eventos, eventos `follow.*`, limites, projeção MySQL por estado), com testes de integração
+> contra PostgreSQL real. **Pendentes:** Fase 5 (serviço no `docker-compose.yml`, criação do banco `social_graph`, rota no
+> `Caddyfile`, frontend no novo contrato) e Fase 6 (remover Relações do legado) — dependem de aprovação (CLAUDE.md, regra 5). Base: leitura de `BackEnd/`
 > (`RelacaoController`, `RelacaoService`, `RelacaoDao`, `UsuarioDao.buscarRelacoesEmComum`, `PostagemDao` — feed com JOIN em
 > `relacao`, `App`), de `infra/` (`schema.sql`, `Caddyfile`), do `docker-compose.yml`, do `profile_service/` (README, eventos,
 > outbox/inbox, projeção legada, migração `V1__profile.sql`), do `authentication_service/` (`ServiceTokenIssuer`, `ProfileClient`)

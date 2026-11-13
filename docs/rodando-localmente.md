@@ -88,6 +88,13 @@ do `IDENTITY_DB_*` do `.env`, valida o JWT pelo JWKS do auth (`http://localhost:
 no ar**) e mantém a tabela `usuario` do MySQL atualizada (projeção). Pronto quando aparecer `Started ProfileServiceApplication`.
 As fotos de perfil são gravadas em `profile_service/data/avatars/` (ignorado pelo Git).
 
+## 2c. social_graph_service (porta 8083)
+
+Use `scripts/dev/run-graph.ps1` (ou `.sh`): banco `social_graph` na mesma instância PostgreSQL, **com o mesmo usuário e senha** do
+`IDENTITY_DB_*`, valida o JWT pelo JWKS do auth e mantém a tabela `relacao` do MySQL atualizada (projeção). O banco ainda não é
+criado pelo `docker-compose.yml`; crie uma vez: `docker compose exec postgres psql -U identity -d identity -c "CREATE DATABASE social_graph"`.
+Pronto quando aparecer `Started GraphServiceApplication`. **O gateway e o frontend ainda não usam este serviço** (veja o README dele).
+
 ## 3. Backend legado (porta 8000), em modo gateway
 
 Em outro terminal, em `BackEnd/`:

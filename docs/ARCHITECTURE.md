@@ -7,11 +7,12 @@ serviços Spring Boot com banco próprio, ligados por eventos no RabbitMQ e expo
 | --- | --- |
 | Identidade e acesso (conta, senha, sessão, e-mail) | `authentication_service/` |
 | Perfil (username, nome, bio, foto, privacidade, busca) | `profile_service/` |
-| Relações (seguir), postagens/comentários, curtidas, imagens de postagem, notificações | `BackEnd/` (legado) |
+| Relações (seguir, solicitações) | `social_graph_service/` (**implementado, ainda não ligado** ao compose/gateway/frontend; o legado segue atendendo `/api/relacao`) |
+| Postagens/comentários, curtidas, imagens de postagem, notificações | `BackEnd/` (legado) |
 
 Cada aplicação tem o seu próprio `docs/ARCHITECTURE.md`:
 [`FrontEnd`](../FrontEnd/docs/ARCHITECTURE.md) · [`authentication_service`](../authentication_service/docs/ARCHITECTURE.md) ·
-[`profile_service`](../profile_service/docs/ARCHITECTURE.md) · [`BackEnd`](../BackEnd/docs/ARCHITECTURE.md).
+[`profile_service`](../profile_service/docs/ARCHITECTURE.md) · [`social_graph_service`](../social_graph_service/docs/ARCHITECTURE.md) · [`BackEnd`](../BackEnd/docs/ARCHITECTURE.md).
 Este arquivo descreve só o que é da raiz e transversal.
 
 ## Árvore da raiz
@@ -23,7 +24,7 @@ social_flux/
 ├── .env.example                  nomes das variáveis do ambiente (copiar para .env, que não é versionado)
 ├── .gitignore                    ignora .env, *.pem, node_modules e os avatares locais do profile_service
 ├── .dockerignore                 contexto de build da raiz (auth e profile): exclui .git, target, node_modules, segredos, FrontEnd e BackEnd
-├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, authentication_service, profile_service
+├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, authentication_service, profile_service, social_graph_service
 ├── docker-compose.yml            ambiente de desenvolvimento completo (perfis `host` e `apps`)
 ├── docs/                         documentação transversal (este diretório)
 ├── infra/                        configuração de infraestrutura compartilhada
@@ -34,6 +35,7 @@ social_flux/
 ├── FrontEnd/                     SPA React + TypeScript (Vite)
 ├── authentication_service/       serviço de identidade (Spring Boot + PostgreSQL)
 ├── profile_service/              serviço de perfil (Spring Boot + PostgreSQL)
+├── social_graph_service/         serviço do grafo social: seguir, seguidores, solicitações (Spring Boot + PostgreSQL)
 ├── BackEnd/                      backend legado (Javalin + MySQL)
 └── .github/modernize/            artefatos locais da ferramenta "modernize/java-upgrade" (hooks de registro); não fazem parte do sistema
 ```
@@ -45,7 +47,7 @@ social_flux/
 | `pom.xml` | Agregador Maven: `mvn -pl <serviço> -am test` na raiz testa um serviço compilando a biblioteca de eventos junto; `mvn test` testa tudo. Não é parent de ninguém; o legado fica de fora |
 | `.dockerignore` | Usado pelos builds de `authentication_service` e `profile_service`, que têm a raiz como contexto para copiar `libs/socialflux-events` |
 | `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init` (cria o banco `profile`), `mysql` (legado, inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, as quatro aplicações (perfil `apps`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `profile_avatars`, `legacy_images` |
-| `.env.example` | Senhas dos bancos e do RabbitMQ, chave JWT RS256, TTLs da sessão, nomes dos cookies, URLs públicas e remetente de e-mail. Só nomes/valores de exemplo |
+| `.env.example` | Senhas dos bancos (inclui `GRAPH_DB_NAME` e os limites `GRAPH_*` do grafo) e do RabbitMQ, chave JWT RS256, TTLs da sessão, nomes dos cookies, URLs públicas e remetente de e-mail. Só nomes/valores de exemplo |
 | `README.md` | Ponto de entrada: tabela das pastas, comandos para subir o ambiente e o diagrama de comunicação |
 | `CLAUDE.md` | Contexto, stack, comandos e regras de trabalho para o Claude Code |
 
@@ -58,7 +60,7 @@ social_flux/
 | `analise-backend-e-migracao-spring-boot.md` | Análise do backend legado: falhas de segurança (SEC-xx), bugs de lógica (LOG-xx) e o plano de migração para Spring Boot |
 | `plano-dominio-identidade-servico-proprio.md` | Plano (implementado) do domínio de identidade: serviço próprio com JWT RS256 em cookies |
 | `plano-dominio-perfil-servico-proprio.md` | Plano (implementado) do domínio de perfil e da comunicação entre serviços — decisões D1–D12 |
-| `plano-dominio-relacoes-grafo-social.md` | Plano (**proposta, não implementado**) do domínio Relações: `social_graph_service`, análise SQL × NoSQL, seguir/solicitações — decisões D1–D14 |
+| `plano-dominio-relacoes-grafo-social.md` | Plano do domínio Relações: `social_graph_service`, análise SQL × NoSQL, seguir/solicitações — decisões D1–D14 (Fases 0.5–4 implementadas; falta ligar ao compose/gateway/frontend) |
 | `plano-dominio-identidade-spring-auth0.md` | Plano **substituído** (Auth0 descartado); mantido só como registro da alternativa avaliada |
 
 ## `infra/`
@@ -74,6 +76,7 @@ social_flux/
 | --- | --- |
 | `load-env.ps1` | Funções PowerShell compartilhadas: carrega o `.env` da raiz no processo (`Import-DotEnv`) e lê variáveis com padrão (`Get-EnvOr`) |
 | `run-auth.ps1` / `run-auth.sh` | Instala `libs/socialflux-events` e roda o `authentication_service` no host (porta 8081) com as credenciais do `.env` |
+| `run-graph.ps1` / `run-graph.sh` | Instala `libs/socialflux-events` e roda o `social_graph_service` no host (porta 8083), com JWKS do auth e projeção da `relacao` no MySQL ligada |
 | `run-profile.ps1` / `run-profile.sh` | Instala `libs/socialflux-events` e roda o `profile_service` no host (porta 8082), com JWKS do auth e projeção no MySQL ligada |
 | `run-legacy.ps1` / `run-legacy.sh` | Roda o backend legado no host (porta 8000) em `AUTH_MODE=gateway` |
 
