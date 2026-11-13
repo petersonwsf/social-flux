@@ -37,7 +37,7 @@ libs/socialflux-events/
 | `Inbox.java` | Idempotência de consumidor via `processed_message`, na mesma transação do efeito |
 | `EventEnvelope.java` | Leitura do envelope pelos consumidores (campos obrigatórios validados; `data` como árvore JSON) |
 | `EventQueues.java` | Nomes da topologia (bean do exchange, DLX, fila de mortos) e atalhos para declarar fila durável com DLX e ligação |
-| `EventIds.java` | Gerador de UUIDv7 para os ids dos eventos (uso interno) |
+| `EventIds.java` | Gerador de UUIDv7 (`EventIds.v7(clock)`) para ids de eventos e de agregados dos serviços |
 
 ## Testes (`src/test`)
 

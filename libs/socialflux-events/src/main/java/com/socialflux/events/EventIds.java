@@ -5,15 +5,15 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.util.UUID;
 
-/** Gerador de UUIDv7 (RFC 9562) para os ids dos eventos: ordenável no tempo. */
-final class EventIds {
+/** Gerador de UUIDv7 (RFC 9562) para ids de eventos e de agregados: ordenável no tempo. */
+public final class EventIds {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private EventIds() {
     }
 
-    static UUID v7(Clock clock) {
+    public static UUID v7(Clock clock) {
         long timestamp = clock.millis();
         byte[] random = new byte[10];
         RANDOM.nextBytes(random);
