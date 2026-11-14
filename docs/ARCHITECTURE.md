@@ -7,7 +7,7 @@ serviços Spring Boot com banco próprio, ligados por eventos no RabbitMQ e expo
 | --- | --- |
 | Identidade e acesso (conta, senha, sessão, e-mail) | `authentication_service/` |
 | Perfil (username, nome, bio, foto, privacidade, busca) | `profile_service/` |
-| Relações (seguir, solicitações) | `social_graph_service/` (**implementado, ainda não ligado** ao compose/gateway/frontend; o legado segue atendendo `/api/relacao`) |
+| Relações (seguir, solicitações) | `social_graph_service/` (**no compose e no gateway** em `/api/relacoes*`; **o frontend ainda não o usa**: continua chamando `/api/relacao`, atendido pelo legado) |
 | Postagens/comentários, curtidas, imagens de postagem, notificações | `BackEnd/` (legado) |
 
 Cada aplicação tem o seu próprio `docs/ARCHITECTURE.md`:
@@ -46,7 +46,7 @@ social_flux/
 | --- | --- |
 | `pom.xml` | Agregador Maven: `mvn -pl <serviço> -am test` na raiz testa um serviço compilando a biblioteca de eventos junto; `mvn test` testa tudo. Não é parent de ninguém; o legado fica de fora |
 | `.dockerignore` | Usado pelos builds de `authentication_service` e `profile_service`, que têm a raiz como contexto para copiar `libs/socialflux-events` |
-| `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init` (cria o banco `profile`), `mysql` (legado, inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, as quatro aplicações (perfil `apps`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `profile_avatars`, `legacy_images` |
+| `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init` e `graph_db_init` (criam os bancos `profile` e `social_graph`), `mysql` (legado, inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, as cinco aplicações (perfil `apps`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `profile_avatars`, `legacy_images` |
 | `.env.example` | Senhas dos bancos (inclui `GRAPH_DB_NAME` e os limites `GRAPH_*` do grafo) e do RabbitMQ, chave JWT RS256, TTLs da sessão, nomes dos cookies, URLs públicas e remetente de e-mail. Só nomes/valores de exemplo |
 | `README.md` | Ponto de entrada: tabela das pastas, comandos para subir o ambiente e o diagrama de comunicação |
 | `CLAUDE.md` | Contexto, stack, comandos e regras de trabalho para o Claude Code |
@@ -67,7 +67,7 @@ social_flux/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `caddy/Caddyfile` | Gateway (mesma origem). Remove `X-User-Id`/`X-Account-Id` vindos do cliente; bloqueia `/internal/*` (404); `/auth/*` e `/.well-known/jwks.json` → authentication_service; `/media/avatars/*` → profile_service (público); `/api/usuarios*` e `/api/img/usuarios/*` → profile_service após `forward_auth`; demais `/api/*` → legado após `forward_auth` (copia `X-User-Id`); o resto → frontend. Converte o cookie de acesso em `Authorization: Bearer`. Os upstreams vêm de variáveis (`AUTH_UPSTREAM`, `PROFILE_UPSTREAM`, `LEGACY_UPSTREAM`, `FRONTEND_UPSTREAM`) |
+| `caddy/Caddyfile` | Gateway (mesma origem). Remove `X-User-Id`/`X-Account-Id` vindos do cliente; bloqueia `/internal/*` (404); `/auth/*` e `/.well-known/jwks.json` → authentication_service; `/media/avatars/*` → profile_service (público); `/api/usuarios*` e `/api/img/usuarios/*` → profile_service após `forward_auth`; `/api/relacoes*` → social_graph_service após `forward_auth` (sem copiar `X-User-Id`: o serviço usa o `sub` do token); demais `/api/*` → legado após `forward_auth` (copia `X-User-Id`); o resto → frontend. Converte o cookie de acesso em `Authorization: Bearer`. Os upstreams vêm de variáveis (`AUTH_UPSTREAM`, `PROFILE_UPSTREAM`, `GRAPH_UPSTREAM`, `LEGACY_UPSTREAM`, `FRONTEND_UPSTREAM`) |
 | `mysql/schema.sql` | Esquema do MySQL do legado (`usuario` — projeção do perfil —, `relacao`, `postagem`, `curtida`, `notification`). As tabelas além de `usuario` foram inferidas do código. Só roda na criação do volume |
 
 ## `scripts/dev/`
@@ -88,6 +88,8 @@ Navegador ─► Caddy :8080 (mesma origem)
               ├─ /auth/*, /.well-known      authentication_service :8081 ─► PostgreSQL (banco identity)
               ├─ /api/usuarios*, /api/img/usuarios/*, /media/avatars/*
               │                             profile_service :8082 ─► PostgreSQL (banco profile) + disco (avatares)
+              ├─ /api/relacoes*  ─ forward_auth ─►
+              │                             social_graph_service :8083 ─► PostgreSQL (banco social_graph)
               ├─ /api/* (demais) ─ forward_auth ─► authentication_service /internal/auth/verify
               │                └─ X-User-Id ─► BackEnd legado :8000 (rede interna) ─► MySQL
               └─ /internal/*                404
@@ -95,6 +97,8 @@ Navegador ─► Caddy :8080 (mesma origem)
 authentication_service ──PUT /internal/profiles/{uuid} (token de serviço)──► profile_service   (cadastro)
 authentication_service ──account.registered.v1 | account.deleted.v1──► RabbitMQ ──► profile_service
 profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► projeção `usuario` no MySQL
+                                                                     └──► social_graph_service (cópia local dos perfis)
+social_graph_service ──follow.created|removed|requested|request-cancelled|request-rejected.v1──► RabbitMQ ──► projeção `relacao` no MySQL
 ```
 
 - **Identidade:** conta (auth) e perfil (profile) têm o mesmo UUIDv7 (`sub` do JWT). O id inteiro (`legacy_id`, `X-User-Id`,

@@ -5,6 +5,7 @@
 #   /auth/*, /.well-known                -> authentication_service (login, refresh, logout, me, reset de senha, JWKS)
 #   /api/usuarios*, PATCH /api/img/usuarios/*, /media/avatars/*
 #                                        -> profile_service (perfil, busca, foto de perfil)
+#   /api/relacoes*                       -> social_graph_service (seguir, seguidores, solicitações), com forward_auth
 #   /api/*                               -> backend legado, depois de validar o token no authentication_service (forward_auth)
 #   /internal/*                          -> bloqueado para o público
 #
@@ -46,6 +47,19 @@
 			uri /internal/auth/verify
 		}
 		reverse_proxy {$PROFILE_UPSTREAM:profile_service:8082}
+	}
+
+	# Grafo social (seguir, seguidores, solicitações). Igual ao perfil: o serviço valida o JWT sozinho e o forward_auth
+	# acrescenta a checagem de REVOGAÇÃO. Não copia X-User-Id: o serviço identifica o usuário pelo `sub` do token.
+	# `/api/relacoes` (plural) é deste serviço; `/api/relacao` (singular) continua no legado até ele perder essas rotas.
+	@graph path /api/relacoes /api/relacoes/*
+	handle @graph {
+		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
+
+		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
+			uri /internal/auth/verify
+		}
+		reverse_proxy {$GRAPH_UPSTREAM:social_graph_service:8083}
 	}
 
 	handle /api/* {

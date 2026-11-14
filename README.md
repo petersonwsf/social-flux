@@ -4,7 +4,7 @@
 | --- | --- |
 | `authentication_service/` | **Novo** serviço de identidade e acesso (Spring Boot, PostgreSQL, JWT RS256 em cookies HttpOnly) |
 | `profile_service/` | **Novo** serviço de perfil (Spring Boot, PostgreSQL próprio, busca, foto de perfil, eventos via RabbitMQ) |
-| `social_graph_service/` | **Novo** serviço do grafo social (seguir, seguidores, solicitações; PostgreSQL próprio; implementado, ainda não ligado ao gateway) |
+| `social_graph_service/` | **Novo** serviço do grafo social (seguir, seguidores, solicitações; PostgreSQL próprio; no compose e no gateway em `/api/relacoes*`; o frontend ainda não o usa) |
 | `libs/socialflux-events/` | Biblioteca compartilhada de eventos (outbox, inbox, RabbitMQ) dos serviços Spring Boot |
 | `FrontEnd/` | SPA React + TypeScript (Vite) |
 | `BackEnd/` | Backend **legado** (Javalin + MySQL), sendo substituído domínio a domínio |
@@ -40,12 +40,15 @@ Navegador ─► Caddy (mesma origem)
               ├─ /                          frontend
               ├─ /auth/*                    authentication_service ─► PostgreSQL (banco identity)
               ├─ /api/usuarios*, /media/*   profile_service ─► PostgreSQL (banco profile) + disco (avatares)
+              ├─ /api/relacoes*             social_graph_service ─► PostgreSQL (banco social_graph)
               └─ /api/* (demais) ─ forward_auth ─► authentication_service /internal/auth/verify
                               └─ X-User-Id ─► backend legado (Javalin, AUTH_MODE=gateway, rede interna) ─► MySQL
 
 authentication_service ──PUT /internal/profiles/{uuid}──► profile_service         (cadastro; token de serviço)
 authentication_service ──account.registered|deleted.v1──► RabbitMQ ──► profile_service
 profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► projeção `usuario` no MySQL legado
+                                                                     └──► social_graph_service (cópia local dos perfis)
+social_graph_service ──follow.*.v1──► RabbitMQ ──► projeção `relacao` no MySQL legado
 ```
 
 A **conta** (e-mail, senha, sessão) é do `authentication_service`; o **perfil** (username, nome, foto, privacidade) é do

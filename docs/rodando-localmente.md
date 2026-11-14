@@ -37,7 +37,7 @@ docker compose ps           # postgres e mysql devem ficar "healthy"
 Sobe: PostgreSQL (`localhost:5432`; o serviço `profile_db_init` cria o banco `profile` ao lado do banco do auth, com as mesmas credenciais), MySQL
 legado (`localhost:3306`), **RabbitMQ** (`localhost:5672`, painel http://localhost:15672) e Mailpit
 (SMTP `localhost:1025`, caixa de entrada http://localhost:8025) e o **gateway** Caddy em `localhost:8080`, que encaminha
-`/auth` → `localhost:8081`, `/api/usuarios*` e `/media/avatars` → `localhost:8082` (perfil), o resto de `/api` → `localhost:8000` (depois de validar o token) e o resto → Vite `localhost:5173`.
+`/auth` → `localhost:8081`, `/api/usuarios*` e `/media/avatars` → `localhost:8082` (perfil), `/api/relacoes*` → `localhost:8083` (grafo), o resto de `/api` → `localhost:8000` (depois de validar o token) e o resto → Vite `localhost:5173`.
 
 Se já houver Postgres/MySQL na sua máquina nas mesmas portas, mude `POSTGRES_PORT`/`MYSQL_PORT` no `.env` e use essas portas abaixo.
 
@@ -91,9 +91,9 @@ As fotos de perfil são gravadas em `profile_service/data/avatars/` (ignorado pe
 ## 2c. social_graph_service (porta 8083)
 
 Use `scripts/dev/run-graph.ps1` (ou `.sh`): banco `social_graph` na mesma instância PostgreSQL, **com o mesmo usuário e senha** do
-`IDENTITY_DB_*`, valida o JWT pelo JWKS do auth e mantém a tabela `relacao` do MySQL atualizada (projeção). O banco ainda não é
-criado pelo `docker-compose.yml`; crie uma vez: `docker compose exec postgres psql -U identity -d identity -c "CREATE DATABASE social_graph"`.
-Pronto quando aparecer `Started GraphServiceApplication`. **O gateway e o frontend ainda não usam este serviço** (veja o README dele).
+`IDENTITY_DB_*`, valida o JWT pelo JWKS do auth e mantém a tabela `relacao` do MySQL atualizada (projeção). O banco é criado
+pelo serviço `graph_db_init` do compose (suba a infra antes). Pronto quando aparecer `Started GraphServiceApplication`. O gateway já
+roteia `/api/relacoes*` para ele (porta 8083 no host); **o frontend ainda não o usa** (veja o README dele).
 
 ## 3. Backend legado (porta 8000), em modo gateway
 

@@ -6,9 +6,9 @@ Spring Boot 4 · Java 21 · PostgreSQL (banco próprio) · Flyway · RabbitMQ (o
 
 Plano, análise SQL × NoSQL e decisões D1–D14: [`../docs/plano-dominio-relacoes-grafo-social.md`](../docs/plano-dominio-relacoes-grafo-social.md).
 
-> **Estado:** serviço implementado e testado (Fases 1–4 do plano). **Ainda não está ligado ao ambiente:** faltam o serviço no
-> `docker-compose.yml`, a rota no `Caddyfile` e a adaptação do frontend (Fase 5), que dependem de aprovação. Enquanto isso o
-> legado continua atendendo `/api/relacao`.
+> **Estado:** serviço implementado e testado (Fases 1–4 do plano), já presente no `docker-compose.yml` (perfil `apps`, banco
+> criado por `graph_db_init`) e roteado no `Caddyfile` (`/api/relacoes*`). **O frontend ainda não o usa** (Fase 5): ele continua
+> chamando `/api/relacao`, atendido pelo legado.
 
 ## Como se relaciona com os outros serviços
 
@@ -92,14 +92,11 @@ quando Postagens migrar.
 
 ## Rodando
 
-O banco `social_graph` precisa existir na instância PostgreSQL (o `docker-compose.yml` ainda não o cria — pendente de aprovação).
-Enquanto isso, com a infra no ar (`docker compose --profile host up -d`):
+Tudo em containers: `docker compose --profile apps up -d --build` (o serviço `graph_db_init` cria o banco `social_graph`).
 
-```bash
-docker compose exec postgres psql -U identity -d identity -c "CREATE DATABASE social_graph"
-```
-
-Depois, na raiz do repositório (usa o `.env`, o mesmo usuário/senha do auth e o auth e o profile no ar):
+Com as aplicações no host: suba a infra (`docker compose --profile host up -d`, que também cria o banco; o gateway aponta
+`/api/relacoes*` para `localhost:8083`) e, na raiz do repositório (usa o `.env`, o mesmo usuário/senha do auth, com o auth e o
+profile no ar):
 
 ```bash
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-graph.ps1    # 8083   (ou ./scripts/dev/run-graph.sh)

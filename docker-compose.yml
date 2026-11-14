@@ -11,11 +11,13 @@
 # Serviços:
 #   postgres                 UMA instância PostgreSQL; um BANCO por serviço (identity = auth, profile = perfil)
 #   profile_db_init          cria o banco `profile` se não existir (roda uma vez e sai; funciona em volume já existente)
+#   graph_db_init            idem para o banco `social_graph`
 #   mysql                    banco do backend legado (relações, postagens... e a PROJEÇÃO `usuario` do perfil)
 #   rabbitmq                 broker de eventos entre serviços (painel em http://localhost:15672)
 #   mailpit                  SMTP de desenvolvimento + caixa de entrada em http://localhost:8025
 #   authentication_service   login/cadastro/sessão (JWT RS256 em cookie HttpOnly)
 #   profile_service          perfil, busca, foto de perfil (resource server: valida o JWT pelo JWKS do auth)
+#   social_graph_service     grafo social: seguir, seguidores, solicitações de contas privadas (resource server)
 #   legacy_backend           backend Javalin legado, em modo `gateway` (só aceita X-User-Id do gateway)
 #   frontend                 SPA (nginx)
 #   gateway                  Caddy: mesma origem para frontend, /auth, /api e /media
@@ -58,6 +60,26 @@ services:
       - |
         psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$PROFILE_DB'" | grep -q 1 \
           || psql -v ON_ERROR_STOP=1 -c "create database \"$$PROFILE_DB\""
+
+  # Cria o banco do social_graph_service na MESMA instância (um banco por serviço), reutilizando as credenciais do
+  # authentication_service. Idempotente; roda também em volumes que já existiam antes do social_graph_service.
+  graph_db_init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${IDENTITY_DB_USER:-identity}
+      PGPASSWORD: ${IDENTITY_DB_PASSWORD}
+      PGDATABASE: ${IDENTITY_DB_NAME:-identity}
+      GRAPH_DB: ${GRAPH_DB_NAME:-social_graph}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$GRAPH_DB'" | grep -q 1 \
+          || psql -v ON_ERROR_STOP=1 -c "create database \"$$GRAPH_DB\""
 
   mysql:
     image: mysql:8.4
@@ -190,6 +212,45 @@ services:
     ports:
       - "127.0.0.1:${PROFILE_SERVICE_PORT:-8082}:8082"   # só para depuração local; não exponha na internet
 
+  social_graph_service:
+    profiles: ["apps"]
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events
+      dockerfile: social_graph_service/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      graph_db_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    environment:
+      # Banco próprio, mesmas credenciais do auth (sobrescreva com GRAPH_DB_USER/GRAPH_DB_PASSWORD para um role próprio)
+      GRAPH_DB_URL: jdbc:postgresql://postgres:5432/${GRAPH_DB_NAME:-social_graph}
+      GRAPH_DB_USER: ${GRAPH_DB_USER:-${IDENTITY_DB_USER:-identity}}
+      GRAPH_DB_PASSWORD: ${GRAPH_DB_PASSWORD:-${IDENTITY_DB_PASSWORD}}
+      # Valida o JWT com a chave PÚBLICA do auth
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # Limites antiabuso (opcionais)
+      GRAPH_FOLLOW_RATE_PER_HOUR: ${GRAPH_FOLLOW_RATE_PER_HOUR:-60}
+      GRAPH_MAX_FOLLOWING: ${GRAPH_MAX_FOLLOWING:-7500}
+      GRAPH_MAX_PENDING_SENT: ${GRAPH_MAX_PENDING_SENT:-1000}
+      # Projeção temporária das relações aceitas na tabela `relacao` do MySQL legado (feed do backend Javalin)
+      GRAPH_LEGACY_ENABLED: "true"
+      LEGACY_DB_URL: jdbc:mysql://mysql:3306/${LEGACY_DB_NAME:-social_flux}
+      LEGACY_DB_USER: ${LEGACY_DB_USER:-social}
+      LEGACY_DB_PASSWORD: ${LEGACY_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${GRAPH_SERVICE_PORT:-8083}:8083"   # só para depuração local; não exponha na internet
+
   legacy_backend:
     profiles: ["apps"]
     build: ./BackEnd
@@ -221,7 +282,8 @@ services:
 
   # Gateway quando as aplicações rodam NA SUA MÁQUINA (só a infra em containers):
   #   docker compose --profile host up -d     (sobe bancos + broker + mailpit + este gateway)
-  # Encaminha para authentication_service (8081), profile_service (8082), backend legado (8000) e Vite (5173) no host.
+  # Encaminha para authentication_service (8081), profile_service (8082), social_graph_service (8083), backend legado (8000)
+  # e Vite (5173) no host.
   gateway_host:
     profiles: ["host"]
     image: caddy:2-alpine
@@ -230,6 +292,7 @@ services:
       AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-at}
       AUTH_UPSTREAM: host.docker.internal:8081
       PROFILE_UPSTREAM: host.docker.internal:8082
+      GRAPH_UPSTREAM: host.docker.internal:8083
       LEGACY_UPSTREAM: host.docker.internal:8000
       FRONTEND_UPSTREAM: host.docker.internal:5173
     volumes:
@@ -246,6 +309,7 @@ services:
     depends_on:
       - authentication_service
       - profile_service
+      - social_graph_service
       - legacy_backend
       - frontend
     environment:
