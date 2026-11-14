@@ -61,6 +61,7 @@ social_flux/
 | `plano-dominio-identidade-servico-proprio.md` | Plano (implementado) do domínio de identidade: serviço próprio com JWT RS256 em cookies |
 | `plano-dominio-perfil-servico-proprio.md` | Plano (implementado) do domínio de perfil e da comunicação entre serviços — decisões D1–D12 |
 | `plano-dominio-relacoes-grafo-social.md` | Plano do domínio Relações: `social_graph_service`, análise SQL × NoSQL, seguir/solicitações — decisões D1–D14 (Fases 0.5–4 implementadas; falta ligar ao compose/gateway/frontend) |
+| `plano-dominio-postagens-servico-proprio.md` | Plano (**proposta, não implementado**) do domínio Postagens: `post_service` (postagens, respostas, curtidas e imagens), feed por cópia local de relações, privacidade imposta no servidor — decisões D1–D14 |
 | `plano-dominio-identidade-spring-auth0.md` | Plano **substituído** (Auth0 descartado); mantido só como registro da alternativa avaliada |
 
 ## `infra/`
