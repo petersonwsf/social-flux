@@ -14,6 +14,10 @@ Data: 2026-11-14 · Complementa `analise-backend-e-migracao-spring-boot.md`, `pl
 > **Atualização (2026-11-15):** o armazenamento de mídia passa a ser o **RustFS** (S3 compatível), as postagens aceitam **GIFs**
 > além de imagens (vídeo fica para depois) e a lógica de mídia vira a biblioteca `libs/socialflux-media`, compartilhada com o
 > `profile_service` (§9). Mudam as seções 1, 3, 5, 7, 8, 9, 10, 11, 12, 13 e 14.
+>
+> **Atualização (2026-11-15, 2):** imagens estáticas passam a aceitar **PNG, JPEG e WebP**, com **correção da orientação EXIF**
+> (foto de celular em pé não fica deitada), tratamento de JPEG CMYK, recusa de PNG/WebP animados (animação só por GIF) e limite de
+> processamentos simultâneos (§9.5). Os mesmos defeitos existiam no `AvatarProcessor` e serão corrigidos na Fase M2.
 
 ---
 
@@ -37,7 +41,7 @@ Data: 2026-11-14 · Complementa `analise-backend-e-migracao-spring-boot.md`, `pl
 6. Corrige no domínio: IDOR ao curtir/descurtir (SEC-02), conta privada exposta (SEC-03), upload sem defesa e servido sem
    autenticação (SEC-04/05), `Integer !=` (LOG-03), postagem só com imagem recusada (LOG-08), exclusão que falha se o arquivo
    sumiu (LOG-05), N+1 e recursão (LOG-09), horário sem fuso (LOG-11).
-7. Estimativa: **≈ 29–35 dias úteis** para uma pessoa (§12), já com a biblioteca de mídia, o RustFS e os GIFs. Ao final, saem do legado as postagens, curtidas e imagens **e a
+7. Estimativa: **≈ 31–37 dias úteis** para uma pessoa (§12), já com a biblioteca de mídia, o RustFS, os GIFs e o processamento de imagem completo. Ao final, saem do legado as postagens, curtidas e imagens **e a
    projeção `relacao`** que o grafo mantém hoje só para o feed do legado; sobra no legado apenas o domínio de **Notificações**.
 
 ---
@@ -263,7 +267,7 @@ Postagem: `{ id, legenda, imagem: { url, tipo: "IMAGE"\|"GIF", largura, altura }
 curtidas, curtido, respostas }`. Listas: `{ itens, proximoCursor }` (limite padrão 20, máximo 100, cursor opaco por chave).
 
 Erros (`{ mensagem, sucesso:false, codigo }`): `postagem_nao_encontrada` 404 (inclui "existe mas não posso ver") ·
-`postagem_vazia` 422 · `texto_muito_longo` 422 · `imagem_invalida` 422 · `gif_invalido` 422 · `imagem_muito_grande` 413 · `conta_privada` 403 (lista de um
+`postagem_vazia` 422 · `texto_muito_longo` 422 · `imagem_invalida` 422 · `imagem_animada` 422 · `gif_invalido` 422 · `imagem_muito_grande` 413 · `servidor_ocupado` 503 · `conta_privada` 403 (lista de um
 perfil privado) · `muitas_requisicoes` 429 · `parametro_invalido` 400 · `origem_invalida` 403 · `perfil_indisponivel` 503.
 
 **Mudança no frontend (contrato):** `Postagem.id` passa de `number` para `string`; datas deixam de ser array e viram ISO-8601
@@ -291,7 +295,7 @@ Extrai do `profile_service` (`AvatarProcessor`, `LocalDiskStorage`) e generaliza
 | Peça | Conteúdo |
 | --- | --- |
 | `MediaStorage` | Interface (`put`, `get`, `delete`); implementações **S3/RustFS** e **em memória** (testes) |
-| `ImageProcessor` | Valida (*magic bytes* PNG/JPEG/WebP, tamanho, megapixels lidos do cabeçalho antes de decodificar), decodifica e **re-codifica** (remove EXIF/payload), reduz o lado maior; JPEG para opacas, PNG quando há transparência |
+| `ImageProcessor` | Imagens estáticas PNG, JPEG e WebP: valida, **corrige a orientação EXIF**, reduz e **re-codifica** (JPEG ou PNG), sem nenhum metadado. Detalhes em 9.5 |
 | `GifSanitizer` | Veja 9.3 |
 | `MediaKeys` | Gera as chaves (`po_`, `av_`) e extrai o tipo |
 
@@ -322,6 +326,46 @@ refaz a checagem e devolve 304 sem ler o objeto), `nosniff` e `Content-Type` fix
   complica o roteamento pelo Caddy.
 - A exclusão da postagem apaga o objeto **depois do commit**; falha ao apagar só gera log (LOG-05). Uma rotina remove objetos sem
   postagem (órfãos de falha entre gravar o objeto e a linha).
+
+### 9.5 Processamento de imagens estáticas (D9)
+
+**Formatos aceitos:** PNG, JPEG e **WebP**. **Limites** (configuráveis): 5 MB, 16 megapixels, lado maior de saída ≤ 1.600 px.
+O arquivo enviado **nunca é guardado**: a imagem é decodificada e um arquivo novo é gerado a partir dos pixels.
+
+| # | Passo | O que impede |
+| --- | --- | --- |
+| 1 | Confere o tamanho em bytes | Upload gigante |
+| 2 | Confere os *magic bytes* (PNG, JPEG, `RIFF…WEBP`), ignorando nome e `Content-Type` do cliente | Arquivo qualquer renomeado |
+| 3 | Lê **só o cabeçalho** (largura, altura) e, no PNG/WebP, detecta animação | Decodificar sem saber o tamanho |
+| 4 | Recusa se `largura × altura` passar do limite | *Image bomb* |
+| 5 | Lê a **orientação EXIF** (valores 1 a 8) do arquivo original | Foto de celular que aparece deitada |
+| 6 | Decodifica em memória (JPEG CMYK/YCCK é convertido para RGB) | Formatos que o Java puro não lê |
+| 7 | **Aplica a orientação nos pixels** (giro e/ou espelhamento) | — |
+| 8 | Reduz mantendo a proporção até o lado maior ≤ 1.600 px (nunca amplia) | Imagens enormes servidas a cada visualização |
+| 9 | Codifica de novo **sem metadados**: JPEG (qualidade 0,85) quando opaca; PNG quando há transparência | EXIF (inclui GPS), perfis embutidos, bytes após o fim do arquivo |
+| 10 | Grava no RustFS com chave gerada no servidor e guarda tipo, **largura e altura já corrigidas** (trocadas nas orientações 5 a 8) | Nome ou caminho controlado pelo cliente |
+
+**Orientação (o ajuste pedido).** O Java não aplica a orientação EXIF e, ao regravar, descarta o campo: sem correção, uma foto tirada
+em pé sai deitada. O `ImageProcessor` lê o valor **antes** de descartar o EXIF, gira/espelha os pixels (valores 2 a 8; 1 e ausente = nada
+a fazer) e grava a imagem sempre na orientação normal. O valor vem do segmento EXIF do JPEG e, quando existir, do chunk EXIF do
+WebP e do PNG. Valor inválido ou ilegível é tratado como "sem orientação", sem recusar o arquivo.
+
+**WebP.** Entra como formato de **entrada**; a saída continua sendo JPEG ou PNG, então **não é preciso um codificador de WebP**. O leitor
+vem do TwelveMonkeys ImageIO (`imageio-webp`; ver D17). WebP com transparência vira PNG.
+
+**Outras lacunas tratadas:**
+- **JPEG CMYK/YCCK** (comum em arquivos de gráfica) falhava no leitor padrão do Java; o módulo `imageio-jpeg` do TwelveMonkeys o lê e converte para RGB.
+- **PNG animado (APNG) e WebP animado** são **recusados** (`imagem_animada`, "para animações, envie um GIF"): a alternativa de usar só o primeiro
+  quadro faria a animação sumir sem aviso.
+- **Memória:** uma imagem de 16 MP ocupa ~64 MB decodificada. A biblioteca limita os **processamentos simultâneos** (padrão 4,
+  `socialflux.media.max-concurrent-processing`); quem não consegue vaga em ~5 s recebe 503 `servidor_ocupado`, e o serviço não cai.
+- Imagens sem transparência nunca viram PNG (seria muito maior); com transparência nunca viram JPEG (perderia o alfa).
+- O **avatar** usa o mesmo processador no modo "recorte quadrado 256×256", com a mesma correção de orientação.
+
+**Testes do processador (fazem parte da Fase M1):** as 8 orientações EXIF em JPEG (conferindo a cor de cantos conhecidos depois do giro e as
+dimensões gravadas); WebP estático com e sem transparência; WebP e PNG animados recusados; JPEG CMYK; arquivo falso `.png`; dimensões
+declaradas gigantes; arquivo truncado; ausência de bytes EXIF/GPS na saída; redução de imagem grande e **não** ampliação de pequena;
+saturação do limite de processamentos simultâneos.
 
 ## 10. Eventos (RabbitMQ, exchange `socialflux.events`)
 
@@ -380,8 +424,8 @@ O `excerpt` existe para o futuro serviço de Notificações montar "curtiu seu p
 | Fase | Entrega | Pronto quando | Dias |
 | --- | --- | --- | --- |
 | 0 | Decisões D1–D18 fechadas | registradas neste arquivo | 0,5 |
-| M1 | RustFS no compose (buckets, credenciais por serviço) + `libs/socialflux-media`: `MediaStorage` (S3 e memória), `ImageProcessor`, `GifSanitizer`, testes | testes da biblioteca verdes; GIF malformado, bomba de quadros, poliglota e arquivo falso rejeitados; subida real confirma o RustFS | 4–5 |
-| M2 | `profile_service` migra para a biblioteca e para o bucket `avatars` | 41 testes do perfil verdes; avatar continua público e imutável | 1–2 |
+| M1 | RustFS no compose (buckets, credenciais por serviço) + `libs/socialflux-media`: `MediaStorage` (S3 e memória), `ImageProcessor` (PNG/JPEG/WebP, orientação EXIF, CMYK, limite de simultâneos), `GifSanitizer`, testes | testes da biblioteca verdes: as 8 orientações EXIF saem na posição certa, WebP lido, animados recusados, GIF malformado/bomba de quadros/poliglota e arquivo falso rejeitados; subida real confirma o RustFS | 6–7 |
+| M2 | `profile_service` migra para a biblioteca e para o bucket `avatars`; **corrige** a orientação EXIF e aceita WebP nos avatares | 41 testes do perfil verdes + testes novos de orientação e WebP; avatar continua público e imutável | 2 |
 | 1 | Esqueleto: Maven/Java 21, Flyway `V1`, resource server (JWKS), `OriginCheckFilter`, erros, Dockerfile, script dev | sobe recusando config incompleta; token do auth aceito, adulterado/`aud` errado recusado | 2 |
 | 2 | Cópias locais: `author_snapshot` (`profile.*`) e `follow_edge`/`follow_removed` (`follow.*`), exclusão de conta | evento duplicado/antigo/fora de ordem é inócuo; `profile.deleted` limpa tudo | 3 |
 | 3 | Núcleo: criar (texto, resposta), ler, excluir, regras de visibilidade, contadores, listas e feed por cursor, ancestrais | testes de IDOR/privacidade em **cada** rota; paginação estável; LOG-03/05/08 cobertos | 5–6 |
@@ -391,8 +435,8 @@ O `excerpt` existe para o futuro serviço de Notificações montar "curtiu seu p
 | 7 | Compose + Caddy + frontend no novo contrato | fluxo no navegador: criar (texto, imagem, GIF), comentar, curtir, excluir, feed, perfil, conta privada, mobile | 4–5 |
 | 8 | Limpeza do legado, do grafo (projeção `relacao`) e docs | legado compila; E2E verde; grafo sobe sem MySQL | 2 |
 
-**Total: ≈ 29–35 dias úteis** (≈ 6–7 semanas), contra 24–29 do plano anterior: a biblioteca de mídia, o RustFS e os GIFs
-somam ~5–7 dias, e a fase de imagens do serviço encolhe de 3–4 para 2. O que mais pesa é a Fase 3 (visibilidade e paginação), a
+**Total: ≈ 31–37 dias úteis** (≈ 6–8 semanas), contra 24–29 do plano anterior: a biblioteca de mídia, o RustFS, os GIFs e o
+processamento completo de imagem (WebP, orientação EXIF, CMYK) somam ~7–9 dias, e a fase de imagens do serviço encolhe de 3–4 para 2. O que mais pesa é a Fase 3 (visibilidade e paginação), a
 Fase 7 (frontend) e a M1 (sanitizador de GIF e infraestrutura nova).
 
 ## 13. Testes, riscos e evolução
@@ -410,6 +454,9 @@ excluir × curtir, responder × excluir o pai); conta excluída no meio; eventos
 - **Mudança de contrato no frontend** é a maior do projeto até aqui (id vira string, datas, paginação, hooks por card).
 - **RustFS é recente** (GA em 09/2026) e a compatibilidade S3 não é idêntica à da AWS: a Fase M1 inclui uma subida real e testes
   de ponta a ponta contra ele; o SDK S3 com *endpoint* configurável mantém a saída aberta (MinIO ou S3).
+- **Orientação EXIF é fácil de errar** (oito casos, com giro e espelhamento, e largura/altura trocadas em quatro deles): por isso a
+  matriz de testes das 8 orientações é obrigatória na M1. O TwelveMonkeys entra como **dependência de leitura de imagem de entrada
+  do usuário**: deve ser mantido atualizado e tem suas versões fixadas.
 - **O sanitizador de GIF é código de segurança escrito por nós** (leitura binária de arquivo enviado pelo usuário): precisa de testes
   adversariais (truncado, quadros demais, tabelas de cores inconsistentes, bytes após o fim) e limites rígidos de memória.
 - **Mais tráfego pelo `post_service`:** as imagens passam pelo serviço (§9.4). Um cache curto da decisão de visibilidade resolve se pesar.
@@ -430,6 +477,7 @@ feed em Redis se medido; lista de quem curtiu.
 | D2 (escopo) | Postagens, respostas e curtidas num serviço só, no mesmo banco; **não** há serviço separado de curtidas. *(A mídia foi reaberta: ver D15.)* |
 | D8 | Imagens de postagem **entregues pelo serviço, com checagem de visibilidade** (404 para quem não pode ver; bucket privado; sem URLs assinadas por ora) |
 | — | Armazenamento de mídia: **RustFS**; formatos: **imagens e GIFs** (vídeo fica para depois) |
+| D9 | Imagens estáticas: **PNG, JPEG e WebP** (entrada), até 5 MB/16 MP; saída JPEG ou PNG (se houver transparência), lado maior ≤ 1.600 px, **com correção da orientação EXIF**; PNG/WebP animados recusados (animação só por GIF) |
 
 **Abertas — preciso do seu parecer (recomendada em negrito):**
 
@@ -437,20 +485,20 @@ feed em Redis se medido; lista de quem curtiu.
 | --- | --- | --- |
 | D15 | Onde mora a lógica de mídia | **Biblioteca `libs/socialflux-media`, usada por perfil e postagens** · serviço de mídia isolado (a regra de acesso por imagem exigiria token de serviço ou URLs assinadas, e criar a postagem viraria dois passos) · tudo dentro do `post_service` (duplica o que o perfil já tem) |
 | D16 | GIFs: onde e com que limites | **Só em postagens, até 8 MB, 1.280 px e 300 quadros** · também como foto de perfil · outros limites |
-| D17 | Dependência: SDK S3 da AWS (módulo S3) para falar com o RustFS | **Aprovar** · outro cliente S3 (ex.: MinIO Java) |
+| D17 | Dependências da biblioteca de mídia: **(a)** SDK S3 da AWS (módulo S3) para falar com o RustFS e **(b)** TwelveMonkeys ImageIO (`imageio-webp`, `imageio-jpeg`, `imageio-metadata`) para ler WebP, JPEG CMYK e a orientação EXIF | **Aprovar as duas** · outro cliente S3 (ex.: MinIO Java) · só (a) e sem WebP/CMYK |
 | D18 | Infra do RustFS | **Container na rede interna, buckets `post-media` e `avatars` privados, credenciais por serviço; confirmar imagem/tag e criação de buckets na Fase M1** · expor o console/porta no host em desenvolvimento |
 | D3 | Id da postagem | **UUIDv7; alargar `notification.id_post` no legado para `VARCHAR(36)`** · inteiro temporário (`legacy_id`) até Notificações migrar |
 | D4 | Contrato HTTP | **Novo `/api/postagens`: paginado, contadores e "curti" embutidos, ISO-8601** · manter `/api/postagem` com regras corrigidas |
 | D5 | Feed e privacidade | **Cópia local das arestas por eventos `follow.*` (sem chamada ao grafo)** · consulta síncrona ao grafo (exige token de serviço e API interna) |
 | D6 | Visibilidade | **Por autor: dono ou seguidor aceito vê conta privada; resposta filtrada pelo seu autor; pai precisa ser visível para responder** · esconder a thread inteira se a raiz for privada |
 | D7 | Excluir postagem | **Apaga as respostas e as curtidas (cascata), como o legado** · manter as respostas como "postagem removida" |
-| D9 | Processamento de imagem estática | **PNG/JPEG/WebP até 5 MB/16 MP; JPEG (ou PNG se houver transparência); lado maior ≤ 1.600 px** · manter o formato original |
 | D10 | Limites | **Texto ≤ 1.000 caracteres; 60 postagens/h e 600 curtidas/h por usuário, configuráveis** · outros valores · sem teto |
 | D11 | Notificações durante a transição | **Continuam criadas pelo frontend (como no D14 do grafo); os eventos `post.*` (com `excerpt`) já nascem prontos para o serviço de Notificações, o próximo domínio** · antecipar Notificações antes de Postagens |
 | D12 | Exclusão de conta | **Apagar postagens (e respostas dependentes), curtidas, arestas e a mídia do usuário** · anonimizar e manter o conteúdo |
 | D13 | Contexto de resposta | **`pai` resumido nas listas + `GET /{id}/ancestrais` (até 10 níveis)** · embutir a cadeia inteira (volta ao N+1) |
 | D14 | Fim da transição | **Remover postagens/curtidas/imagens do legado e a projeção `relacao` do grafo na Fase 8 (inclui mudar o `schema.sql`)** · deixar a projeção até Notificações migrar |
 
+O WebP, a orientação EXIF e as demais lacunas de imagem estão **pedidos e incorporados** (D9 fechada); falta só aprovar a dependência em D17.
 As abertas que **bloqueiam o início** são D15, D17 e D18 (a Fase M1 depende delas); D3 e D4 bloqueiam a Fase 3; as demais podem seguir a
 recomendação se você não se opuser.
 
