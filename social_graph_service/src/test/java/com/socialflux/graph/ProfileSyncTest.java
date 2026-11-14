@@ -74,6 +74,7 @@ class ProfileSyncTest extends AbstractGraphTest {
         }
         assertThat(counts(priv)).containsEntry("seguidores", 3);
         assertThat(countOf("follow_request", "target_id", priv.id)).isZero();
+        assertThat(get(priv, "/api/relacoes/solicitacoes").json()).containsEntry("total", 0);
         assertConsistent(priv, a, b, c);
 
         long auto = publishedTypes(priv).stream().filter("follow.created.v1"::equals).count();
@@ -128,6 +129,7 @@ class ProfileSyncTest extends AbstractGraphTest {
         assertThat(counts(bia)).containsEntry("seguidores", 0).containsEntry("seguidos", 0);
         assertThat(counts(carla)).containsEntry("seguidos", 0);
         assertThat(counts(priv)).containsEntry("seguidores", 0);
+        assertThat(get(priv, "/api/relacoes/solicitacoes").json()).containsEntry("total", 0);   // o pedido de ana sumiu
         assertConsistent(bia, carla, priv);
 
         // A conta excluída some: 404 para quem consulta e acesso negado para o token antigo dela

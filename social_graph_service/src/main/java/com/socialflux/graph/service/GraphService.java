@@ -42,6 +42,10 @@ public class GraphService {
     public record Mutual(List<Edge> items, long total) {
     }
 
+    /** Página de solicitações recebidas e o total de pendentes (não só os itens desta página). */
+    public record Requests(Page page, long total) {
+    }
+
     private final SnapshotRepository snapshots;
     private final FollowRepository follows;
     private final FollowWriter writer;
@@ -174,10 +178,11 @@ public class GraphService {
                 follows.mutualCount(viewerId, target.userId()));
     }
 
-    /** Solicitações recebidas pelo usuário logado. */
+    /** Solicitações recebidas pelo usuário logado, com o total de pendentes (lido na mesma transação da página). */
     @Transactional(readOnly = true)
-    public Page receivedRequests(UUID actorId, String cursor, Integer limit) {
-        return page(follows.receivedRequests(actorId, Cursor.decode(cursor), pageSize(limit) + 1), pageSize(limit));
+    public Requests receivedRequests(UUID actorId, String cursor, Integer limit) {
+        Page page = page(follows.receivedRequests(actorId, Cursor.decode(cursor), pageSize(limit) + 1), pageSize(limit));
+        return new Requests(page, follows.counts(actorId).pending());
     }
 
     /** Solicitações enviadas pelo usuário logado. */

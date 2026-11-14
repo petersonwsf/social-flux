@@ -38,7 +38,7 @@ Todas exigem token de usuário. Nenhuma tem corpo. Erros: `{ "mensagem", "sucess
 | `GET /{usuario}/contagens` | `{ seguidores, seguidos }` (visível a qualquer logado) |
 | `GET /{usuario}/seguidores?cursor=&limite=` · `GET /{usuario}/seguidos?...` | Lista paginada (mais recentes primeiro). **Conta privada: só o dono e quem a segue**; os demais recebem `403 conta_privada` |
 | `GET /{usuario}/em-comum?limite=` | Quem eu sigo e também segue `{usuario}`: `{ itens, total }` (D6: qualquer logado) |
-| `GET /solicitacoes?cursor=&limite=` | Solicitações **recebidas** por mim |
+| `GET /solicitacoes?cursor=&limite=` | Solicitações **recebidas** por mim, com o `total` de pendentes (o número real, não o tamanho da página): `{ itens, proximoCursor, total }` |
 | `GET /solicitacoes/enviadas?cursor=&limite=` | Solicitações que **eu enviei** |
 | `POST /solicitacoes/{usuario}/aceitar` | Aceitar a solicitação de `{usuario}` (só existe solicitação dirigida a mim). `204` |
 | `DELETE /solicitacoes/{usuario}` | Recusar. `204` (não deixa rastro: é possível pedir de novo) |

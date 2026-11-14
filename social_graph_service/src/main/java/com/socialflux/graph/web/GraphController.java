@@ -6,6 +6,7 @@ import com.socialflux.graph.service.GraphService;
 import com.socialflux.graph.web.Dtos.CountsView;
 import com.socialflux.graph.web.Dtos.MutualView;
 import com.socialflux.graph.web.Dtos.PageView;
+import com.socialflux.graph.web.Dtos.RequestsView;
 import com.socialflux.graph.web.Dtos.RelationshipView;
 import com.socialflux.graph.web.Dtos.StateView;
 import org.springframework.http.HttpStatus;
@@ -69,9 +70,9 @@ public class GraphController {
     // ------------------------------------------------------------------ solicitações (contas privadas)
 
     @GetMapping("/solicitacoes")
-    PageView receivedRequests(@RequestParam(required = false) String cursor,
-                              @RequestParam(required = false) Integer limite, @AuthenticationPrincipal Jwt jwt) {
-        return PageView.of(graph.receivedRequests(actor(jwt), cursor, limite));
+    RequestsView receivedRequests(@RequestParam(required = false) String cursor,
+                                  @RequestParam(required = false) Integer limite, @AuthenticationPrincipal Jwt jwt) {
+        return RequestsView.of(graph.receivedRequests(actor(jwt), cursor, limite));
     }
 
     @GetMapping("/solicitacoes/enviadas")

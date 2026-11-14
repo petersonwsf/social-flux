@@ -109,11 +109,29 @@ class ListsTest extends AbstractGraphTest {
 
         assertThat(usernames(get(priv, "/api/relacoes/solicitacoes"), "usuario"))
                 .containsExactlyInAnyOrder(ana.username, bia.username);
+        assertThat(get(priv, "/api/relacoes/solicitacoes").json()).containsEntry("total", 2);
+        assertThat(get(ana, "/api/relacoes/solicitacoes").json()).containsEntry("total", 0);
         assertThat(usernames(get(ana, "/api/relacoes/solicitacoes/enviadas"), "usuario"))
                 .containsExactlyInAnyOrder(priv.username, priv2.username);
         assertThat(usernames(get(ana, "/api/relacoes/solicitacoes"), "usuario")).isEmpty();   // ninguém pediu a Ana
         assertThat(usernames(get(bia, "/api/relacoes/solicitacoes/enviadas"), "usuario")).containsExactly(priv.username);
         assertConsistent(priv, priv2, ana, bia);
+    }
+
+    @Test
+    void theReceivedRequestsTotalCountsAllPendingNotJustThePage() {
+        TestUser priv = newUser(true);
+        for (int i = 0; i < 3; i++) {
+            follow(newUser(), priv);
+        }
+
+        Response page = get(priv, "/api/relacoes/solicitacoes?limite=2");
+
+        assertThat(usernames(page, "usuario")).hasSize(2);
+        assertThat(page.json().get("proximoCursor")).isNotNull();
+        assertThat(page.json()).containsEntry("total", 3);   // o total não depende do tamanho da página
+        assertThat(get(priv, "/api/relacoes/solicitacoes?limite=2&cursor=" + page.json().get("proximoCursor")).json())
+                .containsEntry("total", 3);
     }
 
     @Test

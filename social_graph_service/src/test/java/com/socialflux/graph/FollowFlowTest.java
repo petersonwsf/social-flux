@@ -52,6 +52,7 @@ class FollowFlowTest extends AbstractGraphTest {
         Map<String, Object> received = get(priv, "/api/relacoes/solicitacoes").json();
         List<?> items = (List<?>) received.get("itens");
         assertThat(items).hasSize(1);
+        assertThat(received).containsEntry("total", 1);
         @SuppressWarnings("unchecked")
         Map<String, Object> user = (Map<String, Object>) ((Map<String, Object>) items.get(0)).get("usuario");
         assertThat(user.get("accountId")).isEqualTo(ana.id.toString());
@@ -62,6 +63,7 @@ class FollowFlowTest extends AbstractGraphTest {
         assertThat(counts(priv)).containsEntry("seguidores", 1);
         assertThat(countOf("follow_request", "target_id", priv.id)).isZero();
         assertThat(get(priv, "/api/relacoes/solicitacoes").json().get("itens")).isEqualTo(List.of());
+        assertThat(get(priv, "/api/relacoes/solicitacoes").json()).containsEntry("total", 0);
     }
 
     @Test
@@ -78,6 +80,7 @@ class FollowFlowTest extends AbstractGraphTest {
         assertThat(reject(priv, bia).status()).isEqualTo(204);
         assertThat(state(bia, priv)).isEqualTo("NENHUM");
         assertThat(reject(priv, bia).status()).isEqualTo(404);   // já não existe
+        assertThat(get(priv, "/api/relacoes/solicitacoes").json()).containsEntry("total", 0);
         assertThat(counts(priv)).containsEntry("seguidores", 0);
 
         // recusar não deixa rastro: dá para pedir de novo

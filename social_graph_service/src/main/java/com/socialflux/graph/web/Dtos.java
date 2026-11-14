@@ -56,6 +56,15 @@ public final class Dtos {
         }
     }
 
+    /** Solicitações recebidas: a página e o total de pendentes (para o contador da interface). */
+    public record RequestsView(List<Item> itens, String proximoCursor, long total) {
+
+        public static RequestsView of(GraphService.Requests requests) {
+            PageView page = PageView.of(requests.page());
+            return new RequestsView(page.itens(), page.proximoCursor(), requests.total());
+        }
+    }
+
     public record MutualView(List<User> itens, long total) {
 
         public static MutualView of(GraphService.Mutual mutual) {
