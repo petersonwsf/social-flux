@@ -477,6 +477,7 @@ feed em Redis se medido; lista de quem curtiu.
 | D2 (escopo) | Postagens, respostas e curtidas num serviço só, no mesmo banco; **não** há serviço separado de curtidas. *(A mídia foi reaberta: ver D15.)* |
 | D8 | Imagens de postagem **entregues pelo serviço, com checagem de visibilidade** (404 para quem não pode ver; bucket privado; sem URLs assinadas por ora) |
 | — | Armazenamento de mídia: **RustFS**; formatos: **imagens e GIFs** (vídeo fica para depois) |
+| D17(b) | Dependência **TwelveMonkeys ImageIO** (`imageio-webp`, `imageio-jpeg`, `imageio-metadata`) para ler WebP, JPEG CMYK e a orientação EXIF — **aprovada em 2026-11-15** |
 | D9 | Imagens estáticas: **PNG, JPEG e WebP** (entrada), até 5 MB/16 MP; saída JPEG ou PNG (se houver transparência), lado maior ≤ 1.600 px, **com correção da orientação EXIF**; PNG/WebP animados recusados (animação só por GIF) |
 
 **Abertas — preciso do seu parecer (recomendada em negrito):**
@@ -485,7 +486,7 @@ feed em Redis se medido; lista de quem curtiu.
 | --- | --- | --- |
 | D15 | Onde mora a lógica de mídia | **Biblioteca `libs/socialflux-media`, usada por perfil e postagens** · serviço de mídia isolado (a regra de acesso por imagem exigiria token de serviço ou URLs assinadas, e criar a postagem viraria dois passos) · tudo dentro do `post_service` (duplica o que o perfil já tem) |
 | D16 | GIFs: onde e com que limites | **Só em postagens, até 8 MB, 1.280 px e 300 quadros** · também como foto de perfil · outros limites |
-| D17 | Dependências da biblioteca de mídia: **(a)** SDK S3 da AWS (módulo S3) para falar com o RustFS e **(b)** TwelveMonkeys ImageIO (`imageio-webp`, `imageio-jpeg`, `imageio-metadata`) para ler WebP, JPEG CMYK e a orientação EXIF | **Aprovar as duas** · outro cliente S3 (ex.: MinIO Java) · só (a) e sem WebP/CMYK |
+| D17(a) | Dependência: SDK S3 da AWS (módulo S3) para falar com o RustFS | **Aprovar** · outro cliente S3 (ex.: MinIO Java) |
 | D18 | Infra do RustFS | **Container na rede interna, buckets `post-media` e `avatars` privados, credenciais por serviço; confirmar imagem/tag e criação de buckets na Fase M1** · expor o console/porta no host em desenvolvimento |
 | D3 | Id da postagem | **UUIDv7; alargar `notification.id_post` no legado para `VARCHAR(36)`** · inteiro temporário (`legacy_id`) até Notificações migrar |
 | D4 | Contrato HTTP | **Novo `/api/postagens`: paginado, contadores e "curti" embutidos, ISO-8601** · manter `/api/postagem` com regras corrigidas |
@@ -498,8 +499,8 @@ feed em Redis se medido; lista de quem curtiu.
 | D13 | Contexto de resposta | **`pai` resumido nas listas + `GET /{id}/ancestrais` (até 10 níveis)** · embutir a cadeia inteira (volta ao N+1) |
 | D14 | Fim da transição | **Remover postagens/curtidas/imagens do legado e a projeção `relacao` do grafo na Fase 8 (inclui mudar o `schema.sql`)** · deixar a projeção até Notificações migrar |
 
-O WebP, a orientação EXIF e as demais lacunas de imagem estão **pedidos e incorporados** (D9 fechada); falta só aprovar a dependência em D17.
-As abertas que **bloqueiam o início** são D15, D17 e D18 (a Fase M1 depende delas); D3 e D4 bloqueiam a Fase 3; as demais podem seguir a
+O WebP, a orientação EXIF e as demais lacunas de imagem estão **pedidos e incorporados** (D9 fechada); a dependência D17(b) está **aprovada**.
+As abertas que **bloqueiam o início** são D15, D17(a) e D18 (a Fase M1 depende delas); D3 e D4 bloqueiam a Fase 3; as demais podem seguir a
 recomendação se você não se opuser.
 
 ## 15. O que não foi verificado
