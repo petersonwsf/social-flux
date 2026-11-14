@@ -483,26 +483,26 @@ feed em Redis se medido; lista de quem curtiu.
 | D15 | Lógica de mídia numa **biblioteca compartilhada** (`libs/socialflux-media`), usada por perfil e postagens |
 | D16 | GIFs **só em postagens**, até **8 MB, 1.280 px e 300 quadros** |
 | D17(a) | Dependência **SDK S3 da AWS** para falar com o RustFS — **aprovada em 2026-11-15** |
-| D18 | RustFS como **container na rede interna** (sem porta no host), buckets `post-media` e `avatars` privados, credenciais por serviço; imagem/tag e criação de buckets confirmadas na Fase M1 |
+| D18 | RustFS como **container na rede interna** (sem porta no host), buckets `post-media` e `avatars` privados, credenciais por serviço; imagem/tag e criação de buckets confirmadas na Fase M1. **Verificado na documentação (2026-11-15):** imagem `rustfs/rustfs:latest` (a doc não fixa tag), S3 na porta 9000 e console na 9001, dados em `/data`, processo não-root (uid 10001), health em `/health`, chave de acesso só com `A–Z` e `0–9`, endereçamento *path-style* por padrão, criação de bucket, Range, listagem e URLs assinadas listados como testados. **Não verificado em execução** (Docker parado): subida real, criação de buckets pelo AWS CLI, usuários por serviço (API administrativa com assinatura SigV4) |
+| D5 | Feed e privacidade: **cópia local das arestas por eventos `follow.*`**, sem chamada ao grafo |
+| D6 | Visibilidade **por autor**: dono ou seguidor aceito vê conta privada; a resposta é filtrada pelo seu autor; o pai precisa ser visível para responder |
+| D7 | Excluir postagem **apaga as respostas e as curtidas** (cascata), como o legado |
+| D10 | Limites: texto ≤ 1.000 caracteres; 60 postagens/h e 600 curtidas/h por usuário, configuráveis |
+| D14 | Fim da transição: **remover postagens/curtidas/imagens do legado e a projeção `relacao` do grafo** na Fase 8 (inclui mudar o `schema.sql`, que ainda pede confirmação) |
 | D9 | Imagens estáticas: **PNG, JPEG e WebP** (entrada), até 5 MB/16 MP; saída JPEG ou PNG (se houver transparência), lado maior ≤ 1.600 px, **com correção da orientação EXIF**; PNG/WebP animados recusados (animação só por GIF) |
 
 **Sem objeção até agora — seguem a recomendação (em negrito) salvo aviso seu:**
 
 | # | Decisão | Opções |
 | --- | --- | --- |
-| D5 | Feed e privacidade | **Cópia local das arestas por eventos `follow.*` (sem chamada ao grafo)** · consulta síncrona ao grafo (exige token de serviço e API interna) |
-| D6 | Visibilidade | **Por autor: dono ou seguidor aceito vê conta privada; resposta filtrada pelo seu autor; pai precisa ser visível para responder** · esconder a thread inteira se a raiz for privada |
-| D7 | Excluir postagem | **Apaga as respostas e as curtidas (cascata), como o legado** · manter as respostas como "postagem removida" |
-| D10 | Limites | **Texto ≤ 1.000 caracteres; 60 postagens/h e 600 curtidas/h por usuário, configuráveis** · outros valores · sem teto |
 | D11 | Notificações durante a transição | **Continuam criadas pelo frontend (como no D14 do grafo); os eventos `post.*` (com `excerpt`) já nascem prontos para o serviço de Notificações, o próximo domínio** · antecipar Notificações antes de Postagens |
 | D12 | Exclusão de conta | **Apagar postagens (e respostas dependentes), curtidas, arestas e a mídia do usuário** · anonimizar e manter o conteúdo |
 | D13 | Contexto de resposta | **`pai` resumido nas listas + `GET /{id}/ancestrais` (até 10 níveis)** · embutir a cadeia inteira (volta ao N+1) |
-| D14 | Fim da transição | **Remover postagens/curtidas/imagens do legado e a projeção `relacao` do grafo na Fase 8 (inclui mudar o `schema.sql`)** · deixar a projeção até Notificações migrar |
 
 O WebP, a orientação EXIF e as demais lacunas de imagem estão **pedidos e incorporados** (D9 fechada); a dependência D17(b) está **aprovada**.
 **Nenhuma decisão bloqueia o início:** a Fase M1 (mídia) pode começar. Já estão aprovados o serviço `rustfs` no `docker-compose.yml` (D18) e as
 dependências SDK S3 e TwelveMonkeys (D17). Continuam pedindo confirmação (CLAUDE.md, regra 5) o serviço `post_service` no compose, a rota no
-`Caddyfile` e as mudanças de `schema.sql` do legado (Fases 7 e 8). As decisões restantes (D5, D6, D7, D10 a D14) seguem a recomendação a
+`Caddyfile` e as mudanças de `schema.sql` do legado (Fases 7 e 8). As decisões restantes (D11, D12 e D13) seguem a recomendação a
 menos que você diga o contrário.
 
 ## 15. O que não foi verificado
