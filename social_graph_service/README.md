@@ -7,8 +7,8 @@ Spring Boot 4 · Java 21 · PostgreSQL (banco próprio) · Flyway · RabbitMQ (o
 Plano, análise SQL × NoSQL e decisões D1–D14: [`../docs/plano-dominio-relacoes-grafo-social.md`](../docs/plano-dominio-relacoes-grafo-social.md).
 
 > **Estado:** serviço implementado e testado (Fases 1–4 do plano), já presente no `docker-compose.yml` (perfil `apps`, banco
-> criado por `graph_db_init`) e roteado no `Caddyfile` (`/api/relacoes*`). **O frontend ainda não o usa** (Fase 5): ele continua
-> chamando `/api/relacao`, atendido pelo legado.
+> criado por `graph_db_init`) e roteado no `Caddyfile` (`/api/relacoes*`). O **frontend já o usa** (`services/relacaoService.ts`);
+> as rotas `/api/relacao` do legado ficaram sem uso e serão removidas.
 
 ## Como se relaciona com os outros serviços
 

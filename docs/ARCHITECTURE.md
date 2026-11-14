@@ -7,7 +7,7 @@ serviços Spring Boot com banco próprio, ligados por eventos no RabbitMQ e expo
 | --- | --- |
 | Identidade e acesso (conta, senha, sessão, e-mail) | `authentication_service/` |
 | Perfil (username, nome, bio, foto, privacidade, busca) | `profile_service/` |
-| Relações (seguir, solicitações) | `social_graph_service/` (**no compose e no gateway** em `/api/relacoes*`; **o frontend ainda não o usa**: continua chamando `/api/relacao`, atendido pelo legado) |
+| Relações (seguir, solicitações) | `social_graph_service/` (**no compose, no gateway (`/api/relacoes*`) e no frontend**; o legado ainda tem as rotas `/api/relacao`, sem uso, até ser limpo) |
 | Postagens/comentários, curtidas, imagens de postagem, notificações | `BackEnd/` (legado) |
 
 Cada aplicação tem o seu próprio `docs/ARCHITECTURE.md`:

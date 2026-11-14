@@ -12,13 +12,13 @@ const MODAL_ID = 'relacoesEmComum'
 const MAX_VISIVEIS = 3
 
 function RelacoesEmComum({ user, perfil }: RelacoesEmComumProps) {
-    const emComum = useRelacoesEmComum(user, perfil)
+    const { itens: emComum, total } = useRelacoesEmComum(user, perfil)
     const visiveis = emComum.slice(0, MAX_VISIVEIS)
-    const restantes = emComum.length - MAX_VISIVEIS
+    const restantes = total - visiveis.length
 
     return (
         <div>
-            {emComum.length > 0 && (
+            {total > 0 && (
                 <button
                     type="button"
                     className="btn p-0 d-flex align-items-center text-start"

@@ -1,5 +1,5 @@
 import { api } from '../lib/api'
-import type { Notification, NotificationPayload, Postagem, Usuario } from '../types/api'
+import type { Notification, NotificationPayload, Postagem, Usuario, UsuarioResumo } from '../types/api'
 
 export async function listar(idUsuario: number): Promise<Notification[]> {
     const { data } = await api.get<Notification[]>('/api/notification', { params: { userId: idUsuario } })
@@ -41,7 +41,7 @@ export function notificarComentario(sender: Usuario, post: Postagem, comentario:
     })
 }
 
-export function notificarSeguidor(follower: Usuario, followed: Usuario): Promise<void> {
+export function notificarSeguidor(follower: UsuarioResumo, followed: UsuarioResumo): Promise<void> {
     return enviar({
         sender: JSON.stringify(follower),
         receiver: JSON.stringify(followed),

@@ -1,14 +1,23 @@
 import CardRelacaoNaoAceita from './CardRelacaoNaoAceita'
-import type { Relacao } from '../../types/api'
+import type { ItemRelacao } from '../../types/api'
 
 interface ListaRelacoesNaoAceitasProps {
-    relacoes: Relacao[]
-    onAceitar: (relacao: Relacao) => void
-    onRecusar: (relacao: Relacao) => void
+    solicitacoes: ItemRelacao[]
+    onAceitar: (solicitacao: ItemRelacao) => void
+    onRecusar: (solicitacao: ItemRelacao) => void
+    /** Há mais páginas de solicitações: mostra o botão "Carregar mais". */
+    temMais?: boolean
+    onCarregarMais?: () => void
 }
 
-function ListaRelacoesNaoAceitas({ relacoes, onAceitar, onRecusar }: ListaRelacoesNaoAceitasProps) {
-    if (relacoes.length === 0) {
+function ListaRelacoesNaoAceitas({
+    solicitacoes,
+    onAceitar,
+    onRecusar,
+    temMais = false,
+    onCarregarMais,
+}: ListaRelacoesNaoAceitasProps) {
+    if (solicitacoes.length === 0) {
         return (
             <div className="text-center px-3">
                 <p className="lead">Não há solicitações de amizade</p>
@@ -17,13 +26,22 @@ function ListaRelacoesNaoAceitas({ relacoes, onAceitar, onRecusar }: ListaRelaco
     }
 
     return (
-        <ul className="nav nav-pills flex-column mt-1">
-            {relacoes.map((relacao) => (
-                <li key={relacao.id}>
-                    <CardRelacaoNaoAceita relacao={relacao} onAceitar={onAceitar} onRecusar={onRecusar} />
-                </li>
-            ))}
-        </ul>
+        <>
+            <ul className="nav nav-pills flex-column mt-1">
+                {solicitacoes.map((solicitacao) => (
+                    <li key={solicitacao.usuario.id}>
+                        <CardRelacaoNaoAceita solicitacao={solicitacao} onAceitar={onAceitar} onRecusar={onRecusar} />
+                    </li>
+                ))}
+            </ul>
+            {temMais && (
+                <div className="text-center mt-2">
+                    <button type="button" className="btn btn-outline-primary btn-sm" onClick={onCarregarMais}>
+                        Carregar mais
+                    </button>
+                </div>
+            )}
+        </>
     )
 }
 

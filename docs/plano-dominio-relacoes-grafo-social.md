@@ -13,7 +13,7 @@ Data: 2026-11-12 · Complementa `analise-backend-e-migracao-spring-boot.md` e `p
 > **Implementação (2026-11-13): Fases 0.5–4 prontas** — biblioteca `libs/socialflux-events` e o serviço `social_graph_service/`
 > (rotas, regras, cópia local por eventos, eventos `follow.*`, limites, projeção MySQL por estado), com testes de integração
 > contra PostgreSQL real. **Infra ligada (2026-11-14, aprovada):** serviço e `graph_db_init` no `docker-compose.yml`, rota
-> `/api/relacoes*` no `Caddyfile`. **Pendentes:** frontend no novo contrato (Fase 5) e remoção de Relações do legado (Fase 6). Base: leitura de `BackEnd/`
+> `/api/relacoes*` no `Caddyfile`. **Frontend no novo contrato (Fase 5, 2026-11-14): pronto.** **Pendente:** remoção de Relações do legado (Fase 6). Base: leitura de `BackEnd/`
 > (`RelacaoController`, `RelacaoService`, `RelacaoDao`, `UsuarioDao.buscarRelacoesEmComum`, `PostagemDao` — feed com JOIN em
 > `relacao`, `App`), de `infra/` (`schema.sql`, `Caddyfile`), do `docker-compose.yml`, do `profile_service/` (README, eventos,
 > outbox/inbox, projeção legada, migração `V1__profile.sql`), do `authentication_service/` (`ServiceTokenIssuer`, `ProfileClient`)

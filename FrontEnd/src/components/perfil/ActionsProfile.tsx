@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import type { Relacao } from '../../types/api'
+import type { EstadoRelacao } from '../../types/api'
 
 interface ActionsProfileProps {
     ehProprioPerfil: boolean
-    relacao: Relacao | null
+    estado: EstadoRelacao
     onSeguir: () => void
     onCancelarSolicitacao: () => void
     /** Id do modal de confirmação para deixar de seguir. */
@@ -12,7 +12,7 @@ interface ActionsProfileProps {
 
 function ActionsProfile({
     ehProprioPerfil,
-    relacao,
+    estado,
     onSeguir,
     onCancelarSolicitacao,
     modalDeixarDeSeguirId,
@@ -25,7 +25,7 @@ function ActionsProfile({
         )
     }
 
-    if (!relacao) {
+    if (estado === 'NENHUM') {
         return (
             <button type="button" className="btn btn-primary d-flex align-items-center" onClick={onSeguir}>
                 <ion-icon name="person-add-outline"></ion-icon> Seguir
@@ -33,7 +33,7 @@ function ActionsProfile({
         )
     }
 
-    if (relacao.aceito) {
+    if (estado === 'SEGUINDO') {
         return (
             <button
                 type="button"

@@ -17,7 +17,7 @@ const TABS: ReadonlyArray<{ id: Aba; label: string }> = [
 function Notifications() {
     const user = useCurrentUser()
     const { notificacoes, zerarContador, marcarComoVistas } = useNotificacoes()
-    const { pendentes, aceitar, recusar } = useRelacoesPendentes(user)
+    const { pendentes, temMais, carregarMais, aceitar, recusar } = useRelacoesPendentes(user)
     const [aba, setAba] = useState<Aba>('notificacoes')
 
     // Ao abrir a tela o badge zera; ao sair, as notificações são marcadas como vistas.
@@ -35,7 +35,13 @@ function Notifications() {
             {aba === 'notificacoes' ? (
                 <ListNotifications notifications={notificacoes} />
             ) : (
-                <ListaRelacoesNaoAceitas relacoes={pendentes} onAceitar={aceitar} onRecusar={recusar} />
+                <ListaRelacoesNaoAceitas
+                    solicitacoes={pendentes}
+                    temMais={temMais}
+                    onCarregarMais={carregarMais}
+                    onAceitar={aceitar}
+                    onRecusar={recusar}
+                />
             )}
         </div>
     )

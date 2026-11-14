@@ -3,29 +3,33 @@ import * as relacaoService from '../services/relacaoService'
 import * as notificationService from '../services/notificationService'
 import { getErrorMessage } from '../lib/errors'
 import { useToast } from './useToast'
-import type { Relacao, Usuario } from '../types/api'
+import type { ContagensRelacao, EstadoRelacao, Usuario, UsuarioResumo } from '../types/api'
 
-/** Relação entre o usuário logado e o dono do perfil, mais as listas de seguidores/seguidos do perfil. */
+const SEM_CONTAGENS: ContagensRelacao = { seguidores: 0, seguidos: 0 }
+
+/**
+ * Relação entre o usuário logado e o dono do perfil: estado (seguindo, solicitado ou nenhum), contadores e as ações
+ * seguir, deixar de seguir/cancelar e remover seguidor. As listas de seguidores/seguidos são paginadas e carregadas
+ * sob demanda por `useListaRelacoes`.
+ */
 export function useRelacao(user: Usuario, perfil: Usuario) {
     const toast = useToast()
-    const [relacao, setRelacao] = useState<Relacao | null>(null)
-    const [seguidores, setSeguidores] = useState<Usuario[]>([])
-    const [seguidos, setSeguidos] = useState<Usuario[]>([])
+    const ehProprioPerfil = user.id === perfil.id
+    const [estado, setEstado] = useState<EstadoRelacao>('NENHUM')
+    const [contagens, setContagens] = useState<ContagensRelacao>(SEM_CONTAGENS)
 
     useEffect(() => {
         let ignore = false
 
         const carregar = async () => {
             try {
-                const [listaSeguidos, listaSeguidores, propria] = await Promise.all([
-                    relacaoService.buscarSeguidos(perfil.id),
-                    relacaoService.buscarSeguidores(perfil.id),
-                    user.id !== perfil.id ? relacaoService.buscar(user.id, perfil.id) : Promise.resolve(null),
+                const [novasContagens, relacao] = await Promise.all([
+                    relacaoService.buscarContagens(perfil.id),
+                    ehProprioPerfil ? Promise.resolve(null) : relacaoService.buscarEstado(perfil.id),
                 ])
                 if (ignore) return
-                setSeguidos(listaSeguidos.map((item) => item.seguido))
-                setSeguidores(listaSeguidores.map((item) => item.seguidor))
-                setRelacao(propria)
+                setContagens(novasContagens)
+                setEstado(relacao?.estado ?? 'NENHUM')
             } catch (error) {
                 if (!ignore) toast.error(getErrorMessage(error))
             }
@@ -35,31 +39,50 @@ export function useRelacao(user: Usuario, perfil: Usuario) {
         return () => {
             ignore = true
         }
-    }, [user.id, perfil.id, toast])
+    }, [perfil.id, ehProprioPerfil, toast])
+
+    const ajustarSeguidores = useCallback((delta: number) => {
+        setContagens((atual) => ({ ...atual, seguidores: Math.max(0, atual.seguidores + delta) }))
+    }, [])
 
     const seguir = useCallback(async () => {
         try {
-            const criada = await relacaoService.criar(user, perfil)
-            setRelacao(criada)
-            if (criada.aceito) {
-                setSeguidores((lista) => [...lista, user])
+            const novoEstado = await relacaoService.seguir(perfil.id)
+            setEstado(novoEstado)
+            if (novoEstado === 'SEGUINDO') {
+                ajustarSeguidores(1)
                 notificationService.notificarSeguidor(user, perfil).catch(() => undefined)
             }
         } catch (error) {
             toast.error(getErrorMessage(error))
         }
-    }, [user, perfil, toast])
+    }, [perfil, user, ajustarSeguidores, toast])
 
+    /** Deixa de seguir ou cancela a solicitação, conforme o estado atual. */
     const deixarDeSeguir = useCallback(async () => {
-        if (!relacao) return
         try {
-            await relacaoService.remover(relacao.id)
-            if (relacao.aceito) setSeguidores((lista) => lista.filter((item) => item.id !== user.id))
-            setRelacao(null)
+            await relacaoService.deixarDeSeguir(perfil.id)
+            if (estado === 'SEGUINDO') ajustarSeguidores(-1)
+            setEstado('NENHUM')
         } catch (error) {
             toast.error(getErrorMessage(error))
         }
-    }, [relacao, user.id, toast])
+    }, [perfil.id, estado, ajustarSeguidores, toast])
 
-    return { relacao, seguidores, seguidos, seguir, deixarDeSeguir }
+    /** Tira um seguidor da lista do próprio usuário. Devolve se deu certo (para o chamador atualizar a lista). */
+    const removerSeguidor = useCallback(
+        async (seguidor: UsuarioResumo): Promise<boolean> => {
+            try {
+                await relacaoService.removerSeguidor(seguidor.id)
+                ajustarSeguidores(-1)
+                return true
+            } catch (error) {
+                toast.error(getErrorMessage(error))
+                return false
+            }
+        },
+        [ajustarSeguidores, toast],
+    )
+
+    return { estado, contagens, seguir, deixarDeSeguir, removerSeguidor }
 }

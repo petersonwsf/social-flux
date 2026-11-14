@@ -47,7 +47,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
 | --- | --- | --- | --- | --- |
 | `ModalAction` | `src/components/modals/ModalAction.tsx` | Confirmação genérica (confirmar/cancelar) | `id`, `title`, `titleAction`, `action()`, `danger?` (botão vermelho) | `Perfil` (deixar de seguir), `Settings` (sair de todos) |
-| `ModalListUsers` | `src/components/modals/ModalListUsers.tsx` | Lista de usuários com avatar e link para o perfil | `id`, `title`, `users`, `msgDefault` (lista vazia) | `Perfil` (seguidores/seguidos), `RelacoesEmComum` |
+| `ModalListUsers` | `src/components/modals/ModalListUsers.tsx` | Lista de usuários (`UsuarioResumo`) com avatar e link para o perfil; opcionalmente paginada ("Carregar mais"), com mensagem de erro no lugar da lista e botão "Remover" por item | `id`, `title`, `users`, `msgDefault` (lista vazia), `erro?`, `temMais?`, `carregando?`, `onCarregarMais?`, `onRemover?(usuario)` | `Perfil` (seguidores/seguidos), `RelacoesEmComum` |
 | `ModalAlterarSenha` | `src/components/modals/ModalAlterarSenha.tsx` | Troca de senha (atual, nova, confirmação); usa `useConta` | `id` | `Settings` |
 | `ModalExcluirUsuario` | `src/components/modals/ModalExcluirUsuario.tsx` | Exclusão da conta com senha + confirmação; usa `useConta` | `id` | `Settings` |
 | `ModalImagemComentario` | `src/components/modals/ModalImagemComentario.tsx` | Escolha de imagem para anexar a um comentário | `id`, `onSelect(file \| null)` | `FormComentar` |
@@ -62,7 +62,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `Sidebar` | `src/components/layout/sidebar/Sidebar.tsx` | Sidebar fixa (só desktop) que troca entre as visões menu, busca, solicitações e notificações; menu do usuário (perfil, configurações, sair) | `user` | `ProtectedLayout` |
 | `SidebarMenu` | `src/components/layout/sidebar/SidebarMenu.tsx` | Links principais da sidebar com badges de solicitações e não vistas | `solicitacoesPendentes`, `naoVistas`, `onAbrirSolicitacoes`, `onAbrirBusca`, `onAbrirNotificacoes` | `Sidebar` |
 | `SearchUsuario` | `src/components/layout/sidebar/SearchUsuario.tsx` | Busca de usuários dentro da sidebar | `onVoltar()` | `Sidebar` |
-| `SidebarRelacoes` | `src/components/layout/sidebar/SidebarRelacoes.tsx` | Solicitações de seguir dentro da sidebar | `relacoes`, `onVoltar`, `onAceitar(relacao)`, `onRecusar(relacao)` | `Sidebar` |
+| `SidebarRelacoes` | `src/components/layout/sidebar/SidebarRelacoes.tsx` | Solicitações de seguir dentro da sidebar | `solicitacoes`, `temMais`, `onVoltar`, `onCarregarMais`, `onAceitar(solicitacao)`, `onRecusar(solicitacao)` | `Sidebar` |
 | `NotificationsSidebar` | `src/components/layout/sidebar/NotificationsSidebar.tsx` | Notificações dentro da sidebar; marca como vistas ao voltar | `onVoltar()` | `Sidebar` |
 | `SidebarBackLink` | `src/components/layout/sidebar/SidebarBackLink.tsx` | Link "voltar" das visões internas da sidebar | `onClick()` | visões da sidebar |
 
@@ -81,17 +81,17 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
 | --- | --- | --- | --- | --- |
-| `InfoPerfil` | `src/components/perfil/InfoPerfil.tsx` | Cabeçalho do perfil: avatar, nome, bio, contadores, ações e seguidores em comum. Exporta os ids de modal `MODAL_SEGUIDORES`, `MODAL_SEGUIDOS`, `MODAL_DEIXAR_DE_SEGUIR` | `perfil`, `user`, `numeroSeguidores`, `numeroSeguidos`, `relacao`, `onSeguir`, `onCancelarSolicitacao` | `Perfil` |
-| `ActionsProfile` | `src/components/perfil/ActionsProfile.tsx` | Botão conforme a relação: editar perfil (próprio), seguir, solicitado (cancelar) ou seguindo (abre confirmação) | `ehProprioPerfil`, `relacao`, `onSeguir`, `onCancelarSolicitacao`, `modalDeixarDeSeguirId` | `InfoPerfil` |
+| `InfoPerfil` | `src/components/perfil/InfoPerfil.tsx` | Cabeçalho do perfil: avatar, nome, bio, contadores, ações e seguidores em comum. Exporta os ids de modal `MODAL_SEGUIDORES`, `MODAL_SEGUIDOS`, `MODAL_DEIXAR_DE_SEGUIR` | `perfil`, `user`, `numeroSeguidores`, `numeroSeguidos`, `estado`, `onSeguir`, `onCancelarSolicitacao` | `Perfil` |
+| `ActionsProfile` | `src/components/perfil/ActionsProfile.tsx` | Botão conforme o estado da relação: editar perfil (próprio), seguir (`NENHUM`), solicitado (`SOLICITADO`, cancela) ou seguindo (`SEGUINDO`, abre confirmação) | `ehProprioPerfil`, `estado`, `onSeguir`, `onCancelarSolicitacao`, `modalDeixarDeSeguirId` | `InfoPerfil` |
 | `NumeroRelacoes` | `src/components/perfil/NumeroRelacoes.tsx` | Contador clicável (seguidores/seguindo) que abre um modal | `label`, `numero`, `modalId` | `InfoPerfil` |
 
 ## `relacoes/`
 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
 | --- | --- | --- | --- | --- |
-| `CardRelacaoNaoAceita` | `src/components/relacoes/CardRelacaoNaoAceita.tsx` | Solicitação de seguir com botões aceitar/recusar | `relacao`, `onAceitar`, `onRecusar` | `ListaRelacoesNaoAceitas` |
-| `ListaRelacoesNaoAceitas` | `src/components/relacoes/ListaRelacoesNaoAceitas.tsx` | Lista de solicitações pendentes (ou mensagem de vazio) | `relacoes`, `onAceitar`, `onRecusar` | `Notifications`, `SidebarRelacoes` |
-| `RelacoesEmComum` | `src/components/relacoes/RelacoesEmComum.tsx` | "Seguido por X, Y e mais N" com modal da lista completa (mostra até 3) | `user`, `perfil` | `InfoPerfil` |
+| `CardRelacaoNaoAceita` | `src/components/relacoes/CardRelacaoNaoAceita.tsx` | Solicitação de seguir com botões aceitar/recusar | `solicitacao` (`ItemRelacao`), `onAceitar`, `onRecusar` | `ListaRelacoesNaoAceitas` |
+| `ListaRelacoesNaoAceitas` | `src/components/relacoes/ListaRelacoesNaoAceitas.tsx` | Lista de solicitações pendentes (ou mensagem de vazio), com "Carregar mais" | `solicitacoes`, `onAceitar`, `onRecusar`, `temMais?`, `onCarregarMais?` | `Notifications`, `SidebarRelacoes` |
+| `RelacoesEmComum` | `src/components/relacoes/RelacoesEmComum.tsx` | "Seguido por X, Y e mais N" (N vem do `total` da API) com modal da lista (mostra até 3) | `user`, `perfil` | `InfoPerfil` |
 
 ## `usuarios/`
 

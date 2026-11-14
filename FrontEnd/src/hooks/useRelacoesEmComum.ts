@@ -2,12 +2,17 @@ import { useEffect, useState } from 'react'
 import * as relacaoService from '../services/relacaoService'
 import { getErrorMessage } from '../lib/errors'
 import { useToast } from './useToast'
-import type { Usuario } from '../types/api'
+import type { EmComum, Usuario } from '../types/api'
 
-/** Usuários que o logado e o outro usuário têm em comum. */
-export function useRelacoesEmComum(user: Usuario, outro: Usuario) {
+const VAZIO: EmComum = { itens: [], total: 0 }
+
+/**
+ * Quem o logado segue e também segue o outro usuário. `limite` restringe os itens trazidos (padrão: o máximo da API);
+ * `total` é sempre o número real, então quem só precisa da contagem pode pedir `limite = 1`.
+ */
+export function useRelacoesEmComum(user: Usuario, outro: Usuario, limite = 100) {
     const toast = useToast()
-    const [emComum, setEmComum] = useState<Usuario[]>([])
+    const [emComum, setEmComum] = useState<EmComum>(VAZIO)
 
     useEffect(() => {
         if (user.id === outro.id) return
@@ -15,9 +20,9 @@ export function useRelacoesEmComum(user: Usuario, outro: Usuario) {
         let ignore = false
 
         relacaoService
-            .buscarEmComum(user.id, outro.id)
-            .then((lista) => {
-                if (!ignore) setEmComum(lista)
+            .buscarEmComum(outro.id, limite)
+            .then((resultado) => {
+                if (!ignore) setEmComum(resultado)
             })
             .catch((error: unknown) => {
                 if (!ignore) toast.error(getErrorMessage(error))
@@ -26,7 +31,7 @@ export function useRelacoesEmComum(user: Usuario, outro: Usuario) {
         return () => {
             ignore = true
         }
-    }, [user.id, outro.id, toast])
+    }, [user.id, outro.id, limite, toast])
 
     return emComum
 }

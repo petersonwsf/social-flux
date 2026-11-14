@@ -17,7 +17,7 @@ export type SidebarView = 'menu' | 'busca' | 'solicitacoes' | 'notificacoes'
 function Sidebar({ user }: { user: Usuario }) {
     const { logout } = useAuth()
     const { naoVistas, zerarContador } = useNotificacoes()
-    const { pendentes, aceitar, recusar } = useRelacoesPendentes(user)
+    const { pendentes, temMais, carregarMais, aceitar, recusar } = useRelacoesPendentes(user)
     const [view, setView] = useState<SidebarView>('menu')
 
     const voltarAoMenu = () => setView('menu')
@@ -44,7 +44,14 @@ function Sidebar({ user }: { user: Usuario }) {
                     )}
                     {view === 'busca' && <SearchUsuario onVoltar={voltarAoMenu} />}
                     {view === 'solicitacoes' && (
-                        <SidebarRelacoes relacoes={pendentes} onVoltar={voltarAoMenu} onAceitar={aceitar} onRecusar={recusar} />
+                        <SidebarRelacoes
+                            solicitacoes={pendentes}
+                            temMais={temMais}
+                            onVoltar={voltarAoMenu}
+                            onCarregarMais={carregarMais}
+                            onAceitar={aceitar}
+                            onRecusar={recusar}
+                        />
                     )}
                     {view === 'notificacoes' && <NotificationsSidebar onVoltar={voltarAoMenu} />}
                 </div>

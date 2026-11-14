@@ -6,7 +6,7 @@ import type { Usuario } from '../../types/api'
 
 function CardUsuarioSearch({ userSearched }: { userSearched: Usuario }) {
     const user = useCurrentUser()
-    const emComum = useRelacoesEmComum(user, userSearched)
+    const { total: emComum } = useRelacoesEmComum(user, userSearched, 1)
 
     return (
         <li className="my-1">
@@ -15,9 +15,9 @@ function CardUsuarioSearch({ userSearched }: { userSearched: Usuario }) {
                 <div className="d-flex flex-column min-w-0">
                     <span className="search-username">{userSearched.username}</span>
                     <span className="search-name text-secondary">{userSearched.nome}</span>
-                    {emComum.length > 0 && (
+                    {emComum > 0 && (
                         <small className="text-secondary text-truncate">
-                            Seguido por {emComum.length} {emComum.length === 1 ? 'usuário' : 'usuários'} em comum
+                            Seguido por {emComum} {emComum === 1 ? 'usuário' : 'usuários'} em comum
                         </small>
                     )}
                 </div>

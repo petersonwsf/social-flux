@@ -1,19 +1,27 @@
 import ListaRelacoesNaoAceitas from '../../relacoes/ListaRelacoesNaoAceitas'
 import SidebarBackLink from './SidebarBackLink'
-import type { Relacao } from '../../../types/api'
+import type { ItemRelacao } from '../../../types/api'
 
 interface SidebarRelacoesProps {
-    relacoes: Relacao[]
+    solicitacoes: ItemRelacao[]
+    temMais: boolean
     onVoltar: () => void
-    onAceitar: (relacao: Relacao) => void
-    onRecusar: (relacao: Relacao) => void
+    onCarregarMais: () => void
+    onAceitar: (solicitacao: ItemRelacao) => void
+    onRecusar: (solicitacao: ItemRelacao) => void
 }
 
-function SidebarRelacoes({ relacoes, onVoltar, onAceitar, onRecusar }: SidebarRelacoesProps) {
+function SidebarRelacoes({ solicitacoes, temMais, onVoltar, onCarregarMais, onAceitar, onRecusar }: SidebarRelacoesProps) {
     return (
         <div>
             <SidebarBackLink onClick={onVoltar} />
-            <ListaRelacoesNaoAceitas relacoes={relacoes} onAceitar={onAceitar} onRecusar={onRecusar} />
+            <ListaRelacoesNaoAceitas
+                solicitacoes={solicitacoes}
+                temMais={temMais}
+                onCarregarMais={onCarregarMais}
+                onAceitar={onAceitar}
+                onRecusar={onRecusar}
+            />
         </div>
     )
 }

@@ -6,7 +6,7 @@ text/image, reply to posts (comments are posts with a parent), like, search user
 
 The project is in the middle of a **gradual migration, one domain at a time**, from a legacy monolith (Javalin + MySQL) to
 Spring Boot services (each with its own PostgreSQL database), talking through RabbitMQ events and sitting behind a Caddy gateway.
-Identity and Profile are already migrated; Relations, Posts, Likes, Images and Notifications are still in the legacy backend.
+Identity, Profile and Relations (social graph) are already migrated; Posts, Likes, Images and Notifications are still in the legacy backend.
 
 ## Stack
 - **Frontend:** React 18 + TypeScript (strict) + Vite · **Bootstrap 5** (+ `data-bs-*` JS) · Formik + Yup · axios · react-router 6 · ionicons
@@ -20,7 +20,7 @@ Identity and Profile are already migrated; Relations, Posts, Likes, Images and N
 | `FrontEnd/` | SPA. Talks only to its own origin (`/auth`, `/api`, `/media`); Vite proxies to the gateway in dev | 5173 |
 | `authentication_service/` | Identity & access: register, login, sliding session (HttpOnly cookies), password reset, e-mail verification, JWKS, gateway `forward_auth` | 8081 |
 | `profile_service/` | User profile: profile data, search, avatar, privacy; JWT resource server; publishes `profile.*` events and projects them into the legacy `usuario` table | 8082 |
-| `social_graph_service/` | Social graph: follow/unfollow, followers/following, follow requests for private accounts; JWT resource server; consumes `profile.*`, publishes `follow.*`, projects accepted relations into the legacy `relacao` table. **In compose and the gateway (`/api/relacoes*`); the frontend does not use it yet (still calls the legacy `/api/relacao`)** | 8083 |
+| `social_graph_service/` | Social graph: follow/unfollow, followers/following, follow requests for private accounts; JWT resource server; consumes `profile.*`, publishes `follow.*`, projects accepted relations into the legacy `relacao` table. **In compose, the gateway (`/api/relacoes*`) and the frontend; the legacy `/api/relacao` routes are now unused** | 8083 |
 | `libs/socialflux-events/` | Shared event library (transactional outbox, relay, idempotent inbox, RabbitMQ topology) used by every Spring service; auto-configured, `socialflux.events.*` properties | — |
 | `BackEnd/` | **Legacy** Javalin backend (relations, posts, likes, post images, notifications). Runs in `AUTH_MODE=gateway`: trusts only `X-User-Id` from the gateway | 8000 (never published) |
 | `infra/` | `caddy/Caddyfile` (gateway routing) and `mysql/schema.sql` (legacy schema, inferred from code) | 8080 (gateway) |

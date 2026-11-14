@@ -68,11 +68,41 @@ export interface Curtida {
     id_conteudo: number
 }
 
-export interface Relacao {
-    id: number
-    seguidor: Usuario
-    seguido: Usuario
-    aceito: boolean
+/** Usuário como aparece nas listas de relações (social_graph_service): perfil público resumido, sem biografia. */
+export type UsuarioResumo = Pick<Usuario, 'id' | 'accountId' | 'username' | 'nome' | 'foto_perfil' | 'foto_url' | 'privado'>
+
+export type EstadoRelacao = 'NENHUM' | 'SOLICITADO' | 'SEGUINDO'
+
+/** Relação do usuário logado com outro usuário. */
+export interface RelacaoComUsuario {
+    estado: EstadoRelacao
+    /** O outro usuário segue o logado. */
+    segueVoce: boolean
+    /** O outro usuário pediu para seguir o logado (conta privada). */
+    solicitouVoce: boolean
+}
+
+export interface ContagensRelacao {
+    seguidores: number
+    seguidos: number
+}
+
+/** Item de lista paginada de relações; `desde` é a data ISO-8601 da relação ou da solicitação. */
+export interface ItemRelacao {
+    usuario: UsuarioResumo
+    desde: string
+}
+
+/** Página de uma lista de relações; `proximoCursor` é `null` na última página. */
+export interface PaginaRelacoes {
+    itens: ItemRelacao[]
+    proximoCursor: string | null
+}
+
+/** Seguidores em comum; `total` é o número real, mesmo quando `itens` vem limitado. */
+export interface EmComum {
+    itens: UsuarioResumo[]
+    total: number
 }
 
 export type NotificationCategory = 'LIKE' | 'COMENT' | 'FOLLOW'

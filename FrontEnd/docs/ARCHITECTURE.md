@@ -125,9 +125,11 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `usePostagemInteracoes.ts` | Junta curtidas, número de respostas e o envio de comentário de um card |
 | `useCurtidas.ts` | Curtida própria + total de uma postagem; notifica o autor ao curtir |
 | `useNumeroRespostas.ts` | Quantidade de respostas, com incremento local após comentar |
-| `useRelacao.ts` | Relação entre o logado e o dono do perfil (seguir, cancelar, deixar de seguir) e listas de seguidores/seguidos |
-| `useRelacoesEmComum.ts` | Usuários em comum entre o logado e outro usuário |
-| `useRelacoesPendentes.ts` | Solicitações de seguir recebidas, com aceitar/recusar |
+| `useRelacao.ts` | Relação entre o logado e o dono do perfil: `estado` (`NENHUM`/`SOLICITADO`/`SEGUINDO`), contadores e as ações seguir, deixar de seguir/cancelar e remover seguidor |
+| `useListaRelacoes.ts` | Lista paginada por cursor (seguidores/seguidos): a 1ª página só é buscada quando `ativo` vira `true`; `carregarMais`, `remover` e `erro` (ex.: conta privada) |
+| `useModalAberto.ts` | Diz se um modal do Bootstrap já foi aberto (evento `show.bs.modal`), para carregar o conteúdo só sob demanda |
+| `useRelacoesEmComum.ts` | Seguidores em comum entre o logado e outro usuário (`itens` + `total`; `limite` opcional) |
+| `useRelacoesPendentes.ts` | Solicitações de seguir recebidas (paginadas), com aceitar/recusar e `carregarMais` |
 
 ### `src/lib/`
 
@@ -150,7 +152,7 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `ResetPassword/ResetPassword.tsx` | Define a nova senha com o `token` da URL |
 | `VerifyEmail/VerifyEmail.tsx` | Confirma o e-mail com o `token` da URL (chamada única mesmo no StrictMode) |
 | `Home/Home.tsx` | Feed das pessoas seguidas |
-| `Perfil/Perfil.tsx` | Perfil: informações, seguir, seguidores/seguidos (modais), abas de postagens; conteúdo protegido em conta privada não seguida |
+| `Perfil/Perfil.tsx` | Perfil: informações, seguir, seguidores/seguidos (modais paginados, carregados ao abrir; o dono pode remover seguidores), abas de postagens; conteúdo protegido em conta privada não seguida |
 | `Perfil/PerfilPostagens.tsx` | Lista as postagens do perfil conforme a aba (posts, interações, mídia) |
 | `EditarPerfil/EditarPerfil.tsx` | Edição de dados do perfil e troca da foto |
 | `CriarPostagem/CriarPostagem.tsx` | Nova postagem (texto e/ou imagem) |
@@ -170,8 +172,8 @@ Uma função por chamada, sempre pela instância `api`. Os nomes de rota estão 
 | `usuarioService.ts` | profile_service: meu perfil, perfil por username, pesquisa, editar perfil, trocar foto |
 | `postagemService.ts` | Legado: criar (multipart, com pai opcional), remover, buscar por id, respostas, feed e postagens do usuário por filtro |
 | `curtidaService.ts` | Legado: criar, buscar, remover e contar curtidas |
-| `relacaoService.ts` | Legado: buscar relação, seguidos, seguidores, pendentes, em comum, criar, remover e aceitar |
-| `notificationService.ts` | Legado: listar, contar não vistas, marcar como vistas e criar notificações de curtida, comentário e novo seguidor |
+| `relacaoService.ts` | social_graph_service (`/api/relacoes`): estado, contagens, seguir, deixar de seguir/cancelar, remover seguidor, seguidores/seguidos paginados, em comum, solicitações recebidas, aceitar e recusar. Só informa o ALVO; quem age vem do token |
+| `notificationService.ts` | Legado: listar, contar não vistas, marcar como vistas e criar notificações de curtida, comentário e novo seguidor (o frontend ainda as cria, ao seguir e ao aceitar uma solicitação) |
 
 ### `src/styles/`
 
@@ -184,6 +186,6 @@ Uma função por chamada, sempre pela instância `api`. Os nomes de rota estão 
 
 | Arquivo | O que representa |
 | --- | --- |
-| `types/api.ts` | Modelos e payloads da API (`Usuario`, `Postagem`, `Curtida`, `Relacao`, `Notification`, `Mensagem`, respostas de auth...) |
+| `types/api.ts` | Modelos e payloads da API (`Usuario`, `UsuarioResumo`, `Postagem`, `Curtida`, `EstadoRelacao`, `RelacaoComUsuario`, `ContagensRelacao`, `ItemRelacao`, `PaginaRelacoes`, `EmComum`, `Notification`, `Mensagem`, respostas de auth...) |
 | `ionicons.d.ts` | Declara `<ion-icon>` no JSX |
 | `vite-env.d.ts` | Referência aos tipos do Vite e tipagem de `import.meta.env` (`VITE_API_URL`) |

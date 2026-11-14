@@ -14,9 +14,12 @@ import InfoPerfil, {
 } from '../../components/perfil/InfoPerfil'
 import { useCurrentUser } from '../../hooks/useAuth'
 import { usePerfil } from '../../hooks/usePerfil'
+import { useListaRelacoes } from '../../hooks/useListaRelacoes'
+import { useModalAberto } from '../../hooks/useModalAberto'
 import { useRelacao } from '../../hooks/useRelacao'
+import * as relacaoService from '../../services/relacaoService'
 import type { FiltroPostagensUsuario } from '../../services/postagemService'
-import type { Usuario } from '../../types/api'
+import type { Usuario, UsuarioResumo } from '../../types/api'
 import PerfilPostagens from './PerfilPostagens'
 
 const TABS: ReadonlyArray<{ id: FiltroPostagensUsuario; label: string }> = [
@@ -27,10 +30,23 @@ const TABS: ReadonlyArray<{ id: FiltroPostagensUsuario; label: string }> = [
 
 function PerfilView({ perfil }: { perfil: Usuario }) {
     const user = useCurrentUser()
-    const { relacao, seguidores, seguidos, seguir, deixarDeSeguir } = useRelacao(user, perfil)
+    const { estado, contagens, seguir, deixarDeSeguir, removerSeguidor } = useRelacao(user, perfil)
     const [aba, setAba] = useState<FiltroPostagensUsuario>('posts')
 
-    const podeVerConteudo = perfil.id === user.id || !perfil.privado || relacao?.aceito === true
+    const ehProprioPerfil = perfil.id === user.id
+    const podeVerConteudo = ehProprioPerfil || !perfil.privado || estado === 'SEGUINDO'
+
+    // As listas só são buscadas quando o modal é aberto pela primeira vez (conta privada não seguida recebe um aviso).
+    const seguidores = useListaRelacoes(useModalAberto(MODAL_SEGUIDORES), (cursor) =>
+        relacaoService.listarSeguidores(perfil.id, cursor),
+    )
+    const seguidos = useListaRelacoes(useModalAberto(MODAL_SEGUIDOS), (cursor) =>
+        relacaoService.listarSeguidos(perfil.id, cursor),
+    )
+
+    const aoRemoverSeguidor = async (seguidor: UsuarioResumo) => {
+        if (await removerSeguidor(seguidor)) seguidores.remover(seguidor.id)
+    }
 
     return (
         <div className="perfil">
@@ -43,9 +59,9 @@ function PerfilView({ perfil }: { perfil: Usuario }) {
             <InfoPerfil
                 perfil={perfil}
                 user={user}
-                numeroSeguidores={seguidores.length}
-                numeroSeguidos={seguidos.length}
-                relacao={relacao}
+                numeroSeguidores={contagens.seguidores}
+                numeroSeguidos={contagens.seguidos}
+                estado={estado}
                 onSeguir={() => void seguir()}
                 onCancelarSolicitacao={() => void deixarDeSeguir()}
             />
@@ -66,8 +82,27 @@ function PerfilView({ perfil }: { perfil: Usuario }) {
                 action={() => void deixarDeSeguir()}
                 danger
             />
-            <ModalListUsers id={MODAL_SEGUIDORES} title="Seguidores" msgDefault="Não há seguidores" users={seguidores} />
-            <ModalListUsers id={MODAL_SEGUIDOS} title="Seguidos" msgDefault="Não há seguidos" users={seguidos} />
+            <ModalListUsers
+                id={MODAL_SEGUIDORES}
+                title="Seguidores"
+                msgDefault="Não há seguidores"
+                users={seguidores.usuarios}
+                erro={seguidores.erro}
+                temMais={seguidores.temMais}
+                carregando={seguidores.carregando}
+                onCarregarMais={seguidores.carregarMais}
+                onRemover={ehProprioPerfil ? (seguidor) => void aoRemoverSeguidor(seguidor) : undefined}
+            />
+            <ModalListUsers
+                id={MODAL_SEGUIDOS}
+                title="Seguidos"
+                msgDefault="Não há seguidos"
+                users={seguidos.usuarios}
+                erro={seguidos.erro}
+                temMais={seguidos.temMais}
+                carregando={seguidos.carregando}
+                onCarregarMais={seguidos.carregarMais}
+            />
         </div>
     )
 }

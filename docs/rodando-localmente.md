@@ -93,7 +93,7 @@ As fotos de perfil são gravadas em `profile_service/data/avatars/` (ignorado pe
 Use `scripts/dev/run-graph.ps1` (ou `.sh`): banco `social_graph` na mesma instância PostgreSQL, **com o mesmo usuário e senha** do
 `IDENTITY_DB_*`, valida o JWT pelo JWKS do auth e mantém a tabela `relacao` do MySQL atualizada (projeção). O banco é criado
 pelo serviço `graph_db_init` do compose (suba a infra antes). Pronto quando aparecer `Started GraphServiceApplication`. O gateway já
-roteia `/api/relacoes*` para ele (porta 8083 no host); **o frontend ainda não o usa** (veja o README dele).
+roteia `/api/relacoes*` para ele (porta 8083 no host); o frontend já o usa (veja o README dele).
 
 ## 3. Backend legado (porta 8000), em modo gateway
 

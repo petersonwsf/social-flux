@@ -2,14 +2,14 @@ import Avatar from '../common/Avatar'
 import RelacoesEmComum from '../relacoes/RelacoesEmComum'
 import ActionsProfile from './ActionsProfile'
 import NumeroRelacoes from './NumeroRelacoes'
-import type { Relacao, Usuario } from '../../types/api'
+import type { EstadoRelacao, Usuario } from '../../types/api'
 
 interface InfoPerfilProps {
     perfil: Usuario
     user: Usuario
     numeroSeguidores: number
     numeroSeguidos: number
-    relacao: Relacao | null
+    estado: EstadoRelacao
     onSeguir: () => void
     onCancelarSolicitacao: () => void
 }
@@ -23,7 +23,7 @@ function InfoPerfil({
     user,
     numeroSeguidores,
     numeroSeguidos,
-    relacao,
+    estado,
     onSeguir,
     onCancelarSolicitacao,
 }: InfoPerfilProps) {
@@ -51,7 +51,7 @@ function InfoPerfil({
             <div className="d-flex justify-content-end mt-2">
                 <ActionsProfile
                     ehProprioPerfil={ehProprioPerfil}
-                    relacao={relacao}
+                    estado={estado}
                     onSeguir={onSeguir}
                     onCancelarSolicitacao={onCancelarSolicitacao}
                     modalDeixarDeSeguirId={MODAL_DEIXAR_DE_SEGUIR}

@@ -4,7 +4,7 @@
 | --- | --- |
 | `authentication_service/` | **Novo** serviço de identidade e acesso (Spring Boot, PostgreSQL, JWT RS256 em cookies HttpOnly) |
 | `profile_service/` | **Novo** serviço de perfil (Spring Boot, PostgreSQL próprio, busca, foto de perfil, eventos via RabbitMQ) |
-| `social_graph_service/` | **Novo** serviço do grafo social (seguir, seguidores, solicitações; PostgreSQL próprio; no compose e no gateway em `/api/relacoes*`; o frontend ainda não o usa) |
+| `social_graph_service/` | **Novo** serviço do grafo social (seguir, seguidores, solicitações; PostgreSQL próprio; no compose, no gateway em `/api/relacoes*` e no frontend) |
 | `libs/socialflux-events/` | Biblioteca compartilhada de eventos (outbox, inbox, RabbitMQ) dos serviços Spring Boot |
 | `FrontEnd/` | SPA React + TypeScript (Vite) |
 | `BackEnd/` | Backend **legado** (Javalin + MySQL), sendo substituído domínio a domínio |
