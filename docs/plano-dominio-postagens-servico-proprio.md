@@ -3,13 +3,16 @@
 Data: 2026-11-14 · Complementa `analise-backend-e-migracao-spring-boot.md`, `plano-dominio-perfil-servico-proprio.md` e
 `plano-dominio-relacoes-grafo-social.md`.
 
-> **Estado: plano aprovado nas decisões que bloqueavam o início (ver §14); nada foi implementado nem executado ainda.** Base: leitura de `BackEnd/`
+> **Estado: todas as decisões fechadas (§14). Nada de Postagens foi implementado ainda; só o RustFS e a criação dos buckets entraram no `docker-compose.yml`.** Base: leitura de `BackEnd/`
 > (`PostagemController`, `PostagemService`, `PostagemDao`, `CurtidaController`, `CurtidaDao`, `ImagemController`, `ImagemUtil`,
 > `NotificationDao/Controller/Service`, `App`, `infra/mysql/schema.sql`), do `social_graph_service/` e do `profile_service/`
 > (eventos que o novo serviço vai consumir) e do frontend (`postagemService`, `curtidaService`, `useCurtidas`, `usePostagens`,
 > `usePostagemActions`, `usePostagemInteracoes`, `useNumeroRespostas`, `PostSecondary`, `Notification`, `lib/dates`, `lib/imageUrl`).
 > Premissa herdada: **não existem dados reais em nenhum banco** (sem importação de postagens, curtidas ou imagens).
-> As decisões estão em **§14 (D1–D18)**. As que bloqueavam o início (D3, D4, D15 a D18) foram **fechadas em 2026-11-15**; as demais seguem a recomendação.
+> As decisões estão em **§14 (D1–D18) e estão todas fechadas** (2026-11-15).
+>
+> **Para implementar em outro contexto, comece pelo §16 (guia de implementação):** estado do repositório, regras do projeto, código de referência, configuração,
+> contratos, algoritmos, lista de arquivos do frontend e do legado, pendências herdadas e definição de pronto por fase.
 >
 > **Atualização (2026-11-15):** o armazenamento de mídia passa a ser o **RustFS** (S3 compatível), as postagens aceitam **GIFs**
 > além de imagens (vídeo fica para depois) e a lógica de mídia vira a biblioteca `libs/socialflux-media`, compartilhada com o
@@ -423,7 +426,7 @@ O `excerpt` existe para o futuro serviço de Notificações montar "curtiu seu p
 
 | Fase | Entrega | Pronto quando | Dias |
 | --- | --- | --- | --- |
-| 0 | Decisões D1–D18 fechadas | ✔ bloqueantes fechadas em 2026-11-15; as demais seguem a recomendação | 0,5 |
+| 0 | Decisões D1–D18 fechadas | ✔ todas fechadas em 2026-11-15 (§14) | 0,5 |
 | M1 | RustFS no compose (buckets, credenciais por serviço) + `libs/socialflux-media`: `MediaStorage` (S3 e memória), `ImageProcessor` (PNG/JPEG/WebP, orientação EXIF, CMYK, limite de simultâneos), `GifSanitizer`, testes | testes da biblioteca verdes: as 8 orientações EXIF saem na posição certa, WebP lido, animados recusados, GIF malformado/bomba de quadros/poliglota e arquivo falso rejeitados; subida real confirma o RustFS | 6–7 |
 | M2 | `profile_service` migra para a biblioteca e para o bucket `avatars`; **corrige** a orientação EXIF e aceita WebP nos avatares | 41 testes do perfil verdes + testes novos de orientação e WebP; avatar continua público e imutável | 2 |
 | 1 | Esqueleto: Maven/Java 21, Flyway `V1`, resource server (JWKS), `OriginCheckFilter`, erros, Dockerfile, script dev | sobe recusando config incompleta; token do auth aceito, adulterado/`aud` errado recusado | 2 |
@@ -469,12 +472,12 @@ feed em Redis se medido; lista de quem curtiu.
 
 ## 14. Decisões
 
-**Fechadas na conversa (2026-11-14/15):**
+**Todas fechadas na conversa (2026-11-14/15):**
 
 | # | Decisão |
 | --- | --- |
 | D1 | PostgreSQL, banco `post` **na mesma instância** (um banco por serviço) |
-| D2 (escopo) | Postagens, respostas e curtidas num serviço só, no mesmo banco; **não** há serviço separado de curtidas. *(A mídia foi reaberta: ver D15.)* |
+| D2 (escopo) | Postagens, respostas e curtidas num serviço só, no mesmo banco; **não** há serviço separado de curtidas. *(A mídia ficou com a biblioteca compartilhada: ver D15.)* |
 | D8 | Imagens de postagem **entregues pelo serviço, com checagem de visibilidade** (404 para quem não pode ver; bucket privado; sem URLs assinadas por ora) |
 | — | Armazenamento de mídia: **RustFS**; formatos: **imagens e GIFs** (vídeo fica para depois) |
 | D17(b) | Dependência **TwelveMonkeys ImageIO** (`imageio-webp`, `imageio-jpeg`, `imageio-metadata`) para ler WebP, JPEG CMYK e a orientação EXIF — **aprovada em 2026-11-15** |
@@ -489,24 +492,269 @@ feed em Redis se medido; lista de quem curtiu.
 | D7 | Excluir postagem **apaga as respostas e as curtidas** (cascata), como o legado |
 | D10 | Limites: texto ≤ 1.000 caracteres; 60 postagens/h e 600 curtidas/h por usuário, configuráveis |
 | D14 | Fim da transição: **remover postagens/curtidas/imagens do legado e a projeção `relacao` do grafo** na Fase 8 (inclui mudar o `schema.sql`, que ainda pede confirmação) |
+| D11 | Notificações durante a transição: **continuam criadas pelo frontend** (como no D14 do grafo); os eventos `post.*` (com `excerpt`) já nascem prontos para o serviço de Notificações, o próximo domínio |
+| D12 | Exclusão de conta: **apagar postagens (e respostas dependentes), curtidas, arestas e a mídia do usuário** |
+| D13 | Contexto de resposta: **`pai` resumido nas listas + `GET /{id}/ancestrais`** (até 10 níveis) |
 | D9 | Imagens estáticas: **PNG, JPEG e WebP** (entrada), até 5 MB/16 MP; saída JPEG ou PNG (se houver transparência), lado maior ≤ 1.600 px, **com correção da orientação EXIF**; PNG/WebP animados recusados (animação só por GIF) |
 
-**Sem objeção até agora — seguem a recomendação (em negrito) salvo aviso seu:**
-
-| # | Decisão | Opções |
-| --- | --- | --- |
-| D11 | Notificações durante a transição | **Continuam criadas pelo frontend (como no D14 do grafo); os eventos `post.*` (com `excerpt`) já nascem prontos para o serviço de Notificações, o próximo domínio** · antecipar Notificações antes de Postagens |
-| D12 | Exclusão de conta | **Apagar postagens (e respostas dependentes), curtidas, arestas e a mídia do usuário** · anonimizar e manter o conteúdo |
-| D13 | Contexto de resposta | **`pai` resumido nas listas + `GET /{id}/ancestrais` (até 10 níveis)** · embutir a cadeia inteira (volta ao N+1) |
-
 O WebP, a orientação EXIF e as demais lacunas de imagem estão **pedidos e incorporados** (D9 fechada); a dependência D17(b) está **aprovada**.
-**Nenhuma decisão bloqueia o início:** a Fase M1 (mídia) pode começar. Já estão aprovados o serviço `rustfs` no `docker-compose.yml` (D18) e as
+**Nada bloqueia o início:** a Fase M1 (mídia) pode começar. Já estão aprovados o serviço `rustfs` no `docker-compose.yml` (D18) e as
 dependências SDK S3 e TwelveMonkeys (D17). Continuam pedindo confirmação (CLAUDE.md, regra 5) o serviço `post_service` no compose, a rota no
-`Caddyfile` e as mudanças de `schema.sql` do legado (Fases 7 e 8). As decisões restantes (D11, D12 e D13) seguem a recomendação a
-menos que você diga o contrário.
+`Caddyfile` e as mudanças de `schema.sql` do legado (Fases 7 e 8). **Todas as decisões D1–D18 estão fechadas.**
 
 ## 15. O que não foi verificado
 Nada foi executado. As afirmações sobre o RustFS (GA em 09/2026, Apache 2.0, S3 compatível, URLs assinadas e políticas no estilo IAM) vêm de buscas na web e da documentação do projeto, e precisam ser confirmadas na primeira subida real; não verifiquei a imagem Docker oficial. A contagem de chamadas por card vem da leitura dos hooks, não de medição no navegador. Não confirmei o
 comportamento do Jetty/Javalin com caminhos adversariais em `/api/img` (já tratado como explorável). O ajuste do frontend para o
 novo contrato (id string, datas ISO) foi estimado pelos arquivos que citam `Postagem`/`data_postagem`/`getUserImageUrl`, sem alterá-los.
 Estimativas de prazo são ordem de grandeza.
+
+## 16. Guia de implementação (para quem for implementar em outro contexto)
+
+Esta seção reúne, em um só lugar, tudo o que uma sessão nova precisa para implementar este plano **sem depender da conversa que o originou**.
+Leia, nesta ordem: este §16, o `CLAUDE.md` da raiz, o `README.md` e os `docs/` de cada app em que for mexer (regra do projeto) e, como modelo de código,
+os arquivos listados em 16.3.
+
+### 16.1 Estado do repositório (2026-11-15)
+
+- **Não há repositório remoto utilizável:** não abrir PRs nem fazer `push`. Trabalha-se em **branches locais empilhados**; um branch novo parte do branch
+  atual (nunca da `main`) quando depende do trabalho anterior. Nunca commitar na `main`.
+- **Pilha de branches (da base para o topo):**
+
+  | Branch | Conteúdo |
+  | --- | --- |
+  | `docs/arquitetura-e-claude-md` | `CLAUDE.md`, `ARCHITECTURE.md` por app, plano de Relações |
+  | `refactor/modulo-eventos` | `libs/socialflux-events`, `pom.xml` agregador, auth e profile migrados para a biblioteca |
+  | `feat/grafo-social` | `social_graph_service`, rota e compose do grafo, frontend de relações, `total` de solicitações pendentes |
+  | `docs/plano-postagens` | este plano |
+  | `feat/modulo-midia` (**atual**) | `rustfs` e `rustfs_init` no compose, `.env.example` e docs de infra. **A Fase M1 (biblioteca) ainda não começou** |
+
+- **Baseline de testes** (`mvn test` na raiz): `socialflux-events` 8, `authentication_service` 31, `profile_service` 41, `social_graph_service` 45 = **125**.
+  Nenhuma fase deste plano pode reduzir esses números; o contrato dos serviços existentes não muda (a M2 só corrige orientação EXIF/WebP nos avatares).
+- **Mudanças locais que NÃO devem ser commitadas** (known issue do CLAUDE.md): `BackEnd/logs/app.log`, `BackEnd/.idea/vcs.xml`, `BackEnd/dependency-reduced-pom.xml`.
+- O `.env` local do desenvolvedor é gitignored e **ainda não tem** `RUSTFS_ACCESS_KEY` nem `RUSTFS_SECRET_KEY` (o compose passou a exigi-las).
+- **Nada de Postagens foi escrito além deste plano e do RustFS no compose.** Não existe `post_service/` nem `libs/socialflux-media/`.
+
+### 16.2 Regras do projeto que valem para toda a implementação
+
+| Regra | Como aplicar aqui |
+| --- | --- |
+| Idioma | Comentários, mensagens de erro/log (`mensagem`), documentação e **commits em pt-BR**. Em `post_service/` e nas libs, **nomes de classes/métodos/variáveis em inglês** (como `profile_service`). `FrontEnd/` e `BackEnd/` usam nomes em português. JSON da API pública em português/snake_case (`foto_perfil`, `{ mensagem, sucesso, codigo }`) |
+| Commits | Conventional Commits em pt-BR, `tipo(escopo): descrição no imperativo`; **um commit por tarefa concluída**; docs no mesmo commit da mudança. Escopos: `postagens`, `midia`, `perfil`, `frontend`, `legado`, `infra`, `grafo`. Terminar a mensagem com a linha de coautoria que a ferramenta indicar |
+| Documentação no mesmo commit | Arquivo novo/movido → `docs/ARCHITECTURE.md` do app; rota/evento/variável/tabela nova → `README.md` do app (+ `.env.example` e `README.md` da raiz se transversal); gateway/compose/scripts → `docs/ARCHITECTURE.md` da raiz; componente do frontend → `FrontEnd/docs/COMPONENTS.md` |
+| Testes | `mvn -pl <serviço> -am test` na raiz após cada implementação em serviço Spring; frontend: `npm run typecheck`, `npm run lint`, `npm run build`. Sem `any`, sem `console.log`/`System.out.println` |
+| Banco | Mudança de esquema = **nova migração Flyway**, nunca editar uma existente. Um banco por serviço; **nenhum serviço lê o banco de outro** |
+| Identidade | Sempre do `sub` do JWT; ids em caminho/corpo só são conferidos. Nenhuma rota aceita autor, `id_usuario` ou id de curtida do cliente |
+| Eventos | Tipo versionado como routing key (`post.created.v1`), gravados no outbox **na mesma transação**; consumidores idempotentes (inbox) e tolerantes a tipos desconhecidos e `aggregateVersion` antigo; **nunca dados pessoais** |
+| Segurança de upload | Nome gerado no servidor, *magic bytes*, tamanho, re-codificação, nunca confiar em nome/`Content-Type` do cliente |
+| **Perguntar antes de** | adicionar dependências (as aprovadas estão em 16.4), mudar `docker-compose.yml` ou `Caddyfile` (aprovado: só `rustfs`/`rustfs_init`), mudar `schema.sql`, mudar autenticação/token, mudar contrato de evento/API |
+| Docker | PostgreSQL, MySQL, RabbitMQ e RustFS **sempre via Docker**. Nunca `docker compose down -v`, `docker volume rm` nem apagar banco sem perguntar |
+
+### 16.3 Código de referência (copiar o padrão, não reinventar)
+
+| Para fazer… | Copie o padrão de… |
+| --- | --- |
+| Esqueleto do serviço (pom, `application.yml`, `ClockConfig`, `*Properties` validadas) | `social_graph_service/` (`pom.xml`, `config/GraphProperties`, `application.yml`) |
+| Resource server JWT, `OriginCheckFilter`, erros | `social_graph_service/.../security/*` e `.../web/{ApiError,ApiException,GlobalExceptionHandler}` |
+| Cópia local de perfis por eventos (`author_snapshot`), aplicação idempotente por `aggregateVersion`, túmulo, exclusão de conta | `social_graph_service/.../service/ProfileSyncService`, `.../domain/SnapshotRepository`, `.../events/*` |
+| Escrita transacional com contadores + evento no outbox | `social_graph_service/.../service/FollowWriter` |
+| Trava por par, paginação por cursor (keyset), `FOR SHARE`/`FOR UPDATE` para fechar corridas | `social_graph_service/.../domain/{FollowRepository,Cursor,SnapshotRepository}` e `GraphService` |
+| Limite de ações por hora (rate limit) | `social_graph_service/.../service/RateLimiter` |
+| Testes: Postgres embutido (zonky), JWKS local, JWT RS256 real, usuários por evento, corridas | `social_graph_service/src/test/.../support/AbstractGraphTest`, `Http`, `TestSupportConfig`, `ConcurrencyTest`, `SecurityTest`, `ProfileSyncTest` |
+| Outbox/inbox/relay/RabbitMQ | `libs/socialflux-events` (README e `docs/ARCHITECTURE.md`); filas do consumidor: `social_graph_service/.../events/Amqp` |
+| Validação e re-codificação de imagem, armazenamento | `profile_service/.../storage/{AvatarProcessor,StorageService,LocalDiskStorage,AvatarKeys}` e `service/AvatarService`, `web/MediaController` |
+| Dockerfile com contexto na raiz, script `run-*.ps1/.sh`, entradas de compose/Caddy | `social_graph_service/Dockerfile`, `scripts/dev/run-graph.*`, blocos `social_graph_service`/`graph_db_init` do `docker-compose.yml` e o bloco `@graph` do `Caddyfile` |
+| Frontend: service tipado, hooks com paginação, modal/lista com "carregar mais" | `FrontEnd/src/services/relacaoService.ts`, `hooks/{useRelacao,useListaRelacoes,useRelacoesPendentes,useModalAberto}`, `components/modals/ModalListUsers` |
+
+### 16.4 Dependências aprovadas e configuração
+
+**Dependências aprovadas (D17):** SDK S3 da AWS (módulo `s3`, mais um cliente HTTP leve) e TwelveMonkeys ImageIO (`imageio-webp`, `imageio-jpeg`,
+`imageio-metadata`). **Fixe as versões** nos `pom.xml` (nada de `LATEST`/faixa) e confirme a versão corrente no Maven Central ao adicionar. Qualquer
+outra dependência nova pede aprovação. Spring Boot é o do `pom` dos outros serviços (parent `spring-boot-starter-parent` 4.1.2, Java 21).
+
+**Biblioteca `libs/socialflux-media`** (`com.socialflux:socialflux-media`, pacote `com.socialflux.media`, registrada em `<module>` no `pom.xml` agregador,
+auto-configurada como a de eventos). Propriedades sugeridas `socialflux.media.*`:
+
+| Propriedade | Padrão | Observação |
+| --- | --- | --- |
+| `endpoint` | — | `http://rustfs:9000` (containers) ou `http://localhost:9000` (host); obrigatória quando `enabled=true` |
+| `region` | `us-east-1` | a documentação do RustFS não exige região; o SDK precisa de uma |
+| `access-key` / `secret-key` | — | `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY`; **path-style obrigatório** (`forcePathStyle`) |
+| `image.max-bytes` / `image.max-pixels` / `image.max-side` | 5 MB / 16.000.000 / 1.600 | D9 |
+| `gif.max-bytes` / `gif.max-side` / `gif.max-frames` | 8 MB / 1.280 / 300 | D16 |
+| `max-concurrent-processing` | 4 | semáforo; sem vaga em ~5 s → 503 `servidor_ocupado` |
+
+API mínima da biblioteca: `MediaStorage { put(bucket, key, bytes, contentType); get(bucket, key) -> bytes/stream + contentType; delete(bucket, key); exists }`
+(implementações `S3MediaStorage` e `InMemoryMediaStorage` para testes sem Docker), `ImageProcessor`, `GifSanitizer`, `MediaKeys` (`po_<uuidv7>.<ext>`,
+`av_<uuidv7>.<ext>`). O `profile_service` hoje usa `av_<uuid>.jpg` e `foto_url=/media/avatars/<chave>`: **esse contrato público não muda**.
+
+**`post_service`** — pasta `post_service/`, pacote `com.socialflux.post`, `artifactId post-service`, porta **8084**, banco **`post`**, eventos `post.*`:
+
+| Variável | Padrão | Observação |
+| --- | --- | --- |
+| `POST_DB_URL` / `POST_DB_NAME` | `jdbc:postgresql://localhost:5432/post` / `post` | |
+| `POST_DB_USER` / `POST_DB_PASSWORD` | caem em `IDENTITY_DB_USER` / `IDENTITY_DB_PASSWORD` | como `profile` e `graph` |
+| `AUTH_JWKS_URI`, `JWT_ISSUER`, `JWT_AUDIENCE` | iguais aos outros serviços | só token de **usuário** (sem rotas `/internal`) |
+| `RABBITMQ_HOST/PORT/USER/PASSWORD`, `EVENTS_EXCHANGE`, `POST_EVENTS_ENABLED`, `POST_OUTBOX_INTERVAL` | idem `GRAPH_*` | `socialflux.events.mandatory=false` |
+| `POST_ALLOWED_ORIGINS` | vazio (= própria origem) | `OriginCheckFilter` |
+| `POST_MAX_BODY` | 1000 | D10 |
+| `POST_RATE_POSTS_PER_HOUR` / `POST_RATE_LIKES_PER_HOUR` | 60 / 600 | D10; 429 `muitas_requisicoes` com `Retry-After` |
+| `POST_MEDIA_BUCKET` | `post-media` | criado por `rustfs_init` |
+| `RUSTFS_ENDPOINT`, `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, `RUSTFS_REGION` | ver acima | |
+| `spring.servlet.multipart.max-file-size` / `max-request-size` | 8 MB / 9 MB | cobre o maior anexo (GIF de 8 MB); os limites finos ficam na biblioteca |
+
+Também: `post_service/Dockerfile` (contexto na raiz, copiando `libs/socialflux-events` **e** `libs/socialflux-media` antes do serviço — ajustar o `.dockerignore`
+da raiz se preciso), `scripts/dev/run-post.ps1/.sh` (instalam as duas bibliotecas antes do `spring-boot:run`), `post_db_init` no compose, dependência
+`rustfs_init: service_completed_successfully`, e as variáveis `POST_*` no `.env.example`.
+
+### 16.5 Contratos detalhados
+
+**Postagem** (resposta de `POST`, `GET {id}` e itens das listas):
+```json
+{
+  "id": "0192f3c4-7a1e-7b2d-9c10-5e8f4a1b2c3d",
+  "legenda": "texto da postagem",
+  "imagem": { "url": "/media/posts/po_0192….jpg", "tipo": "IMAGE", "largura": 1200, "altura": 800 },
+  "criado_em": "2026-11-15T14:03:22.123456Z",
+  "autor": { "id": 1001, "accountId": "…uuid…", "username": "ana", "nome": "Ana", "foto_perfil": "av_….jpg", "foto_url": "/media/avatars/av_….jpg", "privado": false },
+  "pai": { "id": "…uuid…", "autor_username": "bia" },
+  "curtidas": 3, "curtido": true, "respostas": 2
+}
+```
+`legenda` e `imagem` podem ser `null` (nunca os dois). `pai` é `null` em postagem raiz. **Lista:** `{ "itens": [ …postagens… ], "proximoCursor": "…" | null }`.
+**Curtida:** `{ "curtido": true, "curtidas": 4 }`. **Ancestrais:** `{ "itens": [ …da mais antiga à mais próxima… ] }`.
+
+| Rota | Sucesso | Erros |
+| --- | --- | --- |
+| `POST /api/postagens` (multipart: `legenda`, `imagem` arquivo, `pai` UUID) | 201 + postagem | 422 `postagem_vazia`, 422 `texto_muito_longo`, 422 `imagem_invalida` / `imagem_animada` / `gif_invalido`, 413 `imagem_muito_grande`, 404 `postagem_nao_encontrada` (pai inexistente **ou invisível**), 429, 503 `perfil_indisponivel` (autor sem cópia local) / `servidor_ocupado` |
+| `GET /api/postagens/{id}` | 200 | 404 `postagem_nao_encontrada` (inexistente ou invisível, igual) |
+| `DELETE /api/postagens/{id}` | 204 | 404 (inexistente/invisível); **403 `forbidden`** só se a postagem é visível mas de outro autor |
+| `GET /api/postagens/feed?cursor&limite` | 200 | 400 `parametro_invalido` (limite fora de 1–100, cursor adulterado) |
+| `GET /api/postagens?autor&filtro&cursor&limite` | 200 | 404 `usuario_nao_encontrado`, 403 `conta_privada`, 400 |
+| `GET /api/postagens/{id}/respostas` · `/ancestrais` | 200 | 404 se a postagem não é visível |
+| `PUT` / `DELETE /api/postagens/{id}/curtida` | 200 (idempotente) | 404 se não visível; 429 |
+| `GET /media/posts/{chave}` | 200 (bytes) / 304 | 404 (chave desconhecida **ou** postagem invisível), 401 pelo gateway sem sessão |
+
+Parâmetros: `limite` 1–100 (padrão 20); `filtro` ∈ `posts` (só raízes), `interacoes` (raízes + respostas do autor), `midia` (só com anexo); `autor` = UUID da conta
+ou id inteiro legado. O cursor é opaco (`created_at` + id, base64url), como no grafo.
+
+**Eventos publicados** (`aggregateId` = id da postagem; `aggregateVersion` = 1; só ids/datas/trecho de texto):
+
+| Tipo | `data` |
+| --- | --- |
+| `post.created.v1` | `postId, authorId, parentId \| null, parentAuthorId \| null, mediaKind (IMAGE\|GIF\|null), excerpt (≤ 120), createdAt` |
+| `post.deleted.v1` | `postId, authorId` (um por postagem removida, inclusive em cascata) |
+| `post.liked.v1` / `post.unliked.v1` | `postId, postAuthorId, userId` (só quando a curtida de fato mudou) |
+
+**Eventos consumidos** (fila `post-service.profile-events` ligada a `profile.#`; fila `post-service.follow-events` ligada a `follow.#`; DLQ da biblioteca):
+`profile.created|updated|privacy-changed|deleted.v1` e `follow.created.v1` / `follow.removed.v1`. O payload de `follow.*` está em
+`social_graph_service/README.md` (`relationId, followerId, followeeId, origin|reason, createdAt`).
+
+### 16.6 Algoritmos e detalhes técnicos que não podem ficar de fora
+
+**A. Orientação EXIF (valores da tag 0x0112) → transformação aplicada aos pixels**
+
+| Valor | Significado | Operação | Troca largura/altura? |
+| --- | --- | --- | --- |
+| 1 (ou ausente/inválido) | normal | nada | não |
+| 2 | espelhada na horizontal | espelhar horizontalmente | não |
+| 3 | girada 180° | girar 180° | não |
+| 4 | espelhada na vertical | espelhar verticalmente | não |
+| 5 | transposta | espelhar na diagonal principal (transpor) | **sim** |
+| 6 | girada 90° horário | girar 90° horário | **sim** |
+| 7 | transversa | espelhar na diagonal secundária | **sim** |
+| 8 | girada 90° anti-horário | girar 90° anti-horário | **sim** |
+
+Teste obrigatório: gerar uma imagem com cores diferentes nos quatro cantos, gravá-la como JPEG com cada valor de orientação (inserindo o segmento APP1/EXIF
+manualmente no teste) e conferir **a cor dos cantos e as dimensões** depois do processamento. A saída nunca contém EXIF.
+
+**B. Sanitizador de GIF** (`GifSanitizer`): ler o arquivo por **blocos**, sem decodificar LZW:
+1. Cabeçalho `GIF87a`/`GIF89a` (6 bytes) e *Logical Screen Descriptor* (largura, altura, flags, cor de fundo, proporção); tabela de cores global se a flag indicar.
+   Recusar largura/altura 0 ou acima do limite (`gif.max-side`).
+2. Repetir até o trailer `0x3B`: `0x21` extensão (`0xF9` *Graphic Control* — manter; `0xFF` aplicação — manter **somente** `NETSCAPE2.0`/`ANIMEXTS1.0` com o
+   bloco de laço; `0xFE` comentário e `0x01` texto — descartar; demais — descartar), `0x2C` imagem (descritor de 9 bytes, tabela local opcional, *LZW minimum code size*
+   entre 2 e 8, sub-blocos de dados terminados por `0x00`). Qualquer outro byte de introdutor → recusar (`gif_invalido`).
+3. Contar quadros; recusar acima de `gif.max-frames`; recusar se `largura × altura × quadros` ultrapassar um teto de pixels decodificados (sugestão: 256 milhões);
+   recusar arquivo truncado (sem trailer), sub-bloco que ultrapassa o fim do arquivo, tabela de cores maior que o arquivo e GIF sem nenhum quadro.
+4. Regravar só os blocos mantidos, **terminar no primeiro `0x3B`** (bytes depois dele são descartados — poliglotas) e validar o tamanho final ≤ `gif.max-bytes`.
+5. Gravar com `Content-Type: image/gif`. Não redimensionar, não decodificar pixels (a validação estrutural basta; a bomba de descompressão é contida pelo teto de pixels).
+Testes: GIF válido de 1 e de vários quadros, laço de repetição preservado, comentário descartado, bytes após o trailer descartados, truncado, quadros demais, tabela de cores
+inconsistente, extensão desconhecida, arquivo `.gif` que na verdade é PNG, GIF de 0×0, tamanho acima do limite.
+
+**C. Criar postagem** (ordem importa para manter a transação curta e não deixar lixo): (1) validar corpo e anexo; (2) **processar a mídia fora da transação**
+(decodificar/re-codificar, ou sanitizar o GIF); (3) enviar o objeto ao bucket com a chave gerada; (4) abrir a transação: se for resposta, ler o pai com `FOR SHARE`,
+conferir que existe e é visível para o autor; inserir a postagem; `replies_count + 1` no pai; gravar `post.created.v1` no outbox; (5) se a transação falhar, **apagar o objeto**
+(compensação) — e a varredura de órfãos (E) cobre a falha da compensação.
+
+**D. Visibilidade** (`canView(viewer, author)`): `author = viewer OR NOT author.is_private OR EXISTS follow_edge(viewer → author)` e `author.status = 'ACTIVE'`.
+Postagem inexistente, de autor `DELETED` e invisível respondem **404 igual**. Respostas: cada uma é filtrada pelo **seu** autor; para abrir/ listar respostas, a postagem-pai
+precisa ser visível. Curtir exige postagem visível. **Ancestrais:** CTE recursiva por `parent_id`, no máximo 10 níveis, parando no primeiro nível invisível.
+
+**E. Rotinas agendadas** (`@Scheduled`, via `@EnableScheduling` como nos outros serviços): (1) podar `follow_removed` com mais de 7 dias; (2) **varredura de órfãos de mídia** a cada
+hora: listar objetos do bucket com mais de 1 h e apagar os cuja chave não está em `post.image_key`; (3) **reconciliador de contadores** a cada hora: recalcular `likes_count` e
+`replies_count` por `count(*)` e corrigir divergência (registrar quantas foram corrigidas); (4) limpeza do outbox já vem da biblioteca.
+
+**F. Cópia das arestas de seguir** (consumidor de `follow.*`, idempotente pelo inbox): `created`: ignorar se `relationId` está em `follow_removed`; senão gravar a aresta do par
+(se já existir outra, trocar só se `createdAt` do evento for mais novo). `removed`: apagar a aresta **somente se o `relation_id` bater**, e registrar `relationId` em `follow_removed`.
+`profile.deleted.v1`: marcar o autor `DELETED` e apagar as arestas dos dois lados e (D12) as postagens, respostas dependentes, curtidas e mídia dele. Não há bootstrap (decisão D9 do grafo): em
+desenvolvimento, recriar os volumes.
+
+**G. Excluir postagem** (D7): na transação, travar a postagem (`FOR UPDATE`); coletar por CTE recursiva os ids e `image_key` dela **e de todas as descendentes**; apagar (a FK
+`on delete cascade` remove respostas e curtidas); decrementar `replies_count` **só do pai direto** da postagem excluída (as descendentes somem junto, então nenhum outro contador muda);
+gravar um `post.deleted.v1` por postagem removida; **depois do commit** apagar os objetos (`TransactionSynchronization.afterCommit`; falha só gera log; a varredura E recolhe o que sobrar).
+**Exclusão de conta** segue o mesmo caminho para todas as postagens do usuário, em lotes, sem ficar uma transação gigante.
+
+**H. Curtir/descurtir:** `insert into post_like … on conflict do nothing` → se inseriu, `likes_count + 1` e `post.liked.v1`; `delete from post_like … returning` → se removeu,
+`likes_count - 1` e `post.unliked.v1`; repetir não muda nada e devolve o estado atual. Pode curtir a própria postagem.
+
+**I. Entrega da mídia** (`GET /media/posts/{chave}`): procurar a postagem por `image_key` (índice único) → `canView` → ler do bucket e repassar; `Content-Type` do que foi gravado,
+`X-Content-Type-Options: nosniff`, `Cache-Control: private, max-age=31536000, immutable`, `ETag` = chave; com `If-None-Match` igual, **responder 304 sem ler o objeto**
+(a checagem de visibilidade continua sendo feita). O navegador **nunca** acessa o RustFS.
+
+### 16.7 Frontend (contrato `/api/postagens`)
+
+Arquivos que citam o modelo antigo e precisam mudar (`FrontEnd/src/…`): `types/api.ts` (`Postagem.id: string`, `criado_em` ISO, `imagem`, contadores; remover `Curtida`,
+`LocalDateTimeArray` quando não houver mais uso — as notificações do legado ainda usam; conferir antes), `services/postagemService.ts` e `services/curtidaService.ts` (substituir pelo contrato
+novo; o serviço de curtida some ou vira parte do de postagem), `hooks/usePostagens.ts` (paginação por cursor + "carregar mais"), `hooks/useCurtidas.ts` (usa `curtido`/`curtidas` da própria postagem e
+`PUT/DELETE …/curtida`), `hooks/useNumeroRespostas.ts` (usa `respostas`; pode ser removido), `hooks/usePostagemActions.ts` (multipart com `pai` UUID; `useExcluirPostagem`),
+`hooks/usePostagemInteracoes.ts`, `lib/dates.ts` (de array do Jackson para ISO-8601; `calcTempPost`/`formatDate` recebem `string`), `lib/imageUrl.ts` (postagem usa `imagem.url`;
+avatar continua `foto_url`/`/media/avatars`), `components/postagens/{Postagem,PostSecondary,ListarPostagens,PostActions}.tsx` (ids string; reservar espaço com `largura`/`altura`; GIF com `<img>` normal;
+a cadeia de pais passa a usar `GET /{id}/ancestrais` em vez da recursão embutida), `components/forms/{FormCriarPostagem,FormComentar}.tsx` e `modals/ModalImagemComentario.tsx`
+(`accept="image/png,image/jpeg,image/webp,image/gif"`, validação de tamanho no cliente só como conveniência, mensagens dos novos códigos de erro),
+`pages/{Home,Perfil/PerfilPostagens,PostPage,CriarPostagem}` (feed `GET /api/postagens/feed`, perfil `GET /api/postagens?autor=&filtro=`, rota `/postagem/:id` com id string),
+`components/notifications/Notification.tsx` (o link `/postagem/${id_post}` passa a receber string UUID) e `types` de notificação (`id_post: string | null`).
+Regras: sem `any`; chamadas só em `services/`; estado em hooks; componentes < ~300 linhas; Bootstrap e tokens de `theme.css`; ícones novos em `lib/icons.ts`; atualizar `FrontEnd/docs/ARCHITECTURE.md`
+e `COMPONENTS.md` no mesmo commit; responsivo/mobile-first. Notificações de curtida/comentário **continuam criadas pelo frontend** (D11), agora com o id UUID da postagem.
+
+### 16.8 Legado e grafo: o que remover/alterar na Fase 8 (só depois do frontend novo estar em uso)
+
+**`BackEnd/`:** apagar `PostagemController/Service/Dao`, `CurtidaController/Service/Dao`, `ImagemController`, `util/ImagemUtil`, entidades `Postagem` e `Curtida`, as rotas em `App.java` e as chaves em `Keys`;
+**também** (pendência herdada, ver 16.9) `RelacaoController/Service/Dao`, `Relacao`, `UsuarioService`/`UsuarioDao` (só serviam o "em comum") e as 5 rotas `/api/relacao*`.
+**Notificações permanecem:** alterar `NotificationController` (hoje `(Integer) json.get("id_post")`), `NotificationService` (`getInt("id_post")`), `Notification` (`Integer id_post`) e `NotificationDao` para tratar `id_post` como **texto (UUID)**.
+**`infra/mysql/schema.sql`** (**pede confirmação**): remover `postagem`, `curtida` e `relacao`; `notification.id_post` de `INT` para `VARCHAR(36)`. `schema.sql` só roda na criação do volume do MySQL: avisar para recriar o volume em desenvolvimento (**nunca** apagar sem perguntar).
+**Compose/Caddyfile** (**pedem confirmação**): remover o volume `legacy_images`; no `Caddyfile` não há o que remover para o legado: `/api/img/{id}/{arquivo}` simplesmente deixa de existir no `BackEnd/` (e `/api/img/usuarios/*`, do perfil, continua no bloco do `profile_service`); só se acrescentam as rotas novas do `post_service`.
+**`social_graph_service/`:** remover o pacote `legacy/` (`LegacyRelacaoWriter`, `LegacyProjectionHandler`, `LegacyProjectionListener`), a fila `social-graph.legacy-projection` e a ligação `follow.#` correspondente em `events/Amqp`, o `LegacyProjectionTest`, a propriedade `graph.legacy.*`,
+a dependência `mysql-connector-j` e `h2` de teste (se só servia a esse teste), e as variáveis `GRAPH_LEGACY_ENABLED`/`LEGACY_DB_*` do compose, do `.env.example` e dos scripts `run-graph.*`. O serviço passa a **não depender do MySQL**. Atualizar README/ARCHITECTURE do grafo.
+**`profile_service/`:** a projeção `usuario` no MySQL **continua** (Notificações ainda faz JOIN em `usuario`) até Notificações migrar. O volume `profile_avatars` sai na M2, quando os avatares passam ao RustFS.
+
+### 16.9 Pendências herdadas e itens não verificados
+
+1. **Nada foi executado com Docker** desde a criação do grafo: validar o **Caddyfile** (nunca foi validado por um binário do Caddy; sintaxe revisada à mão), a rota `/api/relacoes*`, as filas do RabbitMQ (`social-graph.profile-events`, `social-graph.legacy-projection`, DLQ), o build `docker compose --profile apps up -d --build` (Dockerfiles com contexto na raiz) e o fluxo de relações no navegador (seguir, solicitar, aceitar, recusar, listas paginadas, tooltip do total de solicitações, remover seguidor, excluir conta).
+2. **RustFS não foi executado:** confirmar imagem/tag (fixar `RUSTFS_TAG`), se o `curl` existe na imagem (o health check do compose o usa), se o `rustfs_init` cria os buckets e a permissão do volume nomeado (o processo é uid 10001).
+3. **Credenciais por serviço no RustFS** (D18) ainda **não existem**: hoje só a credencial raiz. A documentação do RustFS descreve criar usuários e políticas restritos a um bucket pela API administrativa (requisições assinadas SigV4; ver as páginas de IAM e políticas em `docs.rustfs.com`). Implementar e testar na M1 com o RustFS no ar; até lá, registrar que os serviços usam a raiz.
+4. **Grafo:** não existe reconciliador agendado de contadores; o limite de seguidos não é aplicado ao aceitar solicitação (manual ou automática); sem bootstrap de usuários anteriores ao serviço.
+5. **Legado:** as rotas `/api/relacao*` continuam no `BackEnd/` sem uso (remover na Fase 8, ver 16.8).
+6. **Gateway/segurança herdados:** o `profile_service`, o `social_graph_service` e o futuro `post_service` só validam assinatura e expiração do JWT; a **revogação imediata** depende do `forward_auth` do Caddy: nunca expor esses serviços fora do gateway.
+7. **Aprovações ainda necessárias antes de mexer:** serviço `post_service` e `post_db_init` no `docker-compose.yml`; rotas `/api/postagens*` e `/media/posts/*` no `Caddyfile`; alterações de `schema.sql` do legado; qualquer dependência fora da lista de 16.4; qualquer mudança de autenticação/token ou de contrato de evento/API já publicado (`profile.*`, `follow.*`).
+
+### 16.10 Definição de pronto por fase
+
+| Fase | Pronto quando (além do "pronto quando" da tabela da §12) |
+| --- | --- |
+| M1 | `libs/socialflux-media` no `pom.xml` agregador; README e `docs/ARCHITECTURE.md` da biblioteca; testes da §9.5 e 16.6 A/B verdes **sem Docker** (armazenamento em memória); teste de integração do `S3MediaStorage` contra o RustFS rodado manualmente e **registrado** (resultado e versão da imagem); `.env.example` e docs de infra atualizados; baseline 125 testes intacto |
+| M2 | `profile_service` usando a biblioteca e o bucket `avatars`; 41 testes anteriores verdes + novos (orientação, WebP); `/media/avatars/{chave}` com o mesmo contrato público; volume `profile_avatars` removido do compose (pede confirmação) |
+| 1–2 | Serviço sobe; token válido aceito e adulterado/`aud` errado recusado; eventos duplicados, antigos e fora de ordem inócuos; `profile.deleted` e `follow.removed` tratados; docs do serviço criados |
+| 3–4 | Matriz de visibilidade (dono, autor público, seguidor, pedido pendente, estranho) em cada rota; IDOR em cada rota mutável; paginação estável com empates; concorrência (curtir × descurtir × excluir × responder); LOG-03/05/08 cobertos por teste |
+| 5 | Anexo (imagem ou GIF) no `POST`; entrega com 404/304 corretos; GIF animado chega intacto; órfãos recolhidos |
+| 6 | Eventos `post.*` sem dado pessoal; broker fora do ar não perde evento; reconciliador corrige divergência provocada; limites e 429 testados |
+| 7 | Compose, Caddyfile e frontend no novo contrato; `npm run typecheck/lint/build` limpos; fluxo completo no navegador (criar com texto/imagem/GIF, comentar, curtir, excluir, feed, perfil, conta privada, mobile) |
+| 8 | Legado, grafo e docs limpos (16.8); `mvn test` da raiz verde; grafo sobe sem MySQL; nenhuma referência restante a `/api/postagem`, `/api/curtida`, `/api/img/{id}/…` ou `Relacao` no frontend e no legado |
