@@ -163,6 +163,61 @@ public class FollowRepository {
                 .param("viewer", viewer).param("target", target).query(Long.class).single();
     }
 
+    // ------------------------------------------------------------------ reconciliação dos contadores
+
+    /** Contadores gravados e o que as linhas reais dizem, para um usuário. */
+    public record StatsCheck(long storedFollowers, long storedFollowing, long storedPending,
+                             long realFollowers, long realFollowing, long realPending) {
+
+        public boolean diverges() {
+            return storedFollowers != realFollowers || storedFollowing != realFollowing || storedPending != realPending;
+        }
+    }
+
+    /**
+     * Usuários cujos contadores NÃO batem com as linhas (consulta somente de leitura; um comando enxerga um estado consistente,
+     * então não há falso positivo por transação em andamento). Limitada a {@code limit} por rodada.
+     */
+    public List<UUID> findStatsDivergences(int limit) {
+        return jdbc.sql("select s.user_id from follow_stats s "
+                        + "left join (select followee_id as uid, count(*) as n from follow group by followee_id) a on a.uid = s.user_id "
+                        + "left join (select follower_id as uid, count(*) as n from follow group by follower_id) b on b.uid = s.user_id "
+                        + "left join (select target_id as uid, count(*) as n from follow_request group by target_id) c on c.uid = s.user_id "
+                        + "where s.followers_count <> coalesce(a.n, 0) or s.following_count <> coalesce(b.n, 0) "
+                        + "or s.pending_count <> coalesce(c.n, 0) order by s.user_id limit :limit")
+                .param("limit", limit).query(UUID.class).list();
+    }
+
+    /**
+     * Trava a linha de contadores do usuário (as escritas do grafo precisam da mesma linha, então esperam ou já terminaram) e compara
+     * o gravado com a contagem real. Se divergir, corrige. Devolve o que encontrou (vazio se o usuário não tem linha de contadores).
+     * Chamar dentro de uma transação curta, uma por usuário.
+     */
+    public Optional<StatsCheck> reconcileStats(UUID userId) {
+        Optional<long[]> stored = jdbc.sql("select followers_count, following_count, pending_count from follow_stats "
+                        + "where user_id = :id for update")
+                .param("id", userId).query((rs, n) -> new long[]{rs.getLong(1), rs.getLong(2), rs.getLong(3)}).optional();
+        if (stored.isEmpty()) {
+            return Optional.empty();
+        }
+        long followers = countWhere("follow", "followee_id", userId);
+        long following = countWhere("follow", "follower_id", userId);
+        long pending = countWhere("follow_request", "target_id", userId);
+        StatsCheck check = new StatsCheck(stored.get()[0], stored.get()[1], stored.get()[2], followers, following, pending);
+        if (check.diverges()) {
+            jdbc.sql("update follow_stats set followers_count = :followers, following_count = :following, pending_count = :pending "
+                            + "where user_id = :id")
+                    .param("id", userId).param("followers", followers).param("following", following)
+                    .param("pending", pending).update();
+        }
+        return Optional.of(check);
+    }
+
+    private long countWhere(String table, String column, UUID userId) {
+        return jdbc.sql("select count(*) from " + table + " where " + column + " = :id")
+                .param("id", userId).query(Long.class).single();
+    }
+
     // ------------------------------------------------------------------ lote
 
     /** Quem tem solicitação pendente para {@code target}, da mais antiga para a mais nova. */

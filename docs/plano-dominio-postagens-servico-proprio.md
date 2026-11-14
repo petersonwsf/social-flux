@@ -207,7 +207,7 @@ Visibilidade (`podeVer(eu, autor)`) em SQL: `autor = eu OR NOT a.is_private OR e
 ### 5.3 Contadores
 `likes_count` e `replies_count` são atualizados **na mesma transação** da curtida/resposta/exclusão (como o `follow_stats` do
 grafo), para a lista devolver tudo em uma consulta. Há um reconciliador agendado (recalcula por `count(*)`) como rede de
-segurança — ele **não existe no grafo ainda**; entra nos dois serviços na Fase 6.
+segurança — o do grafo **já existe** (`social_graph_service/.../service/CounterReconciler`, com testes) e serve de modelo; o de Postagens entra na Fase 6.
 
 ### 5.4 Concorrência
 Curtir/descurtir usa `insert ... on conflict do nothing` / `delete ... returning`, então repetir não duplica nem desbalanceia o
@@ -741,7 +741,7 @@ a dependência `mysql-connector-j` e `h2` de teste (se só servia a esse teste),
 1. **Nada foi executado com Docker** desde a criação do grafo: validar o **Caddyfile** (nunca foi validado por um binário do Caddy; sintaxe revisada à mão), a rota `/api/relacoes*`, as filas do RabbitMQ (`social-graph.profile-events`, `social-graph.legacy-projection`, DLQ), o build `docker compose --profile apps up -d --build` (Dockerfiles com contexto na raiz) e o fluxo de relações no navegador (seguir, solicitar, aceitar, recusar, listas paginadas, tooltip do total de solicitações, remover seguidor, excluir conta).
 2. **RustFS não foi executado:** confirmar imagem/tag (fixar `RUSTFS_TAG`), se o `curl` existe na imagem (o health check do compose o usa), se o `rustfs_init` cria os buckets e a permissão do volume nomeado (o processo é uid 10001).
 3. **Credenciais por serviço no RustFS** (D18) ainda **não existem**: hoje só a credencial raiz. A documentação do RustFS descreve criar usuários e políticas restritos a um bucket pela API administrativa (requisições assinadas SigV4; ver as páginas de IAM e políticas em `docs.rustfs.com`). Implementar e testar na M1 com o RustFS no ar; até lá, registrar que os serviços usam a raiz.
-4. **Grafo:** não existe reconciliador agendado de contadores; o limite de seguidos não é aplicado ao aceitar solicitação (manual ou automática); sem bootstrap de usuários anteriores ao serviço.
+4. **Grafo:** o reconciliador de contadores **já existe** (modelo para o de Postagens); o limite de seguidos não é aplicado ao aceitar solicitação (manual ou automática); sem bootstrap de usuários anteriores ao serviço.
 5. **Legado:** as rotas `/api/relacao*` continuam no `BackEnd/` sem uso (remover na Fase 8, ver 16.8).
 6. **Gateway/segurança herdados:** o `profile_service`, o `social_graph_service` e o futuro `post_service` só validam assinatura e expiração do JWT; a **revogação imediata** depende do `forward_auth` do Caddy: nunca expor esses serviços fora do gateway.
 7. **Aprovações ainda necessárias antes de mexer:** serviço `post_service` e `post_db_init` no `docker-compose.yml`; rotas `/api/postagens*` e `/media/posts/*` no `Caddyfile`; alterações de `schema.sql` do legado; qualquer dependência fora da lista de 16.4; qualquer mudança de autenticação/token ou de contrato de evento/API já publicado (`profile.*`, `follow.*`).

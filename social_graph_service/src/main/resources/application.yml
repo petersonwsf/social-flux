@@ -64,6 +64,11 @@ graph:
     follow-actions-per-hour: ${GRAPH_FOLLOW_RATE_PER_HOUR:60}
     max-following: ${GRAPH_MAX_FOLLOWING:7500}
     max-pending-sent: ${GRAPH_MAX_PENDING_SENT:1000}
+  reconciler:
+    # Rede de segurança: recalcula por count(*) os contadores (seguidores, seguidos, pendentes) e corrige os que divergem.
+    enabled: ${GRAPH_RECONCILER_ENABLED:true}
+    interval: ${GRAPH_RECONCILER_INTERVAL:PT1H}
+    batch-size: ${GRAPH_RECONCILER_BATCH:500}
   legacy:
     # Projeção temporária das relações aceitas na tabela `relacao` do MySQL legado (feed do backend Javalin).
     enabled: ${GRAPH_LEGACY_ENABLED:false}

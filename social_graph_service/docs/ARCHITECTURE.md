@@ -55,7 +55,7 @@ social_graph_service/
 | `Edge.java` | Item de lista paginada: o usuário do outro lado e quando a relação/solicitação foi criada |
 | `Cursor.java` | Cursor opaco de paginação por chave (`created_at`, id), sem `OFFSET` |
 | `SnapshotRepository.java` | `user_snapshot`: leituras (com `FOR SHARE`/`FOR UPDATE` para fechar corridas) e escrita |
-| `FollowRepository.java` | `follow`, `follow_request` e `follow_stats`: trava do par, estado, escrita, contadores, listas paginadas, em comum, exclusão em lote (`purge`) |
+| `FollowRepository.java` | `follow`, `follow_request` e `follow_stats`: trava do par, estado, escrita, contadores (e a verificação/correção usada pelo reconciliador), listas paginadas, em comum, exclusão em lote (`purge`) |
 
 ### `service/`
 
@@ -65,6 +65,7 @@ social_graph_service/
 | `FollowWriter.java` | Transições de estado: muda as tabelas, ajusta os contadores e grava o evento no outbox, na mesma transação |
 | `ProfileSyncService.java` | Aplica `profile.*` na cópia local; aceita pendentes quando a conta vira pública; apaga o grafo de contas excluídas |
 | `RateLimiter.java` | Limite de ações por usuário em janela deslizante, em memória |
+| `CounterReconciler.java` | Rotina agendada (e chamável à mão) que recalcula por `count(*)` os contadores de `follow_stats` e corrige os que divergem, uma transação curta por usuário com a linha travada |
 
 ### `events/`
 
@@ -117,5 +118,6 @@ social_graph_service/
 | `ProfileSyncTest` | Cópia local por eventos (duplicado, antigo, desconhecido), privado→público aceita pendentes, exclusão de conta, túmulo |
 | `ConcurrencyTest` | Seguidas paralelas do mesmo par, seguir × deixar de seguir, pedidos × virar pública, seguir × exclusão |
 | `LimitsTest` / `RateLimitTest` | Limites de seguidos/pendentes e de ações por hora (429) |
+| `CounterReconcilerTest` / `CounterReconcilerDisabledTest` | Contadores maiores e menores que a realidade são corrigidos; lote limitado e conclusão nas rodadas seguintes; relatório do que estava gravado e do real; nenhuma divergência nova sob corrida com seguir/deixar de seguir; rotina agendada desligada |
 | `LegacyProjectionTest` | Projeção no `relacao` (H2 em modo MySQL): aceitas sim, pendentes não, eventos duplicados/fora de ordem |
 | `support/` | `AbstractGraphTest` (Postgres embutido, JWKS local, usuários por evento), `Http`, `TestSupportConfig` (publicador falso) |

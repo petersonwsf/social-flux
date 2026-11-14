@@ -59,8 +59,22 @@ Códigos de erro: `usuario_nao_encontrado` 404 · `seguir_a_si_mesmo` 422 · `co
 | Conta vira **pública** | Todas as solicitações pendentes são aceitas automaticamente, com `follow.created.v1` e `origin = AUTO_ON_PUBLIC` (D5) |
 | Conta vira **privada** | Quem já segue continua seguindo; novos seguidores precisam de solicitação |
 | Conta **excluída** (`profile.deleted.v1`) | Apaga arestas e solicitações dos dois lados e corrige os contadores de quem ficou. Não gera eventos por aresta |
+| Contadores | `seguidores`, `seguidos` e `pendentes` ficam em `follow_stats`, mudam na mesma transação de cada escrita e são **conferidos por uma rotina agendada** (abaixo) |
 | Limites (D8) | `GRAPH_FOLLOW_RATE_PER_HOUR` (60 ações de seguir/deixar de seguir por hora), `GRAPH_MAX_FOLLOWING` (7.500), `GRAPH_MAX_PENDING_SENT` (1.000) |
 | Concorrência | Toda escrita trava o par (advisory lock) e a linha do usuário em modo compartilhado; contadores mudam na mesma transação |
+
+## Reconciliador de contadores
+
+Rede de segurança: os contadores de `follow_stats` são uma **cópia** das linhas de `follow` e `follow_request` (a verdade). Normalmente nunca divergem, mas um
+bug, um conserto manual no banco ou uma operação em lote fora do serviço podem desalinhá-los, e nada mais os recalcularia. A cada `GRAPH_RECONCILER_INTERVAL`
+(padrão 1 hora; a primeira rodada 5 minutos depois de subir) o `CounterReconciler`:
+
+1. acha, por uma consulta somente de leitura, os usuários cujos contadores não batem com `count(*)` (no máximo `GRAPH_RECONCILER_BATCH` por rodada, padrão 500);
+2. para cada um, em uma transação curta, **trava a linha de contadores**, recalcula e corrige: as escritas do grafo precisam da mesma linha, então não há corrida
+   com um seguir/aceitar em andamento, e as linhas que já estão certas nem são tocadas;
+3. registra um `WARN` com quantos usuários foram corrigidos (e os primeiros ids). **Divergência recorrente é sinal de bug a investigar**, não algo para mascarar.
+
+Pode ser desligado com `GRAPH_RECONCILER_ENABLED=false` (a execução manual, `CounterReconciler.reconcile()`, continua disponível para testes e manutenção).
 
 ## Eventos (RabbitMQ, exchange `socialflux.events`, routing key = tipo)
 
@@ -118,6 +132,7 @@ mvn -pl social_graph_service -am test      # na raiz; compila a biblioteca de ev
 | `JWT_ISSUER`, `JWT_AUDIENCE` | Validação do token de usuário |
 | `RABBITMQ_HOST/PORT/USER/PASSWORD`, `EVENTS_EXCHANGE`, `GRAPH_EVENTS_ENABLED`, `GRAPH_OUTBOX_INTERVAL` | Broker e eventos |
 | `GRAPH_FOLLOW_RATE_PER_HOUR`, `GRAPH_MAX_FOLLOWING`, `GRAPH_MAX_PENDING_SENT` | Limites antiabuso (D8) |
+| `GRAPH_RECONCILER_ENABLED`, `GRAPH_RECONCILER_INTERVAL`, `GRAPH_RECONCILER_BATCH` | Reconciliador de contadores: liga/desliga (padrão ligado), intervalo ISO-8601 (`PT1H`) e usuários por rodada (500) |
 | `GRAPH_LEGACY_ENABLED`, `LEGACY_DB_URL/USER/PASSWORD` | Projeção no MySQL legado |
 | `GRAPH_ALLOWED_ORIGINS` | Origens aceitas em métodos não seguros (vazio = a própria origem) |
 | `SERVER_PORT` | Porta (padrão 8083) |
@@ -129,7 +144,7 @@ mvn -pl social_graph_service -am test      # na raiz; compila a biblioteca de ev
 - Rate limit em memória (1 instância).
 - Os eventos de perfil precisam ter sido processados: usuários que existiam antes deste serviço não têm cópia local
   (sem bootstrap — decisão D9). Em desenvolvimento, recrie os volumes ou republique os eventos.
-- Os contadores são mantidos na transação, mas ainda não há o reconciliador agendado que os recalcula por `count(*)`.
+- Os contadores são mantidos na transação e conferidos pelo reconciliador; entre uma divergência e a próxima rodada (até 1 h) o número exibido pode estar errado.
 - O limite de seguidos (`GRAPH_MAX_FOLLOWING`) não é aplicado quando uma solicitação é aceita (manual ou automática).
 - A consumidora RabbitMQ e a declaração das filas só foram exercitadas nos testes com um publicador/handler direto, não
   contra um RabbitMQ real.

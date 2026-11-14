@@ -18,7 +18,8 @@ public record GraphProperties(
         @Valid @NotNull Security security,
         @DefaultValue List<String> allowedOrigins,
         @Valid @NotNull Limits limits,
-        @Valid @NotNull Legacy legacy) {
+        @Valid @NotNull Legacy legacy,
+        @Valid @NotNull Reconciler reconciler) {
 
     public record Security(
             @NotBlank String jwksUri,
@@ -32,6 +33,10 @@ public record GraphProperties(
             @Min(1) int followActionsPerHour,
             @Min(1) long maxFollowing,
             @Min(1) long maxPendingSent) {
+    }
+
+    /** Rotina que confere os contadores de {@code follow_stats} contra as linhas reais e corrige as divergências. */
+    public record Reconciler(boolean enabled, @NotNull Duration interval, @Min(1) int batchSize) {
     }
 
     /** Projeção temporária das relações aceitas na tabela {@code relacao} do MySQL legado (feed do legado). */

@@ -269,7 +269,7 @@ limit :limite;
   teste de concorrência). Inserções com `on conflict do nothing` → operações **idempotentes**.
 - Contadores: `update follow_stats set followers_count = followers_count + 1 …` na mesma transação. A linha de uma celebridade
   vira ponto quente só sob milhares de seguidas por segundo (§12).
-- Reconciliador agendado (diário) recalcula `follow_stats` por `count(*)` e corrige divergências (rede de segurança).
+- Reconciliador agendado recalcula `follow_stats` por `count(*)` e corrige divergências (rede de segurança). **Implementado** (2026-11-15) em `CounterReconciler`: por hora, em lotes, com a linha de contadores travada em uma transação curta por usuário.
 
 ---
 
