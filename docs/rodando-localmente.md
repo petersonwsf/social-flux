@@ -35,7 +35,7 @@ docker compose ps           # postgres e mysql devem ficar "healthy"
 ```
 
 Sobe: PostgreSQL (`localhost:5432`; o serviço `profile_db_init` cria o banco `profile` ao lado do banco do auth, com as mesmas credenciais), MySQL
-legado (`localhost:3306`), **RabbitMQ** (`localhost:5672`, painel http://localhost:15672) e Mailpit
+legado (`localhost:3306`), **RabbitMQ** (`localhost:5672`, painel http://localhost:15672), **RustFS** (armazenamento de mídia S3 em `localhost:9000`, só no loopback; o serviço `rustfs_init` cria os buckets; exige `RUSTFS_ACCESS_KEY` e `RUSTFS_SECRET_KEY` no `.env`) e Mailpit
 (SMTP `localhost:1025`, caixa de entrada http://localhost:8025) e o **gateway** Caddy em `localhost:8080`, que encaminha
 `/auth` → `localhost:8081`, `/api/usuarios*` e `/media/avatars` → `localhost:8082` (perfil), `/api/relacoes*` → `localhost:8083` (grafo), o resto de `/api` → `localhost:8000` (depois de validar o token) e o resto → Vite `localhost:5173`.
 

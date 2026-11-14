@@ -12,7 +12,7 @@ Identity, Profile and Relations (social graph) are already migrated; Posts, Like
 - **Frontend:** React 18 + TypeScript (strict) + Vite · **Bootstrap 5** (+ `data-bs-*` JS) · Formik + Yup · axios · react-router 6 · ionicons
 - **New services:** Spring Boot 4 · Java 21 · Spring Security · JPA + Flyway · PostgreSQL 17 · RabbitMQ (outbox/inbox) · JWT RS256
 - **Legacy backend:** Javalin 6 · Java 17/21 · plain JDBC + HikariCP · MySQL 8.4
-- **Infra:** Docker Compose · Caddy 2 (gateway, same origin) · Mailpit (dev SMTP)
+- **Infra:** Docker Compose · Caddy 2 (gateway, same origin) · Mailpit (dev SMTP) · RustFS (S3-compatible media storage, private buckets)
 
 ## Structure (monorepo)
 | Folder | What it is | Port (host) |
@@ -51,7 +51,7 @@ The account and the profile share the same **UUIDv7**. The integer `id`/`legacy_
 domains still in the legacy backend.
 
 ## Commands
-- **Infra only (apps on host):** `docker compose --profile host up -d` (Postgres, MySQL, RabbitMQ, Mailpit + gateway on :8080) · status: `docker compose ps`
+- **Infra only (apps on host):** `docker compose --profile host up -d` (Postgres, MySQL, RabbitMQ, RustFS, Mailpit + gateway on :8080; needs `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY` in `.env`) · status: `docker compose ps`
 - **Everything in containers:** `docker compose --profile apps up -d --build` → http://localhost:8080
 - **Stop:** `docker compose down` (never with `-v` without asking)
 - **Backends on host** (from the repo root, read `.env`): `scripts/dev/run-auth.ps1`, `run-profile.ps1`, `run-graph.ps1`, `run-legacy.ps1` (or the `.sh` versions)

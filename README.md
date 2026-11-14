@@ -20,10 +20,10 @@ cp .env.example .env              # ajuste as senhas (AUTH_ALLOW_EPHEMERAL_KEY=t
 
 **A) Só a infraestrutura em containers; as aplicações na sua máquina**
 ```bash
-docker compose --profile host up -d     # postgres, mysql, rabbitmq, mailpit + gateway (Caddy) apontando para o host
+docker compose --profile host up -d     # postgres, mysql, rabbitmq, rustfs, mailpit + gateway (Caddy) apontando para o host
 ```
 Depois rode as quatro aplicações localmente (auth, perfil, legado e frontend) (comandos em `docs/rodando-localmente.md`) e abra http://localhost:5173.
-Sem o perfil `host` (`docker compose up -d`) sobem só os bancos, o RabbitMQ e o mailpit.
+Sem o perfil `host` (`docker compose up -d`) sobem só os bancos, o RabbitMQ, o RustFS (mídia) e o mailpit.
 
 **B) Tudo em containers**
 ```bash

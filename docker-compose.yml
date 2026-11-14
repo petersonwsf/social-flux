@@ -12,6 +12,8 @@
 #   postgres                 UMA instância PostgreSQL; um BANCO por serviço (identity = auth, profile = perfil)
 #   profile_db_init          cria o banco `profile` se não existir (roda uma vez e sai; funciona em volume já existente)
 #   graph_db_init            idem para o banco `social_graph`
+#   rustfs                   armazenamento de mídia compatível com S3 (imagens e GIFs); buckets privados, só no loopback do host
+#   rustfs_init              cria os buckets de mídia (roda uma vez e sai)
 #   mysql                    banco do backend legado (relações, postagens... e a PROJEÇÃO `usuario` do perfil)
 #   rabbitmq                 broker de eventos entre serviços (painel em http://localhost:15672)
 #   mailpit                  SMTP de desenvolvimento + caixa de entrada em http://localhost:8025
@@ -118,6 +120,61 @@ services:
       timeout: 10s
       retries: 10
       start_period: 20s
+
+  # Armazenamento de MÍDIA (S3 compatível): imagens e GIFs de postagem e, depois, as fotos de perfil. Buckets PRIVADOS: o navegador
+  # nunca fala com ele; os serviços conferem a permissão e repassam os bytes. O console web (9001) fica DESLIGADO por padrão.
+  # A chave de acesso só aceita letras MAIÚSCULAS e dígitos (regra do RustFS). Sem RUSTFS_ACCESS_KEY/SECRET_KEY o RustFS usaria a senha
+  # pública padrão, por isso as duas são obrigatórias aqui. A imagem não tem tag fixa na documentação: fixe `RUSTFS_TAG` depois de testar.
+  rustfs:
+    image: rustfs/rustfs:${RUSTFS_TAG:-latest}
+    restart: unless-stopped
+    command: ["/data"]
+    security_opt:
+      - "no-new-privileges:true"
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?defina RUSTFS_ACCESS_KEY no .env (só A-Z e 0-9)}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?defina RUSTFS_SECRET_KEY no .env}
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: ${RUSTFS_CONSOLE_ENABLE:-false}
+      RUSTFS_OBS_LOGGER_LEVEL: ${RUSTFS_LOG_LEVEL:-error}
+    volumes:
+      - rustfs_data:/data
+    ports:
+      # API S3 só no loopback do host (para os serviços rodando na máquina); não é exposta à rede nem ao gateway.
+      - "127.0.0.1:${RUSTFS_PORT:-9000}:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # Cria os buckets de mídia (idempotente: roda uma vez e sai; funciona em volume já existente).
+  rustfs_init:
+    image: amazon/aws-cli:latest
+    restart: "no"
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${RUSTFS_REGION:-us-east-1}
+      AWS_EC2_METADATA_DISABLED: "true"
+      MEDIA_BUCKETS: ${RUSTFS_BUCKETS:-post-media avatars}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        endpoint=http://rustfs:9000
+        existing=$$(aws --endpoint-url "$$endpoint" s3api list-buckets --query 'Buckets[].Name' --output text)
+        for bucket in $$MEDIA_BUCKETS; do
+          if echo "$$existing" | tr '\t' '\n' | grep -qx "$$bucket"; then
+            echo "bucket $$bucket já existe"
+          else
+            aws --endpoint-url "$$endpoint" s3api create-bucket --bucket "$$bucket" && echo "bucket $$bucket criado"
+          fi
+        done
 
   mailpit:
     image: axllent/mailpit:latest
@@ -327,5 +384,6 @@ volumes:
   postgres_data:
   mysql_data:
   rabbitmq_data:
+  rustfs_data:
   profile_avatars:
   legacy_images:
