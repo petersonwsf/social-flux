@@ -3,7 +3,7 @@
 Data: 2026-11-14 · Complementa `analise-backend-e-migracao-spring-boot.md`, `plano-dominio-perfil-servico-proprio.md` e
 `plano-dominio-relacoes-grafo-social.md`.
 
-> **Estado: proposta para análise. Nada deste plano foi implementado nem executado.** Base: leitura de `BackEnd/`
+> **Estado: plano aprovado nas decisões que bloqueavam o início (ver §14); nada foi implementado nem executado ainda.** Base: leitura de `BackEnd/`
 > (`PostagemController`, `PostagemService`, `PostagemDao`, `CurtidaController`, `CurtidaDao`, `ImagemController`, `ImagemUtil`,
 > `NotificationDao/Controller/Service`, `App`, `infra/mysql/schema.sql`), do `social_graph_service/` e do `profile_service/`
 > (eventos que o novo serviço vai consumir) e do frontend (`postagemService`, `curtidaService`, `useCurtidas`, `usePostagens`,
@@ -246,7 +246,7 @@ model* de feed por usuário (Redis) alimentado pelos eventos `post.created.v1` �
 
 ---
 
-## 8. API pública (proposta — D4)
+## 8. API pública (D4)
 
 Base `/api/postagens`. `{id}` = UUID da postagem. Autor/usuário em filtros: UUID ou id inteiro legado (`autor`).
 
@@ -284,7 +284,7 @@ mais"; a cadeia de pais usa `/ancestrais` em vez da recursão embutida; `lib/ima
   **rede interna** (sem porta publicada no host), buckets **privados** e credenciais por serviço com acesso só ao bucket dele.
   Bucket de postagens: `post-media` (chave `po_<uuidv7>.<ext>`, gerada no servidor); o do perfil: `avatars`.
 - O cliente é o **SDK S3** com endpoint configurável e acesso por caminho (*path-style*): trocar o RustFS por MinIO ou S3 é só
-  configuração (D17: dependência nova, precisa de aprovação). O RustFS 1.0 foi anunciado como GA em setembro de 2026, com licença
+  configuração (D17: dependência aprovada). O RustFS 1.0 foi anunciado como GA em setembro de 2026, com licença
   Apache 2.0, mas a própria documentação diz que a compatibilidade com S3 **não é idêntica** à da AWS; a imagem/tag oficial, o
   modo de criação de buckets e a cobertura das políticas de acesso precisam ser confirmados na primeira subida (D18).
 - Testes sem Docker: a biblioteca traz uma implementação em memória de `MediaStorage`.
@@ -308,7 +308,7 @@ caminho, de **validação e regravação**, sem redimensionar:
 - Um leitor próprio percorre os blocos do arquivo (cabeçalho `GIF87a`/`GIF89a`, tela lógica, tabelas de cores, quadros, extensões
   de controle e o fim `0x3B`) e **recusa** o que estiver malformado.
 - **Limites:** tamanho do arquivo, dimensões, **número de quadros** e pixels decodificados totais (largura × altura × quadros),
-  para impedir arquivos que parecem pequenos e explodem em memória. Valores sugeridos: 8 MB, 1.280 px no maior lado e 300 quadros.
+  para impedir arquivos que parecem pequenos e explodem em memória. Valores definidos na D16: 8 MB, 1.280 px no maior lado e 300 quadros.
 - A regravação mantém só quadros, tempos, transparência e o laço de repetição; descarta comentários, extensões de aplicação
   desconhecidas e **qualquer byte depois do fim do GIF** (arquivos poliglotas).
 - Servido com `Content-Type: image/gif`, `X-Content-Type-Options: nosniff` e a mesma regra de acesso das imagens. Vídeo (MP4/WebM)
@@ -423,7 +423,7 @@ O `excerpt` existe para o futuro serviço de Notificações montar "curtiu seu p
 
 | Fase | Entrega | Pronto quando | Dias |
 | --- | --- | --- | --- |
-| 0 | Decisões D1–D18 fechadas | registradas neste arquivo | 0,5 |
+| 0 | Decisões D1–D18 fechadas | ✔ bloqueantes fechadas em 2026-11-15; as demais seguem a recomendação | 0,5 |
 | M1 | RustFS no compose (buckets, credenciais por serviço) + `libs/socialflux-media`: `MediaStorage` (S3 e memória), `ImageProcessor` (PNG/JPEG/WebP, orientação EXIF, CMYK, limite de simultâneos), `GifSanitizer`, testes | testes da biblioteca verdes: as 8 orientações EXIF saem na posição certa, WebP lido, animados recusados, GIF malformado/bomba de quadros/poliglota e arquivo falso rejeitados; subida real confirma o RustFS | 6–7 |
 | M2 | `profile_service` migra para a biblioteca e para o bucket `avatars`; **corrige** a orientação EXIF e aceita WebP nos avatares | 41 testes do perfil verdes + testes novos de orientação e WebP; avatar continua público e imutável | 2 |
 | 1 | Esqueleto: Maven/Java 21, Flyway `V1`, resource server (JWKS), `OriginCheckFilter`, erros, Dockerfile, script dev | sobe recusando config incompleta; token do auth aceito, adulterado/`aud` errado recusado | 2 |
