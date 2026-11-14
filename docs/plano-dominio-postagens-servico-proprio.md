@@ -526,9 +526,10 @@ os arquivos listados em 16.3.
   | `refactor/modulo-eventos` | `libs/socialflux-events`, `pom.xml` agregador, auth e profile migrados para a biblioteca |
   | `feat/grafo-social` | `social_graph_service`, rota e compose do grafo, frontend de relações, `total` de solicitações pendentes |
   | `docs/plano-postagens` | este plano |
-  | `feat/modulo-midia` (**atual**) | `rustfs` e `rustfs_init` no compose, `.env.example` e docs de infra. **A Fase M1 (biblioteca) ainda não começou** |
+  | `feat/modulo-midia` | `rustfs` e `rustfs_init` no compose, `.env.example` e docs de infra, mais o guia §16. **A Fase M1 (biblioteca) ainda não começou** |
+  | `feat/reconciliador-grafo` (**atual**) | `CounterReconciler` do `social_graph_service` (contadores conferidos por hora), com testes e docs |
 
-- **Baseline de testes** (`mvn test` na raiz): `socialflux-events` 8, `authentication_service` 31, `profile_service` 41, `social_graph_service` 45 = **125**.
+- **Baseline de testes** (`mvn test` na raiz): `socialflux-events` 8, `authentication_service` 31, `profile_service` 41, `social_graph_service` 52 = **132**.
   Nenhuma fase deste plano pode reduzir esses números; o contrato dos serviços existentes não muda (a M2 só corrige orientação EXIF/WebP nos avatares).
 - **Mudanças locais que NÃO devem ser commitadas** (known issue do CLAUDE.md): `BackEnd/logs/app.log`, `BackEnd/.idea/vcs.xml`, `BackEnd/dependency-reduced-pom.xml`.
 - O `.env` local do desenvolvedor é gitignored e **ainda não tem** `RUSTFS_ACCESS_KEY` nem `RUSTFS_SECRET_KEY` (o compose passou a exigi-las).
@@ -750,7 +751,7 @@ a dependência `mysql-connector-j` e `h2` de teste (se só servia a esse teste),
 
 | Fase | Pronto quando (além do "pronto quando" da tabela da §12) |
 | --- | --- |
-| M1 | `libs/socialflux-media` no `pom.xml` agregador; README e `docs/ARCHITECTURE.md` da biblioteca; testes da §9.5 e 16.6 A/B verdes **sem Docker** (armazenamento em memória); teste de integração do `S3MediaStorage` contra o RustFS rodado manualmente e **registrado** (resultado e versão da imagem); `.env.example` e docs de infra atualizados; baseline 125 testes intacto |
+| M1 | `libs/socialflux-media` no `pom.xml` agregador; README e `docs/ARCHITECTURE.md` da biblioteca; testes da §9.5 e 16.6 A/B verdes **sem Docker** (armazenamento em memória); teste de integração do `S3MediaStorage` contra o RustFS rodado manualmente e **registrado** (resultado e versão da imagem); `.env.example` e docs de infra atualizados; baseline de 132 testes intacto |
 | M2 | `profile_service` usando a biblioteca e o bucket `avatars`; 41 testes anteriores verdes + novos (orientação, WebP); `/media/avatars/{chave}` com o mesmo contrato público; volume `profile_avatars` removido do compose (pede confirmação) |
 | 1–2 | Serviço sobe; token válido aceito e adulterado/`aud` errado recusado; eventos duplicados, antigos e fora de ordem inócuos; `profile.deleted` e `follow.removed` tratados; docs do serviço criados |
 | 3–4 | Matriz de visibilidade (dono, autor público, seguidor, pedido pendente, estranho) em cada rota; IDOR em cada rota mutável; paginação estável com empates; concorrência (curtir × descurtir × excluir × responder); LOG-03/05/08 cobertos por teste |
