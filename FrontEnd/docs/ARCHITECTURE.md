@@ -129,7 +129,7 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `useListaRelacoes.ts` | Lista paginada por cursor (seguidores/seguidos): a 1ª página só é buscada quando `ativo` vira `true`; `carregarMais`, `remover` e `erro` (ex.: conta privada) |
 | `useModalAberto.ts` | Diz se um modal do Bootstrap já foi aberto (evento `show.bs.modal`), para carregar o conteúdo só sob demanda |
 | `useRelacoesEmComum.ts` | Seguidores em comum entre o logado e outro usuário (`itens` + `total`; `limite` opcional) |
-| `useRelacoesPendentes.ts` | Solicitações de seguir recebidas (paginadas), com aceitar/recusar e `carregarMais` |
+| `useRelacoesPendentes.ts` | Solicitações de seguir recebidas (paginadas), com aceitar/recusar, `carregarMais` e `total` (número real de pendentes, vindo do servidor) |
 
 ### `src/lib/`
 
@@ -186,6 +186,6 @@ Uma função por chamada, sempre pela instância `api`. Os nomes de rota estão 
 
 | Arquivo | O que representa |
 | --- | --- |
-| `types/api.ts` | Modelos e payloads da API (`Usuario`, `UsuarioResumo`, `Postagem`, `Curtida`, `EstadoRelacao`, `RelacaoComUsuario`, `ContagensRelacao`, `ItemRelacao`, `PaginaRelacoes`, `EmComum`, `Notification`, `Mensagem`, respostas de auth...) |
+| `types/api.ts` | Modelos e payloads da API (`Usuario`, `UsuarioResumo`, `Postagem`, `Curtida`, `EstadoRelacao`, `RelacaoComUsuario`, `ContagensRelacao`, `ItemRelacao`, `PaginaRelacoes`, `PaginaSolicitacoes`, `EmComum`, `Notification`, `Mensagem`, respostas de auth...) |
 | `ionicons.d.ts` | Declara `<ion-icon>` no JSX |
 | `vite-env.d.ts` | Referência aos tipos do Vite e tipagem de `import.meta.env` (`VITE_API_URL`) |

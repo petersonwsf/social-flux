@@ -60,7 +60,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `Brand` | `src/components/layout/Brand.tsx` | Logo + nome "Social Flux" com link para `/` | `className?` | sidebar, cabeçalho mobile |
 | `FooterBar` | `src/components/layout/FooterBar.tsx` | Barra de navegação fixa no rodapé (só mobile): início, busca, criar, notificações (com badge), perfil | `user` | `ProtectedLayout` |
 | `Sidebar` | `src/components/layout/sidebar/Sidebar.tsx` | Sidebar fixa (só desktop) que troca entre as visões menu, busca, solicitações e notificações; menu do usuário (perfil, configurações, sair) | `user` | `ProtectedLayout` |
-| `SidebarMenu` | `src/components/layout/sidebar/SidebarMenu.tsx` | Links principais da sidebar com badges de solicitações e não vistas | `solicitacoesPendentes`, `naoVistas`, `onAbrirSolicitacoes`, `onAbrirBusca`, `onAbrirNotificacoes` | `Sidebar` |
+| `SidebarMenu` | `src/components/layout/sidebar/SidebarMenu.tsx` | Links principais da sidebar com badges de solicitações (total real, também em tooltip: "N solicitações pendentes") e de não vistas | `solicitacoesPendentes`, `naoVistas`, `onAbrirSolicitacoes`, `onAbrirBusca`, `onAbrirNotificacoes` | `Sidebar` |
 | `SearchUsuario` | `src/components/layout/sidebar/SearchUsuario.tsx` | Busca de usuários dentro da sidebar | `onVoltar()` | `Sidebar` |
 | `SidebarRelacoes` | `src/components/layout/sidebar/SidebarRelacoes.tsx` | Solicitações de seguir dentro da sidebar | `solicitacoes`, `temMais`, `onVoltar`, `onCarregarMais`, `onAceitar(solicitacao)`, `onRecusar(solicitacao)` | `Sidebar` |
 | `NotificationsSidebar` | `src/components/layout/sidebar/NotificationsSidebar.tsx` | Notificações dentro da sidebar; marca como vistas ao voltar | `onVoltar()` | `Sidebar` |

@@ -17,7 +17,7 @@ export type SidebarView = 'menu' | 'busca' | 'solicitacoes' | 'notificacoes'
 function Sidebar({ user }: { user: Usuario }) {
     const { logout } = useAuth()
     const { naoVistas, zerarContador } = useNotificacoes()
-    const { pendentes, temMais, carregarMais, aceitar, recusar } = useRelacoesPendentes(user)
+    const { pendentes, total, temMais, carregarMais, aceitar, recusar } = useRelacoesPendentes(user)
     const [view, setView] = useState<SidebarView>('menu')
 
     const voltarAoMenu = () => setView('menu')
@@ -32,7 +32,7 @@ function Sidebar({ user }: { user: Usuario }) {
                 <div className="content py-3">
                     {view === 'menu' && (
                         <SidebarMenu
-                            solicitacoesPendentes={pendentes.length}
+                            solicitacoesPendentes={total}
                             naoVistas={naoVistas}
                             onAbrirSolicitacoes={() => setView('solicitacoes')}
                             onAbrirBusca={() => setView('busca')}

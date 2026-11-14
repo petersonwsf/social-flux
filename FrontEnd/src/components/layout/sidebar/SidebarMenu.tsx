@@ -13,6 +13,12 @@ function Badge({ value }: { value: number }) {
     return <span className="badge rounded-pill bg-primary ms-auto">{value}</span>
 }
 
+/** Texto do tooltip do item de solicitações (singular/plural e nenhuma pendente). */
+function tituloSolicitacoes(total: number): string {
+    if (total <= 0) return 'Nenhuma solicitação pendente'
+    return total === 1 ? '1 solicitação pendente' : `${total} solicitações pendentes`
+}
+
 function SidebarMenu({
     solicitacoesPendentes,
     naoVistas,
@@ -35,7 +41,12 @@ function SidebarMenu({
                 </NavLink>
             </li>
             <li>
-                <button type="button" onClick={onAbrirSolicitacoes} className="nav-link d-flex align-items-center w-100">
+                <button
+                    type="button"
+                    onClick={onAbrirSolicitacoes}
+                    className="nav-link d-flex align-items-center w-100"
+                    title={tituloSolicitacoes(solicitacoesPendentes)}
+                >
                     <ion-icon name="person-add-outline"></ion-icon>
                     Solicitações
                     <Badge value={solicitacoesPendentes} />

@@ -4,6 +4,7 @@ import type {
     EmComum,
     EstadoRelacao,
     PaginaRelacoes,
+    PaginaSolicitacoes,
     RelacaoComUsuario,
 } from '../types/api'
 
@@ -54,9 +55,9 @@ export async function buscarEmComum(idUsuario: number, limite?: number): Promise
     return data
 }
 
-/** Solicitações de seguir RECEBIDAS pelo usuário logado. */
-export async function listarSolicitacoes(cursor?: string): Promise<PaginaRelacoes> {
-    const { data } = await api.get<PaginaRelacoes>('/api/relacoes/solicitacoes', { params: { cursor } })
+/** Solicitações de seguir RECEBIDAS pelo usuário logado, com o total de pendentes. */
+export async function listarSolicitacoes(cursor?: string): Promise<PaginaSolicitacoes> {
+    const { data } = await api.get<PaginaSolicitacoes>('/api/relacoes/solicitacoes', { params: { cursor } })
     return data
 }
 

@@ -5,10 +5,14 @@ import { getErrorMessage } from '../lib/errors'
 import { useToast } from './useToast'
 import type { ItemRelacao, Usuario } from '../types/api'
 
-/** Solicitações de seguir recebidas pelo usuário (paginadas), com ações de aceitar/recusar. */
+/**
+ * Solicitações de seguir recebidas pelo usuário (paginadas), com ações de aceitar/recusar. `total` é o número real de
+ * pendentes (vem do servidor), mesmo que só a primeira página esteja carregada; cai um a cada aceite/recusa.
+ */
 export function useRelacoesPendentes(user: Usuario) {
     const toast = useToast()
     const [pendentes, setPendentes] = useState<ItemRelacao[]>([])
+    const [total, setTotal] = useState(0)
     const [proximoCursor, setProximoCursor] = useState<string | null>(null)
     const [carregando, setCarregando] = useState(false)
 
@@ -20,6 +24,7 @@ export function useRelacoesPendentes(user: Usuario) {
                 if (ignorar?.()) return
                 setPendentes((atual) => (cursor ? [...atual, ...pagina.itens] : pagina.itens))
                 setProximoCursor(pagina.proximoCursor)
+                setTotal(pagina.total)
             } catch (error) {
                 if (!ignorar?.()) toast.error(getErrorMessage(error))
             } finally {
@@ -46,6 +51,7 @@ export function useRelacoesPendentes(user: Usuario) {
             try {
                 await relacaoService.aceitarSolicitacao(item.usuario.id)
                 setPendentes((lista) => lista.filter((outro) => outro.usuario.id !== item.usuario.id))
+                setTotal((atual) => Math.max(0, atual - 1))
                 notificationService.notificarSeguidor(item.usuario, user).catch(() => undefined)
             } catch (error) {
                 toast.error(getErrorMessage(error))
@@ -59,6 +65,7 @@ export function useRelacoesPendentes(user: Usuario) {
             try {
                 await relacaoService.recusarSolicitacao(item.usuario.id)
                 setPendentes((lista) => lista.filter((outro) => outro.usuario.id !== item.usuario.id))
+                setTotal((atual) => Math.max(0, atual - 1))
             } catch (error) {
                 toast.error(getErrorMessage(error))
             }
@@ -66,5 +73,5 @@ export function useRelacoesPendentes(user: Usuario) {
         [toast],
     )
 
-    return { pendentes, temMais: proximoCursor !== null, carregarMais, aceitar, recusar }
+    return { pendentes, total, temMais: proximoCursor !== null, carregarMais, aceitar, recusar }
 }

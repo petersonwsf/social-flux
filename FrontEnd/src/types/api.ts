@@ -99,6 +99,11 @@ export interface PaginaRelacoes {
     proximoCursor: string | null
 }
 
+/** Solicitações de seguir recebidas; `total` é o número real de pendentes, não só os itens desta página. */
+export interface PaginaSolicitacoes extends PaginaRelacoes {
+    total: number
+}
+
 /** Seguidores em comum; `total` é o número real, mesmo quando `itens` vem limitado. */
 export interface EmComum {
     itens: UsuarioResumo[]
