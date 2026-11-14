@@ -9,7 +9,7 @@ Data: 2026-11-14 · Complementa `analise-backend-e-migracao-spring-boot.md`, `pl
 > (eventos que o novo serviço vai consumir) e do frontend (`postagemService`, `curtidaService`, `useCurtidas`, `usePostagens`,
 > `usePostagemActions`, `usePostagemInteracoes`, `useNumeroRespostas`, `PostSecondary`, `Notification`, `lib/dates`, `lib/imageUrl`).
 > Premissa herdada: **não existem dados reais em nenhum banco** (sem importação de postagens, curtidas ou imagens).
-> As decisões estão em **§14 (D1–D18)**, com o que já foi fechado na conversa e o que continua aberto.
+> As decisões estão em **§14 (D1–D18)**. As que bloqueavam o início (D3, D4, D15 a D18) foram **fechadas em 2026-11-15**; as demais seguem a recomendação.
 >
 > **Atualização (2026-11-15):** o armazenamento de mídia passa a ser o **RustFS** (S3 compatível), as postagens aceitam **GIFs**
 > além de imagens (vídeo fica para depois) e a lógica de mídia vira a biblioteca `libs/socialflux-media`, compartilhada com o
@@ -478,18 +478,18 @@ feed em Redis se medido; lista de quem curtiu.
 | D8 | Imagens de postagem **entregues pelo serviço, com checagem de visibilidade** (404 para quem não pode ver; bucket privado; sem URLs assinadas por ora) |
 | — | Armazenamento de mídia: **RustFS**; formatos: **imagens e GIFs** (vídeo fica para depois) |
 | D17(b) | Dependência **TwelveMonkeys ImageIO** (`imageio-webp`, `imageio-jpeg`, `imageio-metadata`) para ler WebP, JPEG CMYK e a orientação EXIF — **aprovada em 2026-11-15** |
+| D3 | Id da postagem: **UUIDv7**; o legado alarga `notification.id_post` para `VARCHAR(36)` *(a mudança no `schema.sql` ainda pede confirmação na Fase 8)* |
+| D4 | Contrato novo `/api/postagens`: **paginado por cursor**, com **contadores e "curti" embutidos** e datas ISO-8601 |
+| D15 | Lógica de mídia numa **biblioteca compartilhada** (`libs/socialflux-media`), usada por perfil e postagens |
+| D16 | GIFs **só em postagens**, até **8 MB, 1.280 px e 300 quadros** |
+| D17(a) | Dependência **SDK S3 da AWS** para falar com o RustFS — **aprovada em 2026-11-15** |
+| D18 | RustFS como **container na rede interna** (sem porta no host), buckets `post-media` e `avatars` privados, credenciais por serviço; imagem/tag e criação de buckets confirmadas na Fase M1 |
 | D9 | Imagens estáticas: **PNG, JPEG e WebP** (entrada), até 5 MB/16 MP; saída JPEG ou PNG (se houver transparência), lado maior ≤ 1.600 px, **com correção da orientação EXIF**; PNG/WebP animados recusados (animação só por GIF) |
 
-**Abertas — preciso do seu parecer (recomendada em negrito):**
+**Sem objeção até agora — seguem a recomendação (em negrito) salvo aviso seu:**
 
 | # | Decisão | Opções |
 | --- | --- | --- |
-| D15 | Onde mora a lógica de mídia | **Biblioteca `libs/socialflux-media`, usada por perfil e postagens** · serviço de mídia isolado (a regra de acesso por imagem exigiria token de serviço ou URLs assinadas, e criar a postagem viraria dois passos) · tudo dentro do `post_service` (duplica o que o perfil já tem) |
-| D16 | GIFs: onde e com que limites | **Só em postagens, até 8 MB, 1.280 px e 300 quadros** · também como foto de perfil · outros limites |
-| D17(a) | Dependência: SDK S3 da AWS (módulo S3) para falar com o RustFS | **Aprovar** · outro cliente S3 (ex.: MinIO Java) |
-| D18 | Infra do RustFS | **Container na rede interna, buckets `post-media` e `avatars` privados, credenciais por serviço; confirmar imagem/tag e criação de buckets na Fase M1** · expor o console/porta no host em desenvolvimento |
-| D3 | Id da postagem | **UUIDv7; alargar `notification.id_post` no legado para `VARCHAR(36)`** · inteiro temporário (`legacy_id`) até Notificações migrar |
-| D4 | Contrato HTTP | **Novo `/api/postagens`: paginado, contadores e "curti" embutidos, ISO-8601** · manter `/api/postagem` com regras corrigidas |
 | D5 | Feed e privacidade | **Cópia local das arestas por eventos `follow.*` (sem chamada ao grafo)** · consulta síncrona ao grafo (exige token de serviço e API interna) |
 | D6 | Visibilidade | **Por autor: dono ou seguidor aceito vê conta privada; resposta filtrada pelo seu autor; pai precisa ser visível para responder** · esconder a thread inteira se a raiz for privada |
 | D7 | Excluir postagem | **Apaga as respostas e as curtidas (cascata), como o legado** · manter as respostas como "postagem removida" |
@@ -500,8 +500,10 @@ feed em Redis se medido; lista de quem curtiu.
 | D14 | Fim da transição | **Remover postagens/curtidas/imagens do legado e a projeção `relacao` do grafo na Fase 8 (inclui mudar o `schema.sql`)** · deixar a projeção até Notificações migrar |
 
 O WebP, a orientação EXIF e as demais lacunas de imagem estão **pedidos e incorporados** (D9 fechada); a dependência D17(b) está **aprovada**.
-As abertas que **bloqueiam o início** são D15, D17(a) e D18 (a Fase M1 depende delas); D3 e D4 bloqueiam a Fase 3; as demais podem seguir a
-recomendação se você não se opuser.
+**Nenhuma decisão bloqueia o início:** a Fase M1 (mídia) pode começar. Já estão aprovados o serviço `rustfs` no `docker-compose.yml` (D18) e as
+dependências SDK S3 e TwelveMonkeys (D17). Continuam pedindo confirmação (CLAUDE.md, regra 5) o serviço `post_service` no compose, a rota no
+`Caddyfile` e as mudanças de `schema.sql` do legado (Fases 7 e 8). As decisões restantes (D5, D6, D7, D10 a D14) seguem a recomendação a
+menos que você diga o contrário.
 
 ## 15. O que não foi verificado
 Nada foi executado. As afirmações sobre o RustFS (GA em 09/2026, Apache 2.0, S3 compatível, URLs assinadas e políticas no estilo IAM) vêm de buscas na web e da documentação do projeto, e precisam ser confirmadas na primeira subida real; não verifiquei a imagem Docker oficial. A contagem de chamadas por card vem da leitura dos hooks, não de medição no navegador. Não confirmei o
