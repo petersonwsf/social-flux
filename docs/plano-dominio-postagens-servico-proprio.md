@@ -3,7 +3,8 @@
 Data: 2026-11-14 · Complementa `analise-backend-e-migracao-spring-boot.md`, `plano-dominio-perfil-servico-proprio.md` e
 `plano-dominio-relacoes-grafo-social.md`.
 
-> **Estado: todas as decisões fechadas (§14). Nada de Postagens foi implementado ainda; só o RustFS e a criação dos buckets entraram no `docker-compose.yml`.** Base: leitura de `BackEnd/`
+> **Estado (2026-11-15): implementado — Fases M1, M2 e 1 a 8 (estado e pendências em §16.1).** O que **não** foi verificado: nada rodou com Docker
+> (subida real do RustFS e teste `S3MediaStorageIntegrationTest`, Caddyfile, build das imagens, fluxo no navegador). Base: leitura de `BackEnd/`
 > (`PostagemController`, `PostagemService`, `PostagemDao`, `CurtidaController`, `CurtidaDao`, `ImagemController`, `ImagemUtil`,
 > `NotificationDao/Controller/Service`, `App`, `infra/mysql/schema.sql`), do `social_graph_service/` e do `profile_service/`
 > (eventos que o novo serviço vai consumir) e do frontend (`postagemService`, `curtidaService`, `useCurtidas`, `usePostagens`,
@@ -527,13 +528,27 @@ os arquivos listados em 16.3.
   | `feat/grafo-social` | `social_graph_service`, rota e compose do grafo, frontend de relações, `total` de solicitações pendentes |
   | `docs/plano-postagens` | este plano |
   | `feat/modulo-midia` | `rustfs` e `rustfs_init` no compose, `.env.example` e docs de infra, mais o guia §16. **A Fase M1 (biblioteca) ainda não começou** |
-  | `feat/reconciliador-grafo` (**atual**) | `CounterReconciler` do `social_graph_service` (contadores conferidos por hora), com testes e docs |
+  | `feat/reconciliador-grafo` | `CounterReconciler` do `social_graph_service` (contadores conferidos por hora), com testes e docs |
+  | `feat/biblioteca-midia` | **M1:** `libs/socialflux-media` (ImageProcessor, GifSanitizer, MediaStorage S3/memória, limitador), 43 testes + 1 manual |
+  | `feat/perfil-midia` | **M2:** `profile_service` na biblioteca e no bucket `avatars` (orientação EXIF e WebP nos avatares); sai o volume `profile_avatars` |
+  | `feat/post-service` | **Fases 1–6:** `post_service` completo (60 testes), Dockerfile, scripts `run-post.*`, docs |
+  | `feat/postagens-integracao` | **Fase 7:** `post_db_init`/`post_service` no compose, rotas no Caddyfile, frontend no contrato `/api/postagens` |
+  | `refactor/limpeza-legado-postagens` (**atual**) | **Fase 8:** postagens/curtidas/imagens/relações fora do `BackEnd/`, `notification.id_post` → `VARCHAR(36)`, `schema.sql` reduzido, sem `legacy_images`; grafo sem a projeção `relacao` (sem MySQL) |
 
-- **Baseline de testes** (`mvn test` na raiz): `socialflux-events` 8, `authentication_service` 31, `profile_service` 41, `social_graph_service` 52 = **132**.
+- **Testes** (`mvn clean test` na raiz, depois da Fase 8): `socialflux-events` 8, `socialflux-media` 43 (+1 manual pulado sem RustFS), `authentication_service` 31,
+  `profile_service` 43, `social_graph_service` 48 (os 4 do `LegacyProjectionTest` saíram com a projeção), `post_service` 60 = **233**. Antes: 132.
   Nenhuma fase deste plano pode reduzir esses números; o contrato dos serviços existentes não muda (a M2 só corrige orientação EXIF/WebP nos avatares).
 - **Mudanças locais que NÃO devem ser commitadas** (known issue do CLAUDE.md): `BackEnd/logs/app.log`, `BackEnd/.idea/vcs.xml`, `BackEnd/dependency-reduced-pom.xml`.
-- O `.env` local do desenvolvedor é gitignored e **ainda não tem** `RUSTFS_ACCESS_KEY` nem `RUSTFS_SECRET_KEY` (o compose passou a exigi-las).
-- **Nada de Postagens foi escrito além deste plano e do RustFS no compose.** Não existe `post_service/` nem `libs/socialflux-media/`.
+- O `.env` local do desenvolvedor é gitignored e **ainda não tem** `RUSTFS_ACCESS_KEY` nem `RUSTFS_SECRET_KEY` (o compose exige: copie de `.env.example`).
+- **Implementado (2026-11-15).** Pendências e itens não verificados:
+  1. **Nada rodou com Docker** (estava parado): subida do RustFS e `S3MediaStorageIntegrationTest`, validação do Caddyfile por um binário do Caddy,
+     `docker compose --profile apps up -d --build`, filas no RabbitMQ e o fluxo no navegador (criar texto/imagem/GIF, comentar, curtir, excluir, feed,
+     perfil, conta privada, mobile). O `docker compose config` valida o compose.
+  2. **Credencial raiz do RustFS** nos dois serviços (D18: credencial por bucket pendente).
+  3. **Volumes antigos:** o MySQL precisa ser recriado (`schema.sql` novo, `notification.id_post` texto) e o `post_service` não tem bootstrap de perfis/arestas
+     anteriores a ele (crie contas novas ou recrie os volumes em desenvolvimento).
+  4. **Corrida rara documentada:** uma resposta criada no exato instante em que um ancestral é excluído pode ficar sem o seu `post.deleted.v1`.
+  5. `BackEnd/` tem um `.git` próprio (repositório antigo aninhado): rode o Git sempre a partir da raiz.
 
 ### 16.2 Regras do projeto que valem para toda a implementação
 
