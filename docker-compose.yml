@@ -12,6 +12,7 @@
 #   postgres                 UMA instância PostgreSQL; um BANCO por serviço (identity = auth, profile = perfil)
 #   profile_db_init          cria o banco `profile` se não existir (roda uma vez e sai; funciona em volume já existente)
 #   graph_db_init            idem para o banco `social_graph`
+#   post_db_init             idem para o banco `post`
 #   rustfs                   armazenamento de mídia compatível com S3 (imagens e GIFs); buckets privados, só no loopback do host
 #   rustfs_init              cria os buckets de mídia (roda uma vez e sai)
 #   mysql                    banco do backend legado (relações, postagens... e a PROJEÇÃO `usuario` do perfil)
@@ -20,6 +21,7 @@
 #   authentication_service   login/cadastro/sessão (JWT RS256 em cookie HttpOnly)
 #   profile_service          perfil, busca, foto de perfil (resource server: valida o JWT pelo JWKS do auth)
 #   social_graph_service     grafo social: seguir, seguidores, solicitações de contas privadas (resource server)
+#   post_service             postagens, respostas, curtidas e imagens/GIFs (resource server; mídia no RustFS)
 #   legacy_backend           backend Javalin legado, em modo `gateway` (só aceita X-User-Id do gateway)
 #   frontend                 SPA (nginx)
 #   gateway                  Caddy: mesma origem para frontend, /auth, /api e /media
@@ -82,6 +84,25 @@ services:
       - |
         psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$GRAPH_DB'" | grep -q 1 \
           || psql -v ON_ERROR_STOP=1 -c "create database \"$$GRAPH_DB\""
+
+  # Cria o banco do post_service na MESMA instância (D1 de Postagens: um banco por serviço).
+  post_db_init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${IDENTITY_DB_USER:-identity}
+      PGPASSWORD: ${IDENTITY_DB_PASSWORD}
+      PGDATABASE: ${IDENTITY_DB_NAME:-identity}
+      POST_DB: ${POST_DB_NAME:-post}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$POST_DB'" | grep -q 1 \
+          || psql -v ON_ERROR_STOP=1 -c "create database \"$$POST_DB\""
 
   mysql:
     image: mysql:8.4
@@ -313,6 +334,45 @@ services:
     ports:
       - "127.0.0.1:${GRAPH_SERVICE_PORT:-8083}:8083"   # só para depuração local; não exponha na internet
 
+  post_service:
+    profiles: ["apps"]
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events e libs/socialflux-media
+      dockerfile: post_service/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      post_db_init:
+        condition: service_completed_successfully
+      rustfs_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      # Banco próprio, mesmas credenciais do auth (sobrescreva com POST_DB_USER/POST_DB_PASSWORD para um role próprio)
+      POST_DB_URL: jdbc:postgresql://postgres:5432/${POST_DB_NAME:-post}
+      POST_DB_USER: ${POST_DB_USER:-${IDENTITY_DB_USER:-identity}}
+      POST_DB_PASSWORD: ${POST_DB_PASSWORD:-${IDENTITY_DB_PASSWORD}}
+      # Valida o JWT com a chave PÚBLICA do auth
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # Imagens e GIFs no bucket `post-media` do RustFS. Credencial raiz por ora (D18).
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_REGION: ${RUSTFS_REGION:-us-east-1}
+      POST_MEDIA_BUCKET: post-media
+      # Limites (opcionais, D10)
+      POST_RATE_POSTS_PER_HOUR: ${POST_RATE_POSTS_PER_HOUR:-60}
+      POST_RATE_LIKES_PER_HOUR: ${POST_RATE_LIKES_PER_HOUR:-600}
+    ports:
+      - "127.0.0.1:${POST_SERVICE_PORT:-8084}:8084"   # só para depuração local; não exponha na internet
+
   legacy_backend:
     profiles: ["apps"]
     build: ./BackEnd
@@ -344,8 +404,8 @@ services:
 
   # Gateway quando as aplicações rodam NA SUA MÁQUINA (só a infra em containers):
   #   docker compose --profile host up -d     (sobe bancos + broker + mailpit + este gateway)
-  # Encaminha para authentication_service (8081), profile_service (8082), social_graph_service (8083), backend legado (8000)
-  # e Vite (5173) no host.
+  # Encaminha para authentication_service (8081), profile_service (8082), social_graph_service (8083), post_service (8084),
+  # backend legado (8000) e Vite (5173) no host.
   gateway_host:
     profiles: ["host"]
     image: caddy:2-alpine
@@ -355,6 +415,7 @@ services:
       AUTH_UPSTREAM: host.docker.internal:8081
       PROFILE_UPSTREAM: host.docker.internal:8082
       GRAPH_UPSTREAM: host.docker.internal:8083
+      POST_UPSTREAM: host.docker.internal:8084
       LEGACY_UPSTREAM: host.docker.internal:8000
       FRONTEND_UPSTREAM: host.docker.internal:5173
     volumes:
@@ -372,6 +433,7 @@ services:
       - authentication_service
       - profile_service
       - social_graph_service
+      - post_service
       - legacy_backend
       - frontend
     environment:

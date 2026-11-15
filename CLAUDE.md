@@ -40,14 +40,17 @@ Browser ─► Caddy (same origin)
             ├─ /                        → FrontEnd
             ├─ /auth/*, /.well-known    → authentication_service ─► PostgreSQL (db `identity`)
             ├─ /api/usuarios*, /api/img/usuarios/*, /media/avatars/*
-            │                           → forward_auth (revocation) → profile_service ─► PostgreSQL (db `profile`) + disk
+            │                           → forward_auth (revocation) → profile_service ─► PostgreSQL (db `profile`) + RustFS (bucket `avatars`)
             ├─ /api/relacoes*           → forward_auth → social_graph_service ─► PostgreSQL (db `social_graph`)
+            ├─ /api/postagens*, /media/posts/*
+            │                           → forward_auth → post_service ─► PostgreSQL (db `post`) + RustFS (bucket `post-media`)
             ├─ /api/* (rest)            → forward_auth → X-User-Id → legacy BackEnd ─► MySQL
             └─ /internal/*              → 404 (service-to-service only)
 auth ──PUT /internal/profiles/{uuid} (service token)──► profile        (registration, D1: auth orchestrates)
 auth ──account.registered|deleted.v1──► RabbitMQ ──► profile
 profile ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► `usuario` projection in MySQL, and the graph's local copy
-graph ──follow.*.v1──► RabbitMQ ──► `relacao` projection in MySQL
+graph ──follow.*.v1──► RabbitMQ ──► `relacao` projection in MySQL, and the posts service's local edge copy
+posts ──post.created|deleted|liked|unliked.v1──► RabbitMQ ──► (future Notifications service)
 ```
 The account and the profile share the same **UUIDv7**. The integer `id`/`legacy_id`/`X-User-Id` is **temporary**, only for
 domains still in the legacy backend.

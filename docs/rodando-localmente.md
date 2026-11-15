@@ -2,15 +2,17 @@
 
 ## Caminho rápido (scripts que leem o seu `.env`)
 
-Depois de subir a infraestrutura (passo 1 abaixo), em **três terminais na raiz do repositório**:
+Depois de subir a infraestrutura (passo 1 abaixo), em **um terminal por serviço, na raiz do repositório**:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-auth.ps1      # authentication_service (8081)
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-profile.ps1   # profile_service (8082)
+powershell -ExecutionPolicy Bypass -File scripts/dev/run-graph.ps1     # social_graph_service (8083)
+powershell -ExecutionPolicy Bypass -File scripts/dev/run-post.ps1      # post_service (8084)
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-legacy.ps1    # backend legado (8000)
 ```
 
-(bash: `./scripts/dev/run-auth.sh`, `./scripts/dev/run-profile.sh` e `./scripts/dev/run-legacy.sh`.) E em `FrontEnd/`: `npm ci && npm run dev`.
+(bash: `./scripts/dev/run-auth.sh`, `run-profile.sh`, `run-graph.sh`, `run-post.sh` e `run-legacy.sh`.) E em `FrontEnd/`: `npm ci && npm run dev`.
 
 Os scripts usam **o banco, o usuário e a senha do seu `.env`** — os mesmos dos containers. Os dois erros mais comuns ao rodar
 na mão vêm de usar valores diferentes dos do `.env`:
@@ -37,7 +39,7 @@ docker compose ps           # postgres e mysql devem ficar "healthy"
 Sobe: PostgreSQL (`localhost:5432`; o serviço `profile_db_init` cria o banco `profile` ao lado do banco do auth, com as mesmas credenciais), MySQL
 legado (`localhost:3306`), **RabbitMQ** (`localhost:5672`, painel http://localhost:15672), **RustFS** (armazenamento de mídia S3 em `localhost:9000`, só no loopback; o serviço `rustfs_init` cria os buckets; exige `RUSTFS_ACCESS_KEY` e `RUSTFS_SECRET_KEY` no `.env`) e Mailpit
 (SMTP `localhost:1025`, caixa de entrada http://localhost:8025) e o **gateway** Caddy em `localhost:8080`, que encaminha
-`/auth` → `localhost:8081`, `/api/usuarios*` e `/media/avatars` → `localhost:8082` (perfil), `/api/relacoes*` → `localhost:8083` (grafo), o resto de `/api` → `localhost:8000` (depois de validar o token) e o resto → Vite `localhost:5173`.
+`/auth` → `localhost:8081`, `/api/usuarios*` e `/media/avatars` → `localhost:8082` (perfil), `/api/relacoes*` → `localhost:8083` (grafo), `/api/postagens*` e `/media/posts/*` → `localhost:8084` (postagens), o resto de `/api` → `localhost:8000` (depois de validar o token) e o resto → Vite `localhost:5173`.
 
 Se já houver Postgres/MySQL na sua máquina nas mesmas portas, mude `POSTGRES_PORT`/`MYSQL_PORT` no `.env` e use essas portas abaixo.
 
@@ -94,6 +96,14 @@ Use `scripts/dev/run-graph.ps1` (ou `.sh`): banco `social_graph` na mesma instâ
 `IDENTITY_DB_*`, valida o JWT pelo JWKS do auth e mantém a tabela `relacao` do MySQL atualizada (projeção). O banco é criado
 pelo serviço `graph_db_init` do compose (suba a infra antes). Pronto quando aparecer `Started GraphServiceApplication`. O gateway já
 roteia `/api/relacoes*` para ele (porta 8083 no host); o frontend já o usa (veja o README dele).
+
+## 2d. post_service (porta 8084)
+
+Use `scripts/dev/run-post.ps1` (ou `.sh`): banco `post` na mesma instância PostgreSQL, **com o mesmo usuário e senha** do
+`IDENTITY_DB_*` (criado pelo `post_db_init` do compose), valida o JWT pelo JWKS do auth, consome `profile.*` e `follow.*` do
+RabbitMQ e grava as imagens no bucket `post-media` do RustFS (`http://localhost:9000`, `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY`
+do `.env`). Pronto quando aparecer `Started PostServiceApplication`. O gateway roteia `/api/postagens*` e `/media/posts/*` para ele.
+Ele só conhece usuários e relações criados **depois** de subir (sem bootstrap): em desenvolvimento, crie contas novas ou recrie os volumes.
 
 ## 3. Backend legado (porta 8000), em modo gateway
 

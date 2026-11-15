@@ -6,6 +6,7 @@
 #   /api/usuarios*, PATCH /api/img/usuarios/*, /media/avatars/*
 #                                        -> profile_service (perfil, busca, foto de perfil)
 #   /api/relacoes*                       -> social_graph_service (seguir, seguidores, solicitações), com forward_auth
+#   /api/postagens*, /media/posts/*      -> post_service (postagens, respostas, curtidas, imagens/GIFs), com forward_auth
 #   /api/*                               -> backend legado, depois de validar o token no authentication_service (forward_auth)
 #   /internal/*                          -> bloqueado para o público
 #
@@ -60,6 +61,19 @@
 			uri /internal/auth/verify
 		}
 		reverse_proxy {$GRAPH_UPSTREAM:social_graph_service:8083}
+	}
+
+	# Postagens e as imagens delas. Igual ao grafo: o serviço valida o JWT sozinho e o forward_auth acrescenta a checagem de
+	# REVOGAÇÃO. As imagens de postagem NÃO são públicas (ao contrário dos avatares): `<img src="/media/posts/...">` leva o
+	# cookie, que vira `Authorization: Bearer`, e o serviço só entrega a quem pode ver a postagem.
+	@posts path /api/postagens /api/postagens/* /media/posts/*
+	handle @posts {
+		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
+
+		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
+			uri /internal/auth/verify
+		}
+		reverse_proxy {$POST_UPSTREAM:post_service:8084}
 	}
 
 	handle /api/* {
