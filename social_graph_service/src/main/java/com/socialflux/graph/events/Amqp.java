@@ -18,7 +18,6 @@ import org.springframework.context.annotation.Configuration;
 public class Amqp {
 
     public static final String PROFILE_QUEUE = "social-graph.profile-events";
-    public static final String LEGACY_QUEUE = "social-graph.legacy-projection";
 
     /** Eventos do perfil (criação, mudança de dados e de privacidade, exclusão) publicados pelo profile_service. */
     @Bean
@@ -32,17 +31,4 @@ public class Amqp {
         return EventQueues.bind(profileQueue, exchange, "profile.#");
     }
 
-    /** Projeção temporária no MySQL legado: ouve os eventos do próprio grafo. Só existe quando habilitada. */
-    @Bean
-    @ConditionalOnProperty(prefix = "graph.legacy", name = "enabled", havingValue = "true")
-    Queue legacyQueue() {
-        return EventQueues.durable(LEGACY_QUEUE);
-    }
-
-    @Bean
-    @ConditionalOnProperty(prefix = "graph.legacy", name = "enabled", havingValue = "true")
-    Binding legacyBinding(@Qualifier("legacyQueue") Queue legacyQueue,
-                          @Qualifier(EventQueues.EXCHANGE_BEAN) TopicExchange exchange) {
-        return EventQueues.bind(legacyQueue, exchange, "follow.#");
-    }
 }

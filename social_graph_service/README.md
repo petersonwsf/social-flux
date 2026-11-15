@@ -8,14 +8,14 @@ Plano, análise SQL × NoSQL e decisões D1–D14: [`../docs/plano-dominio-relac
 
 > **Estado:** serviço implementado e testado (Fases 1–4 do plano), já presente no `docker-compose.yml` (perfil `apps`, banco
 > criado por `graph_db_init`) e roteado no `Caddyfile` (`/api/relacoes*`). O **frontend já o usa** (`services/relacaoService.ts`);
-> as rotas `/api/relacao` do legado ficaram sem uso e serão removidas.
+> as rotas `/api/relacao` do legado e a projeção `relacao` no MySQL foram removidas (o serviço não depende mais do MySQL).
 
 ## Como se relaciona com os outros serviços
 
 ```
 Navegador ─► Caddy ──► /api/relacoes/*  ─► social_graph_service        (cookie -> Bearer; forward_auth confere a revogação)
 profile_service ──profile.created|updated|privacy-changed|deleted.v1 (RabbitMQ)──► social_graph_service   (cópia local dos perfis)
-social_graph_service ──follow.created|removed|requested|request-cancelled|request-rejected.v1──► RabbitMQ ──► projetor MySQL (legado) e futuros serviços
+social_graph_service ──follow.created|removed|requested|request-cancelled|request-rejected.v1──► RabbitMQ ──► post_service (cópia das arestas aceitas) e futuros serviços
 ```
 
 - **Identidade:** quem age vem SEMPRE do `sub` do token. O usuário da URL é só o **alvo**; nenhuma rota aceita corpo, então não
@@ -95,15 +95,6 @@ Consome (fila `social-graph.profile-events`, ligação `profile.#`, idempotente 
 Tipos desconhecidos são ignorados. Um `profile.deleted.v1` que chega antes do `created` deixa um "túmulo" para que um
 `created` atrasado não reviva a conta.
 
-## Projeção temporária no MySQL legado
-
-Com `GRAPH_LEGACY_ENABLED=true`, um consumidor (fila `social-graph.legacy-projection`, ligação `follow.#`) mantém a tabela
-`relacao` do MySQL para o **feed do backend Javalin** (`JOIN relacao ... aceito = 1`). A projeção é por **estado**: o evento só
-diz qual par mudou e o serviço grava no MySQL o estado ATUAL do par no PostgreSQL — por isso eventos duplicados ou fora de
-ordem convergem sempre para o resultado certo. Só relações aceitas vão para o MySQL. Exige que o `profile_service` já tenha
-projetado os dois usuários em `usuario` (se não, a FK falha e a mensagem é reentregue com espera, 5 tentativas, antes de ir para a fila de mortos). Removida
-quando Postagens migrar.
-
 ## Rodando
 
 Tudo em containers: `docker compose --profile apps up -d --build` (o serviço `graph_db_init` cria o banco `social_graph`).
@@ -133,7 +124,6 @@ mvn -pl social_graph_service -am test      # na raiz; compila a biblioteca de ev
 | `RABBITMQ_HOST/PORT/USER/PASSWORD`, `EVENTS_EXCHANGE`, `GRAPH_EVENTS_ENABLED`, `GRAPH_OUTBOX_INTERVAL` | Broker e eventos |
 | `GRAPH_FOLLOW_RATE_PER_HOUR`, `GRAPH_MAX_FOLLOWING`, `GRAPH_MAX_PENDING_SENT` | Limites antiabuso (D8) |
 | `GRAPH_RECONCILER_ENABLED`, `GRAPH_RECONCILER_INTERVAL`, `GRAPH_RECONCILER_BATCH` | Reconciliador de contadores: liga/desliga (padrão ligado), intervalo ISO-8601 (`PT1H`) e usuários por rodada (500) |
-| `GRAPH_LEGACY_ENABLED`, `LEGACY_DB_URL/USER/PASSWORD` | Projeção no MySQL legado |
 | `GRAPH_ALLOWED_ORIGINS` | Origens aceitas em métodos não seguros (vazio = a própria origem) |
 | `SERVER_PORT` | Porta (padrão 8083) |
 

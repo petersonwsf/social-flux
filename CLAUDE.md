@@ -20,7 +20,7 @@ Identity, Profile, Relations (social graph) and Posts (posts, replies, likes, po
 | `FrontEnd/` | SPA. Talks only to its own origin (`/auth`, `/api`, `/media`); Vite proxies to the gateway in dev | 5173 |
 | `authentication_service/` | Identity & access: register, login, sliding session (HttpOnly cookies), password reset, e-mail verification, JWKS, gateway `forward_auth` | 8081 |
 | `profile_service/` | User profile: profile data, search, avatar, privacy; JWT resource server; publishes `profile.*` events and projects them into the legacy `usuario` table | 8082 |
-| `social_graph_service/` | Social graph: follow/unfollow, followers/following, follow requests for private accounts; JWT resource server; consumes `profile.*`, publishes `follow.*`, projects accepted relations into the legacy `relacao` table. **In compose, the gateway (`/api/relacoes*`) and the frontend; the legacy `/api/relacao` routes are now unused** | 8083 |
+| `social_graph_service/` | Social graph: follow/unfollow, followers/following, follow requests for private accounts; JWT resource server; consumes `profile.*`, publishes `follow.*` (consumed by `post_service`). In compose, the gateway (`/api/relacoes*`) and the frontend; no MySQL dependency | 8083 |
 | `post_service/` | Posts: posts, replies (posts with a parent), likes and post media (images and GIFs in RustFS); JWT resource server; keeps local copies of `profile.*` (authors) and `follow.*` (accepted edges) to enforce private-account visibility server-side; publishes `post.*`; cursor-paginated feed with embedded counters | 8084 |
 | `libs/socialflux-events/` | Shared event library (transactional outbox, relay, idempotent inbox, RabbitMQ topology) used by every Spring service; auto-configured, `socialflux.events.*` properties | — |
 | `libs/socialflux-media/` | Shared media library (PNG/JPEG/WebP validation and re-encoding with EXIF orientation, GIF sanitizer, S3/RustFS storage, concurrency limit); auto-configured, `socialflux.media.*` properties | — |
@@ -49,7 +49,7 @@ Browser ─► Caddy (same origin)
 auth ──PUT /internal/profiles/{uuid} (service token)──► profile        (registration, D1: auth orchestrates)
 auth ──account.registered|deleted.v1──► RabbitMQ ──► profile
 profile ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► `usuario` projection in MySQL, and the graph's local copy
-graph ──follow.*.v1──► RabbitMQ ──► `relacao` projection in MySQL, and the posts service's local edge copy
+graph ──follow.*.v1──► RabbitMQ ──► the posts service's local edge copy
 posts ──post.created|deleted|liked|unliked.v1──► RabbitMQ ──► (future Notifications service)
 ```
 The account and the profile share the same **UUIDv7**. The integer `id`/`legacy_id`/`X-User-Id` is **temporary**, only for

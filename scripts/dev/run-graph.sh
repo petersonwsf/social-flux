@@ -10,8 +10,6 @@ export GRAPH_DB_URL="jdbc:postgresql://localhost:${POSTGRES_PORT:-5432}/${GRAPH_
 # GRAPH_DB_USER/GRAPH_DB_PASSWORD, se ausentes, caem em IDENTITY_DB_USER/IDENTITY_DB_PASSWORD (do .env)
 export AUTH_JWKS_URI=http://localhost:8081/.well-known/jwks.json          # chave PÚBLICA do authentication_service
 export RABBITMQ_HOST=localhost RABBITMQ_PORT="${RABBITMQ_PORT:-5672}"
-export GRAPH_LEGACY_ENABLED=true
-export LEGACY_DB_URL="jdbc:mysql://localhost:${MYSQL_PORT:-3306}/${LEGACY_DB_NAME:-social_flux}"
 
 echo "social_graph_service -> $GRAPH_DB_URL como '${GRAPH_DB_USER:-$IDENTITY_DB_USER}'; JWKS: $AUTH_JWKS_URI; broker: $RABBITMQ_HOST:$RABBITMQ_PORT"
 cd "$root/social_graph_service"

@@ -15,7 +15,7 @@
 #   post_db_init             idem para o banco `post`
 #   rustfs                   armazenamento de mídia compatível com S3 (imagens e GIFs); buckets privados, só no loopback do host
 #   rustfs_init              cria os buckets de mídia (roda uma vez e sai)
-#   mysql                    banco do backend legado (relações, postagens... e a PROJEÇÃO `usuario` do perfil)
+#   mysql                    banco do backend legado (notificações e a PROJEÇÃO `usuario` do perfil)
 #   rabbitmq                 broker de eventos entre serviços (painel em http://localhost:15672)
 #   mailpit                  SMTP de desenvolvimento + caixa de entrada em http://localhost:8025
 #   authentication_service   login/cadastro/sessão (JWT RS256 em cookie HttpOnly)
@@ -308,8 +308,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      mysql:
-        condition: service_healthy
     environment:
       # Banco próprio, mesmas credenciais do auth (sobrescreva com GRAPH_DB_USER/GRAPH_DB_PASSWORD para um role próprio)
       GRAPH_DB_URL: jdbc:postgresql://postgres:5432/${GRAPH_DB_NAME:-social_graph}
@@ -326,11 +324,6 @@ services:
       GRAPH_FOLLOW_RATE_PER_HOUR: ${GRAPH_FOLLOW_RATE_PER_HOUR:-60}
       GRAPH_MAX_FOLLOWING: ${GRAPH_MAX_FOLLOWING:-7500}
       GRAPH_MAX_PENDING_SENT: ${GRAPH_MAX_PENDING_SENT:-1000}
-      # Projeção temporária das relações aceitas na tabela `relacao` do MySQL legado (feed do backend Javalin)
-      GRAPH_LEGACY_ENABLED: "true"
-      LEGACY_DB_URL: jdbc:mysql://mysql:3306/${LEGACY_DB_NAME:-social_flux}
-      LEGACY_DB_USER: ${LEGACY_DB_USER:-social}
-      LEGACY_DB_PASSWORD: ${LEGACY_DB_PASSWORD}
     ports:
       - "127.0.0.1:${GRAPH_SERVICE_PORT:-8083}:8083"   # só para depuração local; não exponha na internet
 

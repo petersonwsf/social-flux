@@ -93,7 +93,7 @@ As fotos de perfil vão para o bucket `avatars` do RustFS (`http://localhost:900
 ## 2c. social_graph_service (porta 8083)
 
 Use `scripts/dev/run-graph.ps1` (ou `.sh`): banco `social_graph` na mesma instância PostgreSQL, **com o mesmo usuário e senha** do
-`IDENTITY_DB_*`, valida o JWT pelo JWKS do auth e mantém a tabela `relacao` do MySQL atualizada (projeção). O banco é criado
+`IDENTITY_DB_*`, valida o JWT pelo JWKS do auth e publica `follow.*` (o `post_service` consome; não usa o MySQL). O banco é criado
 pelo serviço `graph_db_init` do compose (suba a infra antes). Pronto quando aparecer `Started GraphServiceApplication`. O gateway já
 roteia `/api/relacoes*` para ele (porta 8083 no host); o frontend já o usa (veja o README dele).
 
@@ -146,7 +146,7 @@ Abra **http://localhost:5173**. O Vite encaminha `/auth`, `/api` e `/media` para
 1. Cadastre-se pela tela. Você entra logado.
 2. Abra http://localhost:8025 e clique no link de confirmação de e-mail.
 3. Teste login/logout, "Esqueci minha senha" (link também no Mailpit), Configurações → alterar senha / sair de todos os dispositivos.
-4. Teste o perfil (editar nome/bio/privado, trocar foto, pesquisar usuários) e as funções do legado: criar postagem, curtir, seguir (use duas contas em janelas diferentes), notificações.
+4. Teste o perfil (editar nome/bio/privado, trocar foto, pesquisar usuários) postagens (texto, imagem, GIF, comentar, curtir, excluir, feed, abas do perfil, conta privada), seguir (use duas contas em janelas diferentes) e as notificações (legado).
 5. Sessão deslizante: reinicie o serviço com `JWT_ACCESS_TTL=PT2M JWT_RENEW_WINDOW=PT1M JWT_REFRESH_GRACE=PT2M`, entre,
    espere mais de 1 minuto e faça uma ação: aparece `POST /auth/refresh` (200) na aba Network.
 
@@ -158,7 +158,8 @@ Abra **http://localhost:5173**. O Vite encaminha `/auth`, `/api` e `/media` para
 | `Access denied` no MySQL | senha/usuário diferentes de `LEGACY_DB_USER`/`LEGACY_DB_PASSWORD`. O MySQL só lê o `.env` ao criar o volume: depois de mudar a senha, `docker compose down -v` e suba de novo |
 | `/api/...` devolve 401/502 | backend legado ou auth service fora do ar, ou `AUTH_MODE` não está `gateway` |
 | Cadastro dá 503 `profile_unavailable` | `profile_service` fora do ar (ou `PROFILE_SERVICE_URL` errado) |
-| Cadastro funciona, mas postar dá erro / perfil não aparece nas postagens | a projeção `usuario` no MySQL atrasou ou falhou: confira se o RabbitMQ está no ar, se o `profile_service` roda com `PROFILE_LEGACY_ENABLED=true` e a fila `profile-service.legacy-projection` no painel (http://localhost:15672). Volume MySQL antigo: recrie (ver README) |
+| Cadastro funciona, mas postar dá 503 `perfil_indisponivel` | o `post_service` ainda não recebeu o `profile.created.v1` da conta: confira se o RabbitMQ está no ar e a fila `post-service.profile-events` no painel (http://localhost:15672). Contas criadas antes de o `post_service` subir não são conhecidas por ele (sem bootstrap): crie outra conta ou recrie os volumes |
+| Notificações dão erro | a projeção `usuario` no MySQL atrasou ou falhou (`PROFILE_LEGACY_ENABLED=true`, fila `profile-service.legacy-projection`), ou o volume MySQL é antigo (`notification.id_post` ainda `INT`): recrie o volume (ver `infra/mysql/schema.sql`) |
 | Perfil novo "invisível" para os outros | o evento `account.registered.v1` ainda não chegou ao profile_service (broker fora do ar?): fica pendente no outbox e é entregue quando o broker volta |
 | Sessão cai a cada reinício do serviço | chave RSA efêmera; configure `JWT_PRIVATE_KEY_B64` |
 | `host.docker.internal` não resolve (Linux) | já há `extra_hosts` no compose; confira a versão do Docker (≥ 20.10) |

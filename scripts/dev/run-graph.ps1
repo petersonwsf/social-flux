@@ -7,16 +7,11 @@ $root = (Resolve-Path "$PSScriptRoot\..\..").Path
 Import-DotEnv "$root\.env"
 
 $pgPort    = Get-EnvOr 'POSTGRES_PORT' '5432'
-$mysqlPort = Get-EnvOr 'MYSQL_PORT' '3306'
 $env:GRAPH_DB_URL = "jdbc:postgresql://localhost:$pgPort/" + (Get-EnvOr 'GRAPH_DB_NAME' 'social_graph')
 # GRAPH_DB_USER/GRAPH_DB_PASSWORD, se ausentes, caem em IDENTITY_DB_USER/IDENTITY_DB_PASSWORD (do .env)
 $env:AUTH_JWKS_URI = 'http://localhost:8081/.well-known/jwks.json'      # chave PÚBLICA do authentication_service
 $env:RABBITMQ_HOST = 'localhost'; $env:RABBITMQ_PORT = (Get-EnvOr 'RABBITMQ_PORT' '5672')
 # RABBITMQ_USER / RABBITMQ_PASSWORD já vêm do .env
-# Projeção das relações aceitas na tabela `relacao` do MySQL legado (feed do backend Javalin)
-$env:GRAPH_LEGACY_ENABLED = 'true'
-$env:LEGACY_DB_URL = "jdbc:mysql://localhost:$mysqlPort/" + (Get-EnvOr 'LEGACY_DB_NAME' 'social_flux')
-# LEGACY_DB_USER / LEGACY_DB_PASSWORD já vêm do .env
 
 Write-Host "social_graph_service -> $($env:GRAPH_DB_URL) como '$((Get-EnvOr 'GRAPH_DB_USER' (Get-EnvOr 'IDENTITY_DB_USER' 'social_graph')))'; JWKS: $($env:AUTH_JWKS_URI); broker: $($env:RABBITMQ_HOST):$($env:RABBITMQ_PORT)"
 Set-Location "$root\social_graph_service"

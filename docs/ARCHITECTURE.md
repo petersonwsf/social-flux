@@ -80,7 +80,7 @@ social_flux/
 | --- | --- |
 | `load-env.ps1` | Funções PowerShell compartilhadas: carrega o `.env` da raiz no processo (`Import-DotEnv`) e lê variáveis com padrão (`Get-EnvOr`) |
 | `run-auth.ps1` / `run-auth.sh` | Instala `libs/socialflux-events` e roda o `authentication_service` no host (porta 8081) com as credenciais do `.env` |
-| `run-graph.ps1` / `run-graph.sh` | Instala `libs/socialflux-events` e roda o `social_graph_service` no host (porta 8083), com JWKS do auth e projeção da `relacao` no MySQL ligada |
+| `run-graph.ps1` / `run-graph.sh` | Instala `libs/socialflux-events` e roda o `social_graph_service` no host (porta 8083), com JWKS do auth e RabbitMQ (sem MySQL) |
 | `run-post.ps1` / `run-post.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `post_service` no host (porta 8084), com JWKS do auth, RabbitMQ e mídia no RustFS (`localhost:9000`) |
 | `run-profile.ps1` / `run-profile.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `profile_service` no host (porta 8082), com JWKS do auth, projeção no MySQL ligada e avatares no RustFS (`localhost:9000`) |
 | `run-legacy.ps1` / `run-legacy.sh` | Roda o backend legado no host (porta 8000) em `AUTH_MODE=gateway` |
@@ -106,7 +106,7 @@ authentication_service ──account.registered.v1 | account.deleted.v1──►
 profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► projeção `usuario` no MySQL
                                                                      ├──► social_graph_service (cópia local dos perfis)
                                                                      └──► post_service (cópia local dos autores)
-social_graph_service ──follow.created|removed|requested|request-cancelled|request-rejected.v1──► RabbitMQ ──► projeção `relacao` no MySQL
+social_graph_service ──follow.created|removed|requested|request-cancelled|request-rejected.v1──► RabbitMQ
                                                                                                          └──► post_service (cópia das arestas aceitas)
 post_service ──post.created|deleted|liked|unliked.v1──► RabbitMQ ──► (futuro serviço de Notificações)
 ```

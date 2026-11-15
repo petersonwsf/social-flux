@@ -18,7 +18,6 @@ public record GraphProperties(
         @Valid @NotNull Security security,
         @DefaultValue List<String> allowedOrigins,
         @Valid @NotNull Limits limits,
-        @Valid @NotNull Legacy legacy,
         @Valid @NotNull Reconciler reconciler) {
 
     public record Security(
@@ -39,7 +38,4 @@ public record GraphProperties(
     public record Reconciler(boolean enabled, @NotNull Duration interval, @Min(1) int batchSize) {
     }
 
-    /** Projeção temporária das relações aceitas na tabela {@code relacao} do MySQL legado (feed do legado). */
-    public record Legacy(boolean enabled, String url, String username, String password) {
-    }
 }

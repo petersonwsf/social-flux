@@ -69,9 +69,3 @@ graph:
     enabled: ${GRAPH_RECONCILER_ENABLED:true}
     interval: ${GRAPH_RECONCILER_INTERVAL:PT1H}
     batch-size: ${GRAPH_RECONCILER_BATCH:500}
-  legacy:
-    # Projeção temporária das relações aceitas na tabela `relacao` do MySQL legado (feed do backend Javalin).
-    enabled: ${GRAPH_LEGACY_ENABLED:false}
-    url: ${LEGACY_DB_URL:jdbc:mysql://localhost:3306/social_flux}
-    username: ${LEGACY_DB_USER:}
-    password: ${LEGACY_DB_PASSWORD:}

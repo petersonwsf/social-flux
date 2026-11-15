@@ -24,7 +24,7 @@ cp .env.example .env              # ajuste as senhas (AUTH_ALLOW_EPHEMERAL_KEY=t
 ```bash
 docker compose --profile host up -d     # postgres, mysql, rabbitmq, rustfs, mailpit + gateway (Caddy) apontando para o host
 ```
-Depois rode as quatro aplicações localmente (auth, perfil, legado e frontend) (comandos em `docs/rodando-localmente.md`) e abra http://localhost:5173.
+Depois rode as aplicações localmente (auth, perfil, grafo, postagens, legado e frontend) (comandos em `docs/rodando-localmente.md`) e abra http://localhost:5173.
 Sem o perfil `host` (`docker compose up -d`) sobem só os bancos, o RabbitMQ, o RustFS (mídia) e o mailpit.
 
 **B) Tudo em containers**
@@ -50,7 +50,8 @@ authentication_service ──PUT /internal/profiles/{uuid}──► profile_serv
 authentication_service ──account.registered|deleted.v1──► RabbitMQ ──► profile_service
 profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► projeção `usuario` no MySQL legado
                                                                      └──► social_graph_service (cópia local dos perfis)
-social_graph_service ──follow.*.v1──► RabbitMQ ──► projeção `relacao` no MySQL legado
+social_graph_service ──follow.*.v1──► RabbitMQ ──► post_service (cópia das arestas aceitas)
+post_service ──post.*.v1──► RabbitMQ ──► (futuro serviço de Notificações)
 ```
 
 A **conta** (e-mail, senha, sessão) é do `authentication_service`; o **perfil** (username, nome, foto, privacidade) é do

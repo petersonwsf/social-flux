@@ -10,8 +10,8 @@ configuração: [`../README.md`](../README.md). Plano e decisões: [`../../docs/
 web (GraphController, Dtos, ApiError/ApiException, GlobalExceptionHandler)
   └─► service (GraphService = regras · FollowWriter = transições + contadores + eventos · ProfileSyncService = cópia local)
         ├─► domain (SnapshotRepository, FollowRepository — JdbcClient) ─► PostgreSQL
-        └─► Outbox ─► OutboxRelay ─► RabbitMQ ─┬─► legacy/ (projeção `relacao` no MySQL)     (libs/socialflux-events)
-                                               └─► outros consumidores (futuro: notificações, feed)
+        └─► Outbox ─► OutboxRelay ─► RabbitMQ ─┬─► post_service (cópia das arestas: feed e privacidade)   (libs/socialflux-events)
+                                               └─► outros consumidores (futuro: notificações)
 events/ProfileEventsListener ◄─ RabbitMQ (profile.#) ─► ProfileEventHandler (inbox) ─► ProfileSyncService
 security (JwtDecoder via JWKS, JwtAuthorities, OriginCheckFilter, SecurityConfig) envolve tudo.
 ```
@@ -22,12 +22,12 @@ security (JwtDecoder via JWKS, JwtAuthorities, OriginCheckFilter, SecurityConfig
 social_graph_service/
 ├── Dockerfile                    build Maven multi-stage (contexto = raiz do repo, para incluir libs/socialflux-events); runtime Temurin 21 JRE, usuário sem root
 ├── .gitignore                    exclui target/, data/ e arquivos de IDE
-├── pom.xml                       dependências (Spring Boot 4.1, Security/Resource Server, JDBC, Flyway, AMQP, socialflux-events, MySQL driver; testes: embedded-postgres, H2)
-├── README.md                     rotas, regras, eventos, projeção legada, configuração
+├── pom.xml                       dependências (Spring Boot 4.1, Security/Resource Server, JDBC, Flyway, AMQP, socialflux-events; testes: embedded-postgres)
+├── README.md                     rotas, regras, eventos, configuração
 ├── docs/ARCHITECTURE.md          este arquivo
 └── src/
     ├── main/java/com/socialflux/graph/
-    │   ├── config/ domain/ service/ events/ legacy/ security/ web/
+    │   ├── config/ domain/ service/ events/ security/ web/
     │   └── GraphServiceApplication.java
     ├── main/resources/           application.yml e db/migration/V1__social_graph.sql
     └── test/java/com/socialflux/graph/   testes de integração (+ support/)
@@ -43,7 +43,7 @@ social_graph_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `GraphProperties.java` | Configuração tipada e validada (`graph.*`): segurança/JWKS, origens permitidas, limites antiabuso, projeção legada |
+| `GraphProperties.java` | Configuração tipada e validada (`graph.*`): segurança/JWKS, origens permitidas, limites antiabuso, reconciliador |
 | `ClockConfig.java` | Bean `Clock` UTC (injetado em vez de `Instant.now()`) |
 
 ### `domain/`
@@ -71,17 +71,9 @@ social_graph_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `Amqp.java` | Filas `social-graph.profile-events` (`profile.#`) e `social-graph.legacy-projection` (`follow.#`) e suas ligações; o exchange e a DLX/DLQ vêm da biblioteca |
+| `Amqp.java` | Fila `social-graph.profile-events` (`profile.#`) e a sua ligação; o exchange e a DLX/DLQ vêm da biblioteca |
 | `ProfileEventsListener.java` | `@RabbitListener` da fila de eventos do perfil; repassa ao handler |
 | `ProfileEventHandler.java` | Lê o envelope e aplica uma vez por id de mensagem (inbox); tolera tipos desconhecidos |
-
-### `legacy/` (temporário — some quando Postagens migrar)
-
-| Arquivo | O que representa |
-| --- | --- |
-| `LegacyRelacaoWriter.java` | Pool do MySQL encapsulado; `link`/`unlink` idempotentes na tabela `relacao` |
-| `LegacyProjectionHandler.java` | Projeção por **estado**: lê o estado atual do par no PostgreSQL e iguala o MySQL; ignora solicitações |
-| `LegacyProjectionListener.java` | `@RabbitListener` da fila da projeção (só inicia com `graph.legacy.enabled=true`) |
 
 ### `security/`
 
@@ -119,5 +111,4 @@ social_graph_service/
 | `ConcurrencyTest` | Seguidas paralelas do mesmo par, seguir × deixar de seguir, pedidos × virar pública, seguir × exclusão |
 | `LimitsTest` / `RateLimitTest` | Limites de seguidos/pendentes e de ações por hora (429) |
 | `CounterReconcilerTest` / `CounterReconcilerDisabledTest` | Contadores maiores e menores que a realidade são corrigidos; lote limitado e conclusão nas rodadas seguintes; relatório do que estava gravado e do real; nenhuma divergência nova sob corrida com seguir/deixar de seguir; rotina agendada desligada |
-| `LegacyProjectionTest` | Projeção no `relacao` (H2 em modo MySQL): aceitas sim, pendentes não, eventos duplicados/fora de ordem |
 | `support/` | `AbstractGraphTest` (Postgres embutido, JWKS local, usuários por evento), `Http`, `TestSupportConfig` (publicador falso) |
