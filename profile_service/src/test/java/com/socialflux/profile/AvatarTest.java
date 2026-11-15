@@ -11,8 +11,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
 
@@ -21,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AvatarTest extends AbstractProfileTest {
 
     private static final String KEY_FORMAT = "av_[0-9a-f-]{36}\\.jpg";
+    private static final String BUCKET = "avatars";
 
     private static byte[] png(int width, int height, boolean alpha) throws IOException {
         BufferedImage image = new BufferedImage(width, height, alpha ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
@@ -49,7 +48,7 @@ class AvatarTest extends AbstractProfileTest {
         String key = (String) response.json().get("foto_perfil");
         assertThat(key).matches(KEY_FORMAT);
         assertThat(response.json().get("foto_url")).isEqualTo("/media/avatars/" + key);
-        assertThat(Files.exists(STORAGE.resolve(key))).isTrue();
+        assertThat(mediaStorage.exists(BUCKET, key)).as("gravado no bucket de avatares").isTrue();
 
         // Entrega pública, com tipo fixo, nosniff e cache imutável (o nome muda a cada troca de foto)
         Response media = http().get("/media/avatars/" + key, null);
@@ -71,22 +70,22 @@ class AvatarTest extends AbstractProfileTest {
     @Test
     void replacingThePhotoDeletesTheOldFileAndIgnoresTheClientSuppliedOldName() throws Exception {
         Account account = createActive(uniqueUsername());
-        Path victim = Files.createTempFile(STORAGE.getParent(), "victim", ".txt");   // arquivo FORA do diretório de avatares
+        String victim = "av_" + UUID.randomUUID() + ".jpg";                    // objeto de OUTRA pessoa no mesmo bucket
+        mediaStorage.put(BUCKET, victim, new byte[]{1, 2, 3}, "image/jpeg");
 
         String first = (String) upload(account, String.valueOf(account.legacyId()), png(64, 64, false), "a.png", Map.of())
                 .json().get("foto_perfil");
         // O legado apagava qualquer arquivo indicado em `foto_antiga` (path traversal). Aqui o campo é ignorado.
         Response second = upload(account, String.valueOf(account.legacyId()), png(80, 80, false), "b.png",
-                Map.of("foto_antiga", "../" + victim.getFileName(), "foto_antiga2", first));
+                Map.of("foto_antiga", victim, "foto_antiga2", "../" + first));
         assertThat(second.status()).isEqualTo(200);
         String secondKey = (String) second.json().get("foto_perfil");
 
         assertThat(secondKey).isNotEqualTo(first);
-        assertThat(Files.exists(victim)).as("arquivo fora do diretório não pode ser tocado").isTrue();
-        assertThat(Files.exists(STORAGE.resolve(first))).as("a foto anterior é removida").isFalse();
-        assertThat(Files.exists(STORAGE.resolve(secondKey))).isTrue();
+        assertThat(mediaStorage.exists(BUCKET, victim)).as("objeto indicado pelo cliente não pode ser tocado").isTrue();
+        assertThat(mediaStorage.exists(BUCKET, first)).as("a foto anterior é removida").isFalse();
+        assertThat(mediaStorage.exists(BUCKET, secondKey)).isTrue();
         assertThat(http().get("/media/avatars/" + first, null).status()).isEqualTo(404);
-        Files.deleteIfExists(victim);
     }
 
     @Test
@@ -132,6 +131,60 @@ class AvatarTest extends AbstractProfileTest {
         assertThat(missing.status()).isEqualTo(400);
 
         assertThat(http().get("/api/usuarios/me", account.token()).json().get("foto_perfil")).isNull();
+    }
+
+    @Test
+    void photoTakenStandingUpIsStoredUpright() throws Exception {
+        Account account = createActive(uniqueUsername());
+        // A câmera gravou "deitada" (40×80) com orientação EXIF 6 (girar 90° horário): a metade esquerda vira o topo.
+        BufferedImage stored = new BufferedImage(40, 80, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = stored.createGraphics();
+        g.setColor(Color.RED);
+        g.fillRect(0, 0, 20, 80);
+        g.setColor(Color.BLUE);
+        g.fillRect(20, 0, 20, 80);
+        g.dispose();
+        ByteArrayOutputStream jpeg = new ByteArrayOutputStream();
+        ImageIO.write(stored, "jpeg", jpeg);
+
+        Response response = upload(account, String.valueOf(account.legacyId()), withOrientation(jpeg.toByteArray(), 6),
+                "foto.jpg", Map.of());
+        assertThat(response.status()).as(response.body()).isEqualTo(200);
+        String key = (String) response.json().get("foto_perfil");
+        BufferedImage served = ImageIO.read(new ByteArrayInputStream(http().get("/media/avatars/" + key, null).bytes()));
+        assertThat(isRed(served.getRGB(128, 20))).as("topo vermelho").isTrue();
+        assertThat(isRed(served.getRGB(128, 235))).as("base azul").isFalse();
+    }
+
+    @Test
+    void acceptsWebpPhotos() throws Exception {
+        Account account = createActive(uniqueUsername());
+        byte[] webp;
+        try (var in = AvatarTest.class.getResourceAsStream("/fixtures/foto.webp")) {
+            webp = in.readAllBytes();
+        }
+        Response response = upload(account, String.valueOf(account.legacyId()), webp, "foto.webp", Map.of());
+        assertThat(response.status()).as(response.body()).isEqualTo(200);
+        byte[] served = http().get("/media/avatars/" + response.json().get("foto_perfil"), null).bytes();
+        assertThat(served[0] & 0xFF).isEqualTo(0xFF);   // sempre JPEG
+    }
+
+    private static boolean isRed(int rgb) {
+        return ((rgb >> 16) & 0xFF) > 150 && (rgb & 0xFF) < 110;
+    }
+
+    /** Insere um segmento APP1/EXIF mínimo (TIFF big-endian, só a tag de orientação) logo depois do SOI. */
+    private static byte[] withOrientation(byte[] jpeg, int orientation) {
+        byte[] tiff = {'M', 'M', 0, 42, 0, 0, 0, 8, 0, 1, 0x01, 0x12, 0, 3, 0, 0, 0, 1, 0, (byte) orientation, 0, 0,
+                0, 0, 0, 0};
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(0xFF);
+        out.write(0xD8);
+        int length = 2 + 6 + tiff.length;
+        out.writeBytes(new byte[]{(byte) 0xFF, (byte) 0xE1, (byte) (length >> 8), (byte) length, 'E', 'x', 'i', 'f', 0, 0});
+        out.writeBytes(tiff);
+        out.write(jpeg, 2, jpeg.length - 2);
+        return out.toByteArray();
     }
 
     @Test

@@ -1,6 +1,6 @@
 package com.socialflux.profile.storage;
 
-import com.socialflux.profile.util.Uuids;
+import com.socialflux.media.MediaKeys;
 
 import java.time.Clock;
 import java.util.regex.Pattern;
@@ -15,9 +15,10 @@ public final class AvatarKeys {
     }
 
     public static String newKey(Clock clock) {
-        return "av_" + Uuids.v7(clock) + ".jpg";
+        return MediaKeys.newKey(MediaKeys.AVATAR_PREFIX, "jpg", clock);
     }
 
+    /** Avatares são sempre JPEG: a chave precisa ser exatamente {@code av_<uuid>.jpg}. */
     public static boolean isValid(String key) {
         return key != null && VALID.matcher(key).matches();
     }

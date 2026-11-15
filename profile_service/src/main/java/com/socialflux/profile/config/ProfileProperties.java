@@ -1,7 +1,6 @@
 package com.socialflux.profile.config;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -17,7 +16,7 @@ import java.util.List;
 public record ProfileProperties(
         @Valid @NotNull Security security,
         @DefaultValue List<String> allowedOrigins,
-        @Valid @NotNull Storage storage,
+        @Valid @NotNull Avatars avatars,
         @Valid @NotNull Legacy legacy) {
 
     public record Security(
@@ -28,7 +27,8 @@ public record ProfileProperties(
             @DefaultValue("PT60S") Duration clockSkew) {
     }
 
-    public record Storage(@NotBlank String dir, @Min(1024) long maxBytes, @Min(1) long maxPixels) {
+    /** Bucket dos avatares no armazenamento de mídia (limites de imagem ficam em {@code socialflux.media.image.*}). */
+    public record Avatars(@NotBlank String bucket) {
     }
 
     public record Legacy(boolean enabled, String url, String username, String password) {

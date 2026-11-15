@@ -86,7 +86,7 @@ Para uma chave fixa: `./scripts/generate-jwt-key.sh` e use `JWT_PRIVATE_KEY_B64`
 Use `scripts/dev/run-profile.ps1` (ou `.sh`): ele usa o banco `profile` na mesma instância PostgreSQL, **com o mesmo usuário e senha**
 do `IDENTITY_DB_*` do `.env`, valida o JWT pelo JWKS do auth (`http://localhost:8081/.well-known/jwks.json`, **o auth precisa estar
 no ar**) e mantém a tabela `usuario` do MySQL atualizada (projeção). Pronto quando aparecer `Started ProfileServiceApplication`.
-As fotos de perfil são gravadas em `profile_service/data/avatars/` (ignorado pelo Git).
+As fotos de perfil vão para o bucket `avatars` do RustFS (`http://localhost:9000`, com `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY` do `.env`): suba a infra antes (`docker compose --profile host up -d`).
 
 ## 2c. social_graph_service (porta 8083)
 

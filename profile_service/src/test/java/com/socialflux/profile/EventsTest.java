@@ -5,7 +5,6 @@ import com.socialflux.profile.support.Http.Response;
 import com.socialflux.profile.support.TestSupportConfig.RecordingPublisher;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +48,7 @@ class EventsTest extends AbstractProfileTest {
         Account viewer = createActive(uniqueUsername());
         String key = (String) http().multipart("PATCH", "/api/img/usuarios/" + account.legacyId(), account.token(),
                 "foto_perfil", "a.png", "image/png", pngBytes(), Map.of()).json().get("foto_perfil");
-        assertThat(Files.exists(STORAGE.resolve(key))).isTrue();
+        assertThat(mediaStorage.exists("avatars", key)).isTrue();
 
         publishAccountEvent("account.deleted.v1", account.id());
         publishAccountEvent("account.deleted.v1", account.id());      // idempotente
@@ -59,7 +58,7 @@ class EventsTest extends AbstractProfileTest {
         assertThat(http().get("/api/usuarios/me", account.token()).status()).isEqualTo(404);
         assertThat(http().send("PATCH", "/api/usuarios/" + account.legacyId(), "{\"nome\":\"x y\"}", account.token()).status())
                 .isEqualTo(404);
-        assertThat(Files.exists(STORAGE.resolve(key))).as("a foto é apagada").isFalse();
+        assertThat(mediaStorage.exists("avatars", key)).as("a foto é apagada").isFalse();
 
         Map<String, Object> row = jdbc.sql("select status, username, display_name, phone, sex, birth_date, bio, avatar_key "
                         + "from profile where id = :id").param("id", account.id())

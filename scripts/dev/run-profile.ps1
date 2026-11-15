@@ -17,10 +17,14 @@ $env:RABBITMQ_HOST = 'localhost'; $env:RABBITMQ_PORT = (Get-EnvOr 'RABBITMQ_PORT
 $env:PROFILE_LEGACY_ENABLED = 'true'
 $env:LEGACY_DB_URL = "jdbc:mysql://localhost:$mysqlPort/" + (Get-EnvOr 'LEGACY_DB_NAME' 'social_flux')
 # LEGACY_DB_USER / LEGACY_DB_PASSWORD já vêm do .env
+# Avatares no bucket `avatars` do RustFS (API S3 no loopback); RUSTFS_ACCESS_KEY / RUSTFS_SECRET_KEY já vêm do .env
+$env:RUSTFS_ENDPOINT = "http://localhost:" + (Get-EnvOr 'RUSTFS_PORT' '9000')
 
 Write-Host "profile_service -> $($env:PROFILE_DB_URL) como '$((Get-EnvOr 'PROFILE_DB_USER' (Get-EnvOr 'IDENTITY_DB_USER' 'profile')))'; JWKS: $($env:AUTH_JWKS_URI); broker: $($env:RABBITMQ_HOST):$($env:RABBITMQ_PORT)"
 Set-Location "$root\profile_service"
-# Instala a biblioteca compartilhada de eventos (libs/socialflux-events) no repositório Maven local.
+# Instala as bibliotecas compartilhadas (libs/socialflux-events e libs/socialflux-media) no repositório Maven local.
 mvn -q -f "$root\libs\socialflux-events\pom.xml" -DskipTests install
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+mvn -q -f "$root\libs\socialflux-media\pom.xml" -DskipTests install
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 mvn spring-boot:run

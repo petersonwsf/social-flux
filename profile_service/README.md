@@ -31,8 +31,8 @@ profile_service ──profile.created|updated|privacy-changed|deleted.v1 (Rabbit
 | `GET /api/usuarios/me` | Perfil do usuário logado |
 | `GET /api/usuarios/search?search=` | 2–50 caracteres, curingas do `LIKE` escapados, ordenado por relevância, máx. 10, 60/min por usuário |
 | `PATCH /api/usuarios/{id}` | `username`, `nome`, `biografia`, `privado` (todos opcionais). Username é livre (D7), 3–30 chars `a-z0-9._` |
-| `PATCH /api/img/usuarios/{id}` | multipart `foto_perfil` (PNG/JPEG, ≤ 5 MB, ≤ 16 MP); `foto_antiga` é ignorado |
-| `GET /media/avatars/{chave}` | Avatar (D8: público), JPEG 256×256 re-codificado, `nosniff`, cache imutável |
+| `PATCH /api/img/usuarios/{id}` | multipart `foto_perfil` (PNG, JPEG ou WebP, ≤ 5 MB, ≤ 16 MP; orientação EXIF corrigida; PNG/WebP animados e GIF recusados); `foto_antiga` é ignorado. 503 `servidor_ocupado` se o limite de processamentos simultâneos estiver cheio |
+| `GET /media/avatars/{chave}` | Avatar (D8: público), JPEG 256×256 re-codificado, `nosniff`, cache imutável; lido do bucket `avatars` do RustFS |
 
 Erros: `{ "mensagem", "sucesso": false, "codigo" }`.
 
@@ -79,7 +79,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/run-profile.ps1    # 8082  
 Testes (PostgreSQL real embutido, JWKS local e JWT RS256 de verdade; sem Docker):
 
 ```bash
-mvn test        # na pasta do serviço, depois de instalar a biblioteca: mvn -f ../libs/socialflux-events/pom.xml install
+mvn test        # na pasta do serviço, depois de instalar as bibliotecas: mvn -f ../libs/socialflux-events/pom.xml install e mvn -f ../libs/socialflux-media/pom.xml install
 # ou, na raiz: mvn -pl profile_service -am test
 ```
 
@@ -91,8 +91,11 @@ mvn test        # na pasta do serviço, depois de instalar a biblioteca: mvn -f 
 | `PROFILE_DB_USER` / `PROFILE_DB_PASSWORD` | Se ausentes, **reutilizam** `IDENTITY_DB_USER` / `IDENTITY_DB_PASSWORD` do `.env` |
 | `AUTH_JWKS_URI` | JWKS do authentication_service (só a chave **pública**) |
 | `JWT_ISSUER`, `JWT_AUDIENCE`, `PROFILE_SERVICE_AUDIENCE` | Validação do token (usuário × serviço) |
-| `PROFILE_STORAGE_DIR` | Diretório dos avatares (padrão `./data/avatars`; no container, o volume `/data/avatars`) |
-| `PROFILE_AVATAR_MAX_BYTES`, `PROFILE_AVATAR_MAX_PIXELS` | Limites do upload (5 MB, 16 MP) |
+| `RUSTFS_ENDPOINT`, `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, `RUSTFS_REGION` | Armazenamento de mídia S3 compatível (`libs/socialflux-media`); no container `http://rustfs:9000`, no host `http://localhost:9000`. Hoje a credencial **raiz** do RustFS (credencial por bucket pendente, D18) |
+| `PROFILE_AVATAR_BUCKET` | Bucket dos avatares (padrão `avatars`, criado pelo `rustfs_init`) |
+| `PROFILE_MEDIA_STORAGE` | `s3` (padrão) ou `memory` (só testes) |
+| `PROFILE_AVATAR_MAX_BYTES`, `PROFILE_AVATAR_MAX_PIXELS` | Limites do upload (5MB, 16 MP) → `socialflux.media.image.*` |
+| `PROFILE_MEDIA_MAX_CONCURRENT` | Processamentos de imagem simultâneos (padrão 4) |
 | `RABBITMQ_HOST/PORT/USER/PASSWORD`, `EVENTS_EXCHANGE`, `PROFILE_EVENTS_ENABLED` | Broker e eventos |
 | `PROFILE_LEGACY_ENABLED`, `LEGACY_DB_URL/USER/PASSWORD` | Projeção no MySQL legado |
 | `PROFILE_ALLOWED_ORIGINS` | Origens aceitas em métodos não seguros (vazio = a própria origem) |
@@ -101,5 +104,5 @@ mvn test        # na pasta do serviço, depois de instalar a biblioteca: mvn -f 
 
 - A **revogação imediata** (logout geral, troca de senha) é aplicada pelo gateway (`forward_auth`); este serviço só valida
   assinatura/validade do JWT (até 2 h). Não o exponha sem o gateway.
-- Rate limit em memória (1 instância). Avatares em disco local (a interface `StorageService` permite trocar por S3/MinIO).
+- Rate limit em memória (1 instância). Avatares no RustFS com a credencial raiz (credencial restrita ao bucket pendente, D18); o teste contra o RustFS real ainda não foi executado.
 - Um perfil `PENDING` órfão (falha do auth *e* da compensação) mantém o username ocupado até limpeza manual.

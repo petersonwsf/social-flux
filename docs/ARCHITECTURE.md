@@ -22,7 +22,7 @@ social_flux/
 ├── CLAUDE.md                     regras do projeto para o Claude Code
 ├── README.md                     visão geral, como rodar e como as peças se falam
 ├── .env.example                  nomes das variáveis do ambiente (copiar para .env, que não é versionado)
-├── .gitignore                    ignora .env, *.pem, node_modules e os avatares locais do profile_service
+├── .gitignore                    ignora .env, *.pem, node_modules, target/ e arquivos de IDE
 ├── .dockerignore                 contexto de build da raiz (auth e profile): exclui .git, target, node_modules, segredos, FrontEnd e BackEnd
 ├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, libs/socialflux-media, authentication_service, profile_service, social_graph_service
 ├── docker-compose.yml            ambiente de desenvolvimento completo (perfis `host` e `apps`)
@@ -46,8 +46,8 @@ social_flux/
 | Arquivo | O que representa |
 | --- | --- |
 | `pom.xml` | Agregador Maven: `mvn -pl <serviço> -am test` na raiz testa um serviço compilando as bibliotecas (`libs/socialflux-events`, `libs/socialflux-media`) junto; `mvn test` testa tudo. Não é parent de ninguém; o legado fica de fora |
-| `.dockerignore` | Usado pelos builds de `authentication_service` e `profile_service`, que têm a raiz como contexto para copiar `libs/socialflux-events` |
-| `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init` e `graph_db_init` (criam os bancos `profile` e `social_graph`), `mysql` (legado, inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, `rustfs` (armazenamento de mídia compatível com S3, buckets privados, API só no loopback do host, console desligado) e `rustfs_init` (cria os buckets `post-media` e `avatars`), as cinco aplicações (perfil `apps`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `rustfs_data`, `profile_avatars`, `legacy_images` |
+| `.dockerignore` | Usado pelos builds dos serviços Spring, que têm a raiz como contexto para copiar `libs/socialflux-events` e `libs/socialflux-media` |
+| `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init` e `graph_db_init` (criam os bancos `profile` e `social_graph`), `mysql` (legado, inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, `rustfs` (armazenamento de mídia compatível com S3, buckets privados, API só no loopback do host, console desligado) e `rustfs_init` (cria os buckets `post-media` e `avatars`), as cinco aplicações (perfil `apps`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `rustfs_data`, `legacy_images` (os avatares do `profile_service` ficam no bucket `avatars` do RustFS) |
 | `.env.example` | Senhas dos bancos (inclui `GRAPH_DB_NAME` e os limites `GRAPH_*` do grafo), do RabbitMQ e do RustFS (`RUSTFS_ACCESS_KEY` só com `A-Z` e `0-9`), chave JWT RS256, TTLs da sessão, nomes dos cookies, URLs públicas e remetente de e-mail. Só nomes/valores de exemplo |
 | `README.md` | Ponto de entrada: tabela das pastas, comandos para subir o ambiente e o diagrama de comunicação |
 | `CLAUDE.md` | Contexto, stack, comandos e regras de trabalho para o Claude Code |
@@ -79,7 +79,7 @@ social_flux/
 | `load-env.ps1` | Funções PowerShell compartilhadas: carrega o `.env` da raiz no processo (`Import-DotEnv`) e lê variáveis com padrão (`Get-EnvOr`) |
 | `run-auth.ps1` / `run-auth.sh` | Instala `libs/socialflux-events` e roda o `authentication_service` no host (porta 8081) com as credenciais do `.env` |
 | `run-graph.ps1` / `run-graph.sh` | Instala `libs/socialflux-events` e roda o `social_graph_service` no host (porta 8083), com JWKS do auth e projeção da `relacao` no MySQL ligada |
-| `run-profile.ps1` / `run-profile.sh` | Instala `libs/socialflux-events` e roda o `profile_service` no host (porta 8082), com JWKS do auth e projeção no MySQL ligada |
+| `run-profile.ps1` / `run-profile.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `profile_service` no host (porta 8082), com JWKS do auth, projeção no MySQL ligada e avatares no RustFS (`localhost:9000`) |
 | `run-legacy.ps1` / `run-legacy.sh` | Roda o backend legado no host (porta 8000) em `AUTH_MODE=gateway` |
 
 ## Comunicação entre as peças

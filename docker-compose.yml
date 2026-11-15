@@ -233,11 +233,13 @@ services:
   profile_service:
     profiles: ["apps"]
     build:
-      context: .                                  # raiz: o build inclui libs/socialflux-events
+      context: .                                  # raiz: o build inclui libs/socialflux-events e libs/socialflux-media
       dockerfile: profile_service/Dockerfile
     restart: unless-stopped
     depends_on:
       profile_db_init:
+        condition: service_completed_successfully
+      rustfs_init:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
@@ -255,7 +257,12 @@ services:
       JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
       PROFILE_SERVICE_AUDIENCE: ${PROFILE_SERVICE_AUDIENCE:-profile-service}
-      PROFILE_STORAGE_DIR: /data/avatars
+      # Avatares no bucket `avatars` do RustFS (entrega continua pública em /media/avatars/*). Credencial raiz por ora (D18).
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_REGION: ${RUSTFS_REGION:-us-east-1}
+      PROFILE_AVATAR_BUCKET: avatars
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
@@ -264,8 +271,6 @@ services:
       LEGACY_DB_URL: jdbc:mysql://mysql:3306/${LEGACY_DB_NAME:-social_flux}
       LEGACY_DB_USER: ${LEGACY_DB_USER:-social}
       LEGACY_DB_PASSWORD: ${LEGACY_DB_PASSWORD}
-    volumes:
-      - profile_avatars:/data/avatars
     ports:
       - "127.0.0.1:${PROFILE_SERVICE_PORT:-8082}:8082"   # só para depuração local; não exponha na internet
 
@@ -385,5 +390,4 @@ volumes:
   mysql_data:
   rabbitmq_data:
   rustfs_data:
-  profile_avatars:
   legacy_images:

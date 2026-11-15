@@ -9,6 +9,7 @@ import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.socialflux.events.OutboxRelay;
+import com.socialflux.media.storage.MediaStorage;
 import com.socialflux.profile.events.AccountEventHandler;
 import com.sun.net.httpserver.HttpServer;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
@@ -23,8 +24,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -38,6 +37,7 @@ import java.util.UUID;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "socialflux.events.enabled=false",
+                "socialflux.media.storage=memory",
                 "profile.security.issuer=http://auth.test",
                 "spring.flyway.enabled=true"
         })
@@ -50,14 +50,12 @@ public abstract class AbstractProfileTest {
 
     protected static final EmbeddedPostgres POSTGRES;
     protected static final RSAKey KEY;
-    protected static final Path STORAGE;
     private static final HttpServer JWKS;
 
     static {
         try {
             POSTGRES = EmbeddedPostgres.builder().start();
             KEY = new RSAKeyGenerator(2048).keyID("test-key").generate();
-            STORAGE = Files.createTempDirectory("avatars-test");
             JWKS = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
             byte[] body = new JWKSet(KEY.toPublicJWK()).toString().getBytes(StandardCharsets.UTF_8);
             JWKS.createContext("/jwks.json", exchange -> {
@@ -78,7 +76,6 @@ public abstract class AbstractProfileTest {
         registry.add("spring.datasource.username", () -> "postgres");
         registry.add("spring.datasource.password", () -> "postgres");
         registry.add("profile.security.jwks-uri", () -> "http://127.0.0.1:" + JWKS.getAddress().getPort() + "/jwks.json");
-        registry.add("profile.storage.dir", STORAGE::toString);
     }
 
     @Value("${local.server.port}")
@@ -86,6 +83,10 @@ public abstract class AbstractProfileTest {
 
     @Autowired
     protected JdbcClient jdbc;
+
+    /** Armazenamento de mídia em memória ({@code socialflux.media.storage=memory}): inspecionável nos testes. */
+    @Autowired
+    protected MediaStorage mediaStorage;
 
     @Autowired
     protected AccountEventHandler accountEvents;

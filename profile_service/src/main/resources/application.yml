@@ -58,6 +58,18 @@ socialflux:
     enabled: ${PROFILE_EVENTS_ENABLED:true}
     exchange: ${EVENTS_EXCHANGE:socialflux.events}
     relay-interval: ${PROFILE_OUTBOX_INTERVAL:PT0.5S}
+  # Mídia compartilhada (libs/socialflux-media): processamento dos avatares e armazenamento no RustFS.
+  media:
+    storage: ${PROFILE_MEDIA_STORAGE:s3}
+    s3:
+      endpoint: ${RUSTFS_ENDPOINT:http://localhost:9000}
+      region: ${RUSTFS_REGION:us-east-1}
+      access-key: ${RUSTFS_ACCESS_KEY:}
+      secret-key: ${RUSTFS_SECRET_KEY:}
+    image:
+      max-bytes: ${PROFILE_AVATAR_MAX_BYTES:5MB}
+      max-pixels: ${PROFILE_AVATAR_MAX_PIXELS:16000000}
+    max-concurrent-processing: ${PROFILE_MEDIA_MAX_CONCURRENT:4}
 
 profile:
   security:
@@ -69,10 +81,9 @@ profile:
     clock-skew: ${JWT_CLOCK_SKEW:PT60S}
   # Origens permitidas em métodos não seguros. Vazio = a própria origem (via X-Forwarded-*).
   allowed-origins: ${PROFILE_ALLOWED_ORIGINS:}
-  storage:
-    dir: ${PROFILE_STORAGE_DIR:./data/avatars}
-    max-bytes: ${PROFILE_AVATAR_MAX_BYTES:5242880}
-    max-pixels: ${PROFILE_AVATAR_MAX_PIXELS:16000000}
+  avatars:
+    # Bucket PRIVADO no RustFS (criado pelo rustfs_init). A entrega continua pública por /media/avatars/{chave} (D8 do perfil).
+    bucket: ${PROFILE_AVATAR_BUCKET:avatars}
   legacy:
     # Projeção temporária do perfil na tabela `usuario` do MySQL legado (JOINs do backend Javalin).
     enabled: ${PROFILE_LEGACY_ENABLED:false}

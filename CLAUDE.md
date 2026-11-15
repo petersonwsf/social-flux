@@ -116,7 +116,7 @@ domains still in the legacy backend.
 - Every state-changing route requires authentication and an authorization check on the backend, never only hidden UI.
 - Users may only read/change their own data (check ownership on every route that takes an id); private-account content must be enforced on the backend.
 - Passwords: Argon2id in `authentication_service` (legacy BCrypt hashes are upgraded on login). Never log credentials, tokens or personal data.
-- Uploaded files: server-generated names, validate magic bytes and size, re-encode images, resolve paths against a base directory (see `profile_service` `AvatarProcessor` / `LocalDiskStorage`).
+- Uploaded files: server-generated names, validate magic bytes and size, re-encode images, resolve paths against a base directory (see `libs/socialflux-media` `ImageProcessor` / `GifSanitizer` and `profile_service` `BucketAvatarStorage`).
 
 ## Commits — Conventional Commits, message in Portuguese
 Format: `type(scope): descrição curta no imperativo` — scope = app or domain (`auth`, `perfil`, `frontend`, `legado`, `infra`, `postagens`…).

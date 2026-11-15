@@ -14,7 +14,7 @@ API pública/interna, eventos e configuração: [`../README.md`](../README.md). 
 web (ProfileController, InternalProfileController, MediaController, DTOs, erros)
   └─► service (ProfileService, AvatarService, ProfileRules, RateLimiter)
         ├─► domain (Profile + ProfileRepository) ─► PostgreSQL
-        ├─► storage (AvatarProcessor, StorageService → disco) 
+        ├─► storage (AvatarProcessor → libs/socialflux-media, StorageService → bucket `avatars` no RustFS) 
         └─► Outbox ─► OutboxRelay ─► RabbitMQ ─┬─► legacy/ (projeção no MySQL)     (libs/socialflux-events)
                                               └─► outros consumidores
 events/AccountEventsListener ◄─ RabbitMQ (account.*) ─► AccountEventHandler ─► ProfileService
@@ -26,11 +26,10 @@ security (JwtDecoder via JWKS, JwtAuthorities, OriginCheckFilter, SecurityConfig
 ```
 profile_service/
 ├── Dockerfile                    build Maven multi-stage (contexto = raiz do repo, para incluir libs/socialflux-events); runtime Temurin 21 JRE, usuário sem root
-├── .gitignore                    exclui target/, data/ (avatares locais) e arquivos de IDE
+├── .gitignore                    exclui target/ e arquivos de IDE
 ├── pom.xml                       dependências (Spring Boot 4, Security/Resource Server, JPA, Flyway, AMQP, MySQL driver; testes: embedded-postgres, H2)
 ├── README.md                     relação com os outros serviços, API, eventos e configuração
 ├── docs/ARCHITECTURE.md          este arquivo
-├── data/avatars/                 (não versionado) avatares gravados quando o serviço roda no host
 └── src/
     ├── main/java/com/socialflux/profile/
     │   ├── config/               relógio e propriedades tipadas
@@ -113,16 +112,10 @@ profile_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `AvatarProcessor.java` | Valida tamanho e bytes mágicos (PNG/JPEG), confere dimensões antes de decodificar, recorta o centro e re-codifica em JPEG 256×256 (sem EXIF/alfa) |
-| `AvatarKeys.java` | Gera e valida chaves `av_<uuidv7>.jpg` (o cliente nunca informa nome ou caminho) |
-| `StorageService.java` | Interface de armazenamento (`put`/`get`/`delete`), trocável por S3/MinIO |
-| `LocalDiskStorage.java` | Implementação em disco com caminho normalizado e conferido contra o diretório-base |
-
-### `util/`
-
-| Arquivo | O que representa |
-| --- | --- |
-| `Uuids.java` | Gerador de UUIDv7 |
+| `AvatarProcessor.java` | Usa o `ImageProcessor` da biblioteca de mídia (PNG/JPEG/WebP, orientação EXIF, limites antes de decodificar, recorte quadrado em JPEG 256×256 sem metadados) e traduz as recusas para `missing_file`/`file_too_large`/`image_too_large`/`invalid_image`/`servidor_ocupado` |
+| `AvatarKeys.java` | Gera (via `MediaKeys`) e valida chaves `av_<uuidv7>.jpg` (o cliente nunca informa nome ou caminho) |
+| `StorageService.java` | Interface de armazenamento dos avatares (`put`/`get`/`delete`) |
+| `BucketAvatarStorage.java` | Implementação sobre o `MediaStorage` da biblioteca, no bucket `profile.avatars.bucket`; recusa qualquer chave fora do formato `av_<uuid>.jpg` |
 
 ### `web/`
 
@@ -149,8 +142,8 @@ profile_service/
 | `ProfileApiTest.java` | Criação interna, validações, leitura pública × do dono, edição e privacidade |
 | `SearchTest.java` | Pesquisa por username/nome, ordem por relevância, escape de curingas |
 | `SecurityTest.java` | 401 JSON, só RS256 válido, separação token de usuário × serviço, escopos |
-| `AvatarTest.java` | Upload de avatar ponta a ponta (formato, tamanho, chave gerada, entrega em `/media`) |
-| `AvatarProcessorTest.java` | Unidade do processamento de imagem (limites, bytes mágicos, re-codificação) |
+| `AvatarTest.java` | Upload de avatar ponta a ponta (formato, tamanho, chave gerada, entrega em `/media`, foto em pé com orientação EXIF, WebP aceito), com armazenamento em memória |
+| `AvatarProcessorTest.java` | Unidade: tradução das recusas da biblioteca, chaves fora do formato recusadas pelo armazenamento do bucket, formato das chaves |
 | `EventsTest.java` | Reação a `account.*` (idempotência) e eventos `profile.*` gerados no outbox |
 | `LegacyProjectionTest.java` | Projeção na tabela `usuario` (H2 em modo MySQL) a partir dos eventos reais |
 | `support/AbstractProfileTest.java` | Base: serviço em porta aleatória com PostgreSQL embutido e servidor JWKS local de teste; helpers de tokens, contas e outbox |
