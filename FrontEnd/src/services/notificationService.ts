@@ -22,9 +22,9 @@ async function enviar(payload: NotificationPayload): Promise<void> {
 export function notificarCurtida(sender: Usuario, post: Postagem): Promise<void> {
     return enviar({
         sender: JSON.stringify(sender),
-        receiver: JSON.stringify(post.usuario),
+        receiver: JSON.stringify(post.autor),
         title: 'curtiu sua publicação',
-        description: `Curtiu seu post: ${post.legenda ?? post.imagem ?? ''}`,
+        description: `Curtiu seu post: ${post.legenda ?? (post.imagem ? 'imagem' : '')}`,
         category: 'LIKE',
         id_post: post.id,
     })
@@ -33,7 +33,7 @@ export function notificarCurtida(sender: Usuario, post: Postagem): Promise<void>
 export function notificarComentario(sender: Usuario, post: Postagem, comentario: string): Promise<void> {
     return enviar({
         sender: JSON.stringify(sender),
-        receiver: JSON.stringify(post.usuario),
+        receiver: JSON.stringify(post.autor),
         title: 'comentou na sua publicação',
         description: comentario || null,
         category: 'COMENT',

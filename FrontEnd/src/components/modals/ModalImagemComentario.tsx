@@ -1,3 +1,5 @@
+import { TIPOS_ACEITOS } from '../../lib/midia'
+
 interface ModalImagemComentarioProps {
     id: string
     onSelect: (file: File | null) => void
@@ -16,8 +18,8 @@ function ModalImagemComentario({ id, onSelect }: ModalImagemComentarioProps) {
                             <input
                                 className="form-control"
                                 type="file"
-                                accept="image/*"
-                                aria-label="Imagem do comentário"
+                                accept={TIPOS_ACEITOS}
+                                aria-label="Imagem ou GIF do comentário"
                                 onChange={(event) => onSelect(event.currentTarget.files?.[0] ?? null)}
                             />
                         </div>

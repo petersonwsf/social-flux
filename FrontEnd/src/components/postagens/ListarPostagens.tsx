@@ -6,12 +6,16 @@ import type { Postagem } from '../../types/api'
 interface ListarPostagensProps {
     postagens: Postagem[]
     setPostagens: Dispatch<SetStateAction<Postagem[]>>
-    idReferencia?: number
+    /** Há mais páginas no servidor (mostra "Carregar mais"). */
+    temMais?: boolean
+    carregandoMais?: boolean
+    onCarregarMais?: () => void
 }
 
-function ListarPostagens({ postagens, setPostagens, idReferencia }: ListarPostagensProps) {
+/** Lista de `PostSecondary` paginada: remove da lista a postagem excluída e busca a página seguinte sob demanda. */
+function ListarPostagens({ postagens, setPostagens, temMais = false, carregandoMais = false, onCarregarMais }: ListarPostagensProps) {
     const removerDaLista = useCallback(
-        (id: number) => setPostagens((lista) => lista.filter((postagem) => postagem.id !== id)),
+        (id: string) => setPostagens((lista) => lista.filter((postagem) => postagem.id !== id)),
         [setPostagens],
     )
     const excluir = useExcluirPostagem(removerDaLista)
@@ -19,15 +23,21 @@ function ListarPostagens({ postagens, setPostagens, idReferencia }: ListarPostag
     return (
         <div>
             {postagens.map((postagem) => (
-                <PostSecondary
-                    key={postagem.id}
-                    postagem={postagem}
-                    onExcluir={(id) => void excluir(id)}
-                    idReferencia={idReferencia}
-                />
+                <PostSecondary key={postagem.id} postagem={postagem} onExcluir={(id) => void excluir(id)} />
             ))}
-            <div className="w-100 text-center">
-                <p className="text-secondary">°</p>
+            <div className="w-100 text-center pb-3">
+                {temMais && onCarregarMais ? (
+                    <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm"
+                        onClick={onCarregarMais}
+                        disabled={carregandoMais}
+                    >
+                        {carregandoMais ? 'Carregando…' : 'Carregar mais'}
+                    </button>
+                ) : (
+                    <p className="text-secondary">°</p>
+                )}
             </div>
         </div>
     )

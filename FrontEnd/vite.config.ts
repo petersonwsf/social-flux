@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '')
   // Em desenvolvimento o navegador fala só com o Vite (mesma origem, necessário para os cookies HttpOnly);
-  // /auth e /api são encaminhados ao gateway do docker compose (Caddy).
+  // /auth, /api e /media (avatares e imagens de postagem) são encaminhados ao gateway do docker compose (Caddy).
   const gateway = env.VITE_DEV_PROXY_TARGET || 'http://localhost:8080'
 
   return {
@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/auth': { target: gateway },
         '/api': { target: gateway },
+        '/media': { target: gateway },
         '/.well-known': { target: gateway },
       },
     },

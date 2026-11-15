@@ -1,61 +1,48 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ButtonBack from '../../components/common/ButtonBack'
 import NotFoundMessage from '../../components/common/NotFoundMessage'
 import ListarPostagens from '../../components/postagens/ListarPostagens'
+import PostSecondary from '../../components/postagens/PostSecondary'
 import Postagem from '../../components/postagens/Postagem'
 import { useExcluirPostagem } from '../../hooks/usePostagemActions'
+import { usePostagemDetalhe } from '../../hooks/usePostagemDetalhe'
 import { useRespostas } from '../../hooks/usePostagens'
-import { getErrorMessage, getErrorStatus } from '../../lib/errors'
-import { useToast } from '../../hooks/useToast'
-import * as postagemService from '../../services/postagemService'
-import type { Postagem as PostagemModel } from '../../types/api'
 
-function PostPageView({ id }: { id: number }) {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function PostPageView({ id }: { id: string }) {
     const navigate = useNavigate()
-    const toast = useToast()
-    const [postagem, setPostagem] = useState<PostagemModel | null>(null)
-    const [naoEncontrada, setNaoEncontrada] = useState(false)
-    const [versaoRespostas, setVersaoRespostas] = useState(0)
-    const { postagens: respostas, setPostagens: setRespostas } = useRespostas(id, versaoRespostas)
-
-    useEffect(() => {
-        let ignore = false
-        setPostagem(null)
-        setNaoEncontrada(false)
-
-        postagemService
-            .buscar(id)
-            .then((resultado) => {
-                if (!ignore) setPostagem(resultado)
-            })
-            .catch((error: unknown) => {
-                if (ignore) return
-                setNaoEncontrada(true)
-                if (getErrorStatus(error) !== 404) toast.error(getErrorMessage(error))
-            })
-
-        return () => {
-            ignore = true
-        }
-    }, [id, toast])
+    const { postagem, ancestrais, setAncestrais, naoEncontrada, versaoRespostas, recarregarRespostas } =
+        usePostagemDetalhe(id)
+    const respostas = useRespostas(id, versaoRespostas)
 
     const aoExcluir = useCallback(() => navigate(-1), [navigate])
     const excluir = useExcluirPostagem(aoExcluir)
+    const removerAncestral = useCallback(
+        (idAncestral: string) => setAncestrais((lista) => lista.filter((item) => item.id !== idAncestral)),
+        [setAncestrais],
+    )
+    const excluirAncestral = useExcluirPostagem(removerAncestral)
 
     return (
         <div className="post-page">
             <ButtonBack />
+            {ancestrais.map((ancestral) => (
+                <PostSecondary key={ancestral.id} postagem={ancestral} onExcluir={(postId) => void excluirAncestral(postId)} />
+            ))}
             {postagem && (
-                <Postagem
-                    postagem={postagem}
-                    onExcluir={(postId) => void excluir(postId)}
-                    onResposta={() => setVersaoRespostas((atual) => atual + 1)}
-                />
+                <Postagem postagem={postagem} onExcluir={(postId) => void excluir(postId)} onResposta={recarregarRespostas} />
             )}
             {naoEncontrada && <NotFoundMessage msg="Publicação não encontrada" />}
-            {postagem && respostas.length > 0 && (
-                <ListarPostagens postagens={respostas} setPostagens={setRespostas} idReferencia={postagem.id} />
+            {postagem && respostas.postagens.length > 0 && (
+                <ListarPostagens
+                    postagens={respostas.postagens}
+                    setPostagens={respostas.setPostagens}
+                    temMais={respostas.temMais}
+                    carregandoMais={respostas.carregandoMais}
+                    onCarregarMais={respostas.carregarMais}
+                />
             )}
         </div>
     )
@@ -63,11 +50,10 @@ function PostPageView({ id }: { id: number }) {
 
 function PostPage() {
     const { id } = useParams()
-    const postId = Number(id)
 
-    if (!Number.isInteger(postId)) return <NotFoundMessage msg="Publicação não encontrada" />
+    if (!id || !UUID.test(id)) return <NotFoundMessage msg="Publicação não encontrada" />
 
-    return <PostPageView key={postId} id={postId} />
+    return <PostPageView key={id} id={id} />
 }
 
 export default PostPage

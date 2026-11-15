@@ -14,7 +14,11 @@ function CriarPostagem() {
             <ButtonBack />
             <p className="display-5 text-center">Criar postagem</p>
             <div className="p-3">
-                <FormCriarPostagem onSubmit={(values) => criarPostagem(values)} />
+                <FormCriarPostagem
+                    onSubmit={async (values) => {
+                        await criarPostagem(values)
+                    }}
+                />
             </div>
         </div>
     )

@@ -6,24 +6,26 @@ import { useToast } from './useToast'
 import { useCurrentUser } from './useAuth'
 import type { CriarPostagemPayload, Postagem } from '../types/api'
 
-/** Cria uma postagem (ou uma resposta, quando `pai` é informado). */
-export function useCriarPostagem(onCriada?: () => void) {
+/** Cria uma postagem (ou uma resposta, quando `pai` é informado). Devolve a postagem criada, ou `null` se falhou. */
+export function useCriarPostagem(onCriada?: (postagem: Postagem) => void) {
     const user = useCurrentUser()
     const toast = useToast()
     const [enviando, setEnviando] = useState(false)
 
     const criarPostagem = useCallback(
-        async (values: CriarPostagemPayload, pai?: Postagem) => {
+        async (values: CriarPostagemPayload, pai?: Postagem): Promise<Postagem | null> => {
             setEnviando(true)
             try {
-                const resposta = await postagemService.criar(values, pai?.id)
-                toast.notify(resposta)
+                const criada = await postagemService.criar(values, pai?.id)
+                toast.success(pai ? 'Comentário publicado' : 'Postagem publicada')
                 if (pai) {
                     notificationService.notificarComentario(user, pai, values.legenda).catch(() => undefined)
                 }
-                onCriada?.()
+                onCriada?.(criada)
+                return criada
             } catch (error) {
                 toast.error(getErrorMessage(error))
+                return null
             } finally {
                 setEnviando(false)
             }
@@ -35,14 +37,14 @@ export function useCriarPostagem(onCriada?: () => void) {
 }
 
 /** Exclui uma postagem e avisa o chamador para atualizar a tela. */
-export function useExcluirPostagem(onExcluida: (id: number) => void) {
+export function useExcluirPostagem(onExcluida: (id: string) => void) {
     const toast = useToast()
 
     return useCallback(
-        async (id: number) => {
+        async (id: string) => {
             try {
-                const resposta = await postagemService.remover(id)
-                toast.notify(resposta)
+                await postagemService.remover(id)
+                toast.success('Postagem excluída')
                 onExcluida(id)
             } catch (error) {
                 toast.error(getErrorMessage(error))

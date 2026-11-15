@@ -6,7 +6,7 @@ text/image, reply to posts (comments are posts with a parent), like, search user
 
 The project is in the middle of a **gradual migration, one domain at a time**, from a legacy monolith (Javalin + MySQL) to
 Spring Boot services (each with its own PostgreSQL database), talking through RabbitMQ events and sitting behind a Caddy gateway.
-Identity, Profile and Relations (social graph) are already migrated; Posts, Likes, Images and Notifications are still in the legacy backend.
+Identity, Profile, Relations (social graph) and Posts (posts, replies, likes, post images/GIFs) are already migrated; only Notifications is still in the legacy backend.
 
 ## Stack
 - **Frontend:** React 18 + TypeScript (strict) + Vite · **Bootstrap 5** (+ `data-bs-*` JS) · Formik + Yup · axios · react-router 6 · ionicons

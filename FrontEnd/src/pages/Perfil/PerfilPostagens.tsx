@@ -15,14 +15,23 @@ interface PerfilPostagensProps {
     filtro: FiltroPostagensUsuario
 }
 
-/** Lista de postagens do perfil conforme a aba selecionada (posts, interações ou mídia). */
+/** Lista paginada das postagens do perfil conforme a aba selecionada (posts, interações ou mídia). */
 function PerfilPostagens({ perfil, filtro }: PerfilPostagensProps) {
-    const { postagens, setPostagens, carregando } = usePostagensUsuario(perfil.id, filtro)
+    const { postagens, setPostagens, carregando, temMais, carregandoMais, carregarMais } = usePostagensUsuario(
+        perfil.accountId ?? perfil.id,
+        filtro,
+    )
 
     if (carregando) return null
 
     return postagens.length > 0 ? (
-        <ListarPostagens postagens={postagens} setPostagens={setPostagens} />
+        <ListarPostagens
+            postagens={postagens}
+            setPostagens={setPostagens}
+            temMais={temMais}
+            carregandoMais={carregandoMais}
+            onCarregarMais={carregarMais}
+        />
     ) : (
         <NoContent msg={MENSAGEM_VAZIA[filtro]} />
     )

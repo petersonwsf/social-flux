@@ -1,13 +1,14 @@
-import { API_BASE_URL, API_URL } from '../config/env'
-
-/** Prefixo das chaves de foto de perfil geradas pelo profile_service (av_<uuid>.jpg). */
-const AVATAR_PREFIX = 'av_'
+import { API_URL } from '../config/env'
 
 /**
- * URL de uma imagem de um usuário. Fotos de perfil (chave `av_…`) são servidas pelo profile_service em
- * /media/avatars (públicas e imutáveis); imagens de postagem continuam no backend legado em /api/img/{usuario}/{arquivo}.
+ * URL da foto de perfil a partir da chave (`av_<uuid>.jpg`), servida pelo profile_service em /media/avatars (pública e
+ * imutável). Imagens de postagem já vêm com a URL pronta em `postagem.imagem.url` (/media/posts/…, autenticada).
  */
-export function getUserImageUrl(userId: number, filename: string): string {
-    if (filename.startsWith(AVATAR_PREFIX)) return `${API_URL}/media/avatars/${filename}`
-    return `${API_BASE_URL}/img/${userId}/${filename}`
+export function getAvatarUrl(chave: string): string {
+    return `${API_URL}/media/avatars/${chave}`
+}
+
+/** URL de uma imagem de postagem (`imagem.url` é relativa à origem da API). */
+export function getPostImageUrl(url: string): string {
+    return `${API_URL}${url}`
 }

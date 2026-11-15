@@ -1,8 +1,5 @@
 /** Modelos retornados/enviados pela API (espelham as entidades do backend). */
 
-/** LocalDateTime serializado pelo Jackson: [ano, mês, dia, hora, minuto, segundo?] */
-export type LocalDateTimeArray = number[]
-
 export type Sexo = 'M' | 'F'
 
 /** Resposta padrão de sucesso/erro do backend. */
@@ -53,23 +50,49 @@ export interface RefreshResponse {
     renewAt: string
 }
 
-export interface Postagem {
-    id: number
-    imagem: string | null
-    legenda: string | null
-    data_postagem: LocalDateTimeArray
-    usuario: Usuario
-    postagem: Postagem | null
-}
-
-export interface Curtida {
-    id: number
-    id_usuario: number
-    id_conteudo: number
-}
-
-/** Usuário como aparece nas listas de relações (social_graph_service): perfil público resumido, sem biografia. */
+/** Usuário como aparece nas listas de relações e como autor de postagens: perfil público resumido, sem biografia. */
 export type UsuarioResumo = Pick<Usuario, 'id' | 'accountId' | 'username' | 'nome' | 'foto_perfil' | 'foto_url' | 'privado'>
+
+export type TipoImagem = 'IMAGE' | 'GIF'
+
+/** Anexo de uma postagem: `url` autenticada (/media/posts/…) e dimensões para reservar o espaço antes de carregar. */
+export interface ImagemPostagem {
+    url: string
+    tipo: TipoImagem
+    largura: number | null
+    altura: number | null
+}
+
+/** Resumo do pai de uma resposta; `autor_username` é `null` quando o usuário logado não pode ver o pai. */
+export interface PaiPostagem {
+    id: string
+    autor_username: string | null
+}
+
+/** Postagem do post_service: contadores e "curti" já vêm embutidos; `criado_em` é ISO-8601 em UTC. */
+export interface Postagem {
+    id: string
+    legenda: string | null
+    imagem: ImagemPostagem | null
+    criado_em: string
+    autor: UsuarioResumo
+    pai: PaiPostagem | null
+    curtidas: number
+    curtido: boolean
+    respostas: number
+}
+
+/** Página de postagens; `proximoCursor` é `null` na última página. */
+export interface PaginaPostagens {
+    itens: Postagem[]
+    proximoCursor: string | null
+}
+
+/** Estado da curtida depois de curtir/descurtir. */
+export interface EstadoCurtida {
+    curtido: boolean
+    curtidas: number
+}
 
 export type EstadoRelacao = 'NENHUM' | 'SOLICITADO' | 'SEGUINDO'
 
@@ -119,7 +142,8 @@ export interface Notification {
     title: string
     description: string | null
     category: NotificationCategory
-    id_post: number | null
+    /** UUID da postagem (post_service). */
+    id_post: string | null
     viewed: boolean
 }
 
@@ -130,7 +154,7 @@ export interface NotificationPayload {
     title: string
     description: string | null
     category: NotificationCategory
-    id_post: number | null
+    id_post: string | null
 }
 
 export interface LoginPayload {

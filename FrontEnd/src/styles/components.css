@@ -17,6 +17,7 @@
 .post-image {
     display: block;
     width: min(100%, 420px);
+    height: auto;              /* com width/height do <img>, o navegador reserva o espaço pela proporção */
     border: 1px solid var(--sf-border);
     border-radius: 12px;
 }

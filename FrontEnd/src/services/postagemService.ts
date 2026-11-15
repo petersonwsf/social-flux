@@ -1,46 +1,63 @@
 import { api } from '../lib/api'
-import type { CriarPostagemPayload, Mensagem, Postagem } from '../types/api'
+import type { CriarPostagemPayload, EstadoCurtida, PaginaPostagens, Postagem } from '../types/api'
 
 export type FiltroPostagensUsuario = 'posts' | 'interacoes' | 'midia'
 
-export async function criar(values: CriarPostagemPayload, idPostagemPai?: number): Promise<Mensagem> {
+const BASE = '/api/postagens'
+
+/** Cria uma postagem ou, com `idPai`, uma resposta. Texto e/ou imagem (PNG, JPEG, WebP ou GIF). */
+export async function criar(values: CriarPostagemPayload, idPai?: string): Promise<Postagem> {
     const formData = new FormData()
-    formData.append('legenda', values.legenda)
+    if (values.legenda.trim()) formData.append('legenda', values.legenda)
     if (values.imagem) formData.append('imagem', values.imagem)
-    if (idPostagemPai !== undefined) formData.append('id_postagem', String(idPostagemPai))
+    if (idPai !== undefined) formData.append('pai', idPai)
 
-    const { data } = await api.post<Mensagem>('/api/postagem', formData)
+    const { data } = await api.post<Postagem>(BASE, formData)
     return data
 }
 
-export async function remover(id: number): Promise<Mensagem> {
-    const { data } = await api.delete<Mensagem>(`/api/postagem/${id}`)
+export async function remover(id: string): Promise<void> {
+    await api.delete(`${BASE}/${id}`)
+}
+
+export async function buscar(id: string): Promise<Postagem> {
+    const { data } = await api.get<Postagem>(`${BASE}/${id}`)
     return data
 }
 
-export async function buscar(id: number): Promise<Postagem> {
-    const { data } = await api.get<Postagem>(`/api/postagem/${id}`)
+export async function buscarRespostas(id: string, cursor?: string): Promise<PaginaPostagens> {
+    const { data } = await api.get<PaginaPostagens>(`${BASE}/${id}/respostas`, { params: { cursor } })
     return data
 }
 
-export async function buscarRespostas(id: number): Promise<Postagem[]> {
-    const { data } = await api.get<Postagem[]>('/api/postagem', {
-        params: { id_postagem: id, responses: true },
-    })
+/** Cadeia de pais de uma resposta, da mais antiga à mais próxima (até 10 níveis, só as visíveis). */
+export async function buscarAncestrais(id: string): Promise<Postagem[]> {
+    const { data } = await api.get<{ itens: Postagem[] }>(`${BASE}/${id}/ancestrais`)
+    return data.itens
+}
+
+/** Postagens das pessoas que o usuário logado segue. */
+export async function buscarFeed(cursor?: string): Promise<PaginaPostagens> {
+    const { data } = await api.get<PaginaPostagens>(`${BASE}/feed`, { params: { cursor } })
     return data
 }
 
-/** Postagens das pessoas que o usuário segue. */
-export async function buscarFeed(idSeguidor: number): Promise<Postagem[]> {
-    const { data } = await api.get<Postagem[]>('/api/postagem', { params: { id_seguidor: idSeguidor } })
+/** Postagens de um usuário (`autor` = UUID da conta ou id inteiro legado). */
+export async function buscarDoUsuario(
+    autor: string | number,
+    filtro: FiltroPostagensUsuario,
+    cursor?: string,
+): Promise<PaginaPostagens> {
+    const { data } = await api.get<PaginaPostagens>(BASE, { params: { autor, filtro, cursor } })
     return data
 }
 
-export async function buscarDoUsuario(idUsuario: number, filtro: FiltroPostagensUsuario): Promise<Postagem[]> {
-    const params: Record<string, string | number | boolean> = { id_user: idUsuario }
-    if (filtro === 'interacoes') params.allPosts = true
-    if (filtro === 'midia') params.mediaPosts = true
+export async function curtir(id: string): Promise<EstadoCurtida> {
+    const { data } = await api.put<EstadoCurtida>(`${BASE}/${id}/curtida`)
+    return data
+}
 
-    const { data } = await api.get<Postagem[]>('/api/postagem', { params })
+export async function descurtir(id: string): Promise<EstadoCurtida> {
+    const { data } = await api.delete<EstadoCurtida>(`${BASE}/${id}/curtida`)
     return data
 }

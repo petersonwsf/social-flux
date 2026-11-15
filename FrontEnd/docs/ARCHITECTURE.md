@@ -46,7 +46,7 @@ FrontEnd/
 ├── nginx.conf                    serve o build: cache longo em /assets, fallback de SPA para index.html
 ├── index.html                    HTML de entrada do Vite (favicon /logo.ico, div#root)
 ├── package.json / package-lock.json   dependências e scripts (dev, build, typecheck, lint, preview, start)
-├── vite.config.ts                plugin React e proxy de /auth, /api e /.well-known para o gateway
+├── vite.config.ts                plugin React e proxy de /auth, /api, /media e /.well-known para o gateway
 ├── tsconfig.json                 referências para tsconfig.app.json e tsconfig.node.json
 ├── tsconfig.app.json             TS do app: strict, noUnusedLocals/Parameters, noUncheckedIndexedAccess
 ├── tsconfig.node.json            TS dos arquivos de configuração (vite.config.ts)
@@ -120,11 +120,11 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `useConta.ts` | Ações da conta: editar perfil, trocar foto, alterar senha, sair de todos os dispositivos, reenviar verificação, excluir conta |
 | `usePerfil.ts` | Carrega um perfil por username (`naoEncontrado` em 404) |
 | `usePesquisaUsuarios.ts` | Busca de usuários com debounce |
-| `usePostagens.ts` | `useFeed`, `usePostagensUsuario` (abas posts/interações/mídia) e `useRespostas` |
-| `usePostagemActions.ts` | `useCriarPostagem` (postagem ou resposta) e `useExcluirPostagem` |
-| `usePostagemInteracoes.ts` | Junta curtidas, número de respostas e o envio de comentário de um card |
-| `useCurtidas.ts` | Curtida própria + total de uma postagem; notifica o autor ao curtir |
-| `useNumeroRespostas.ts` | Quantidade de respostas, com incremento local após comentar |
+| `usePostagens.ts` | Listas paginadas por cursor (`carregarMais`, `temMais`, `carregandoMais`): `useFeed`, `usePostagensUsuario` (abas posts/interações/mídia; autor por UUID ou id legado) e `useRespostas` |
+| `usePostagemDetalhe.ts` | Postagem da página de detalhe e a cadeia de pais (`/ancestrais`); `naoEncontrada` em 404; versão das respostas para recarregar |
+| `usePostagemActions.ts` | `useCriarPostagem` (postagem ou resposta; devolve a postagem criada) e `useExcluirPostagem` |
+| `usePostagemInteracoes.ts` | Junta curtidas, número de respostas (vindo da postagem, +1 local ao comentar) e o envio de comentário de um card |
+| `useCurtidas.ts` | `curtido`/`curtidas` iniciais vindos da postagem; curtir/descurtir (`PUT`/`DELETE …/curtida`) usam o estado devolvido; notifica o autor ao curtir |
 | `useRelacao.ts` | Relação entre o logado e o dono do perfil: `estado` (`NENHUM`/`SOLICITADO`/`SEGUINDO`), contadores e as ações seguir, deixar de seguir/cancelar e remover seguidor |
 | `useListaRelacoes.ts` | Lista paginada por cursor (seguidores/seguidos): a 1ª página só é buscada quando `ativo` vira `true`; `carregarMais`, `remover` e `erro` (ex.: conta privada) |
 | `useModalAberto.ts` | Diz se um modal do Bootstrap já foi aberto (evento `show.bs.modal`), para carregar o conteúdo só sob demanda |
@@ -138,8 +138,10 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `api.ts` | Instância única do axios (`withCredentials`) com interceptors de renovação de sessão e repetição após `401`; `setUnauthorizedHandler` |
 | `session.ts` | Temporização da sessão em memória (`setSessionTiming`, `shouldRenewSession`) e `refreshSession` (renovação única, com Web Locks entre abas) |
 | `errors.ts` | `getErrorMessage` (texto de qualquer erro) e `getErrorStatus` (status HTTP do axios) |
-| `dates.ts` | `calcTempPost` (tempo relativo curto) e `formatDate`, a partir do `LocalDateTime` em array do Jackson |
-| `imageUrl.ts` | `getUserImageUrl`: avatar `av_…` → `/media/avatars/…`; imagem de postagem → `/api/img/{usuario}/{arquivo}` |
+| `dates.ts` | `calcTempPost` (tempo relativo curto) e `formatDate`, a partir de datas ISO-8601 (UTC) |
+| `imageUrl.ts` | `getAvatarUrl` (chave `av_…` → `/media/avatars/…`, pública) e `getPostImageUrl` (`imagem.url` da postagem → `/media/posts/…`, autenticada pelo cookie) |
+| `midia.ts` | Regras de anexo conferidas no cliente só por conveniência: tipos aceitos (PNG, JPEG, WebP, GIF), 5 MB/8 MB, texto ≤ 1.000, "texto ou imagem" |
+| `autoria.ts` | `ehDoUsuario(autor, user)`: compara pelo UUID da conta (cai no id legado se faltar) |
 | `icons.ts` | Registra `<ion-icon>` e embute só os ícones usados (adicione aqui cada ícone novo) |
 | `bootstrapModal.ts` | `resetBootstrapModals`: remove backdrop/estado de modais que ficaram abertos ao desmontar a tela |
 
@@ -151,12 +153,12 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `ForgotPassword/ForgotPassword.tsx` | Pede o e-mail para redefinição (resposta sempre genérica) |
 | `ResetPassword/ResetPassword.tsx` | Define a nova senha com o `token` da URL |
 | `VerifyEmail/VerifyEmail.tsx` | Confirma o e-mail com o `token` da URL (chamada única mesmo no StrictMode) |
-| `Home/Home.tsx` | Feed das pessoas seguidas |
+| `Home/Home.tsx` | Feed paginado das pessoas seguidas ("Carregar mais") |
 | `Perfil/Perfil.tsx` | Perfil: informações, seguir, seguidores/seguidos (modais paginados, carregados ao abrir; o dono pode remover seguidores), abas de postagens; conteúdo protegido em conta privada não seguida |
-| `Perfil/PerfilPostagens.tsx` | Lista as postagens do perfil conforme a aba (posts, interações, mídia) |
+| `Perfil/PerfilPostagens.tsx` | Lista paginada das postagens do perfil conforme a aba (posts, interações, mídia) |
 | `EditarPerfil/EditarPerfil.tsx` | Edição de dados do perfil e troca da foto |
-| `CriarPostagem/CriarPostagem.tsx` | Nova postagem (texto e/ou imagem) |
-| `PostPage/PostPage.tsx` | Postagem completa, contexto da postagem pai e respostas |
+| `CriarPostagem/CriarPostagem.tsx` | Nova postagem (texto e/ou imagem ou GIF) |
+| `PostPage/PostPage.tsx` | Postagem completa (`/postagem/:id`, id UUID), cadeia de pais (`/ancestrais`) acima e respostas paginadas |
 | `SearchUser/SearchUser.tsx` | Busca de usuários (no desktop a busca fica na sidebar) |
 | `Notifications/Notifications.tsx` | Abas de notificações e solicitações; zera o badge ao abrir e marca como vistas ao sair |
 | `Settings/Settings.tsx` | Tema, alterar senha, sair, sair de todos os dispositivos, reenviar verificação e excluir conta |
@@ -170,10 +172,9 @@ Uma função por chamada, sempre pela instância `api`. Os nomes de rota estão 
 | --- | --- |
 | `authService.ts` | authentication_service (`/auth/*`): login, register, me, logout, logoutAll, verifyEmail, resendVerification, forgotPassword, resetPassword, changePassword, deleteAccount (a renovação fica em `lib/session.ts`) |
 | `usuarioService.ts` | profile_service: meu perfil, perfil por username, pesquisa, editar perfil, trocar foto |
-| `postagemService.ts` | Legado: criar (multipart, com pai opcional), remover, buscar por id, respostas, feed e postagens do usuário por filtro |
-| `curtidaService.ts` | Legado: criar, buscar, remover e contar curtidas |
+| `postagemService.ts` | post_service (`/api/postagens`): criar (multipart `legenda`/`imagem`/`pai`), remover, buscar, respostas, ancestrais, feed e postagens do usuário por filtro (paginados por cursor), curtir e descurtir. Só informa o ALVO; quem age vem do token |
 | `relacaoService.ts` | social_graph_service (`/api/relacoes`): estado, contagens, seguir, deixar de seguir/cancelar, remover seguidor, seguidores/seguidos paginados, em comum, solicitações recebidas, aceitar e recusar. Só informa o ALVO; quem age vem do token |
-| `notificationService.ts` | Legado: listar, contar não vistas, marcar como vistas e criar notificações de curtida, comentário e novo seguidor (o frontend ainda as cria, ao seguir e ao aceitar uma solicitação) |
+| `notificationService.ts` | Legado: listar, contar não vistas, marcar como vistas e criar notificações de curtida, comentário e novo seguidor (o frontend ainda as cria, ao seguir e ao aceitar uma solicitação; D11 de Postagens) e `id_post` é o UUID da postagem |
 
 ### `src/styles/`
 
@@ -186,6 +187,6 @@ Uma função por chamada, sempre pela instância `api`. Os nomes de rota estão 
 
 | Arquivo | O que representa |
 | --- | --- |
-| `types/api.ts` | Modelos e payloads da API (`Usuario`, `UsuarioResumo`, `Postagem`, `Curtida`, `EstadoRelacao`, `RelacaoComUsuario`, `ContagensRelacao`, `ItemRelacao`, `PaginaRelacoes`, `PaginaSolicitacoes`, `EmComum`, `Notification`, `Mensagem`, respostas de auth...) |
+| `types/api.ts` | Modelos e payloads da API (`Usuario`, `UsuarioResumo`, `Postagem` (com `ImagemPostagem`, `PaiPostagem`), `PaginaPostagens`, `EstadoCurtida`, `EstadoRelacao`, `RelacaoComUsuario`, `ContagensRelacao`, `ItemRelacao`, `PaginaRelacoes`, `PaginaSolicitacoes`, `EmComum`, `Notification`, `Mensagem`, respostas de auth...) |
 | `ionicons.d.ts` | Declara `<ion-icon>` no JSX |
 | `vite-env.d.ts` | Referência aos tipos do Vite e tipagem de `import.meta.env` (`VITE_API_URL`) |

@@ -1,20 +1,18 @@
-import type { Curtida } from '../../types/api'
-
 interface LikeButtonProps {
-    curtida: Curtida | null
+    curtido: boolean
     onToggle: () => void
 }
 
-export function LikeButton({ curtida, onToggle }: LikeButtonProps) {
+export function LikeButton({ curtido, onToggle }: LikeButtonProps) {
     return (
         <button
             type="button"
             onClick={onToggle}
-            className={`btn btn-icon post-action ${curtida ? 'is-liked' : ''}`}
-            aria-pressed={curtida !== null}
-            aria-label={curtida ? 'Remover curtida' : 'Curtir'}
+            className={`btn btn-icon post-action ${curtido ? 'is-liked' : ''}`}
+            aria-pressed={curtido}
+            aria-label={curtido ? 'Remover curtida' : 'Curtir'}
         >
-            <ion-icon name={curtida ? 'heart' : 'heart-outline'}></ion-icon>
+            <ion-icon name={curtido ? 'heart' : 'heart-outline'}></ion-icon>
         </button>
     )
 }

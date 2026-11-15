@@ -1,9 +1,9 @@
 import type { ImgHTMLAttributes } from 'react'
 import defaultPhoto from '../../assets/img/profile_photo_default.png'
-import { getUserImageUrl } from '../../lib/imageUrl'
+import { getAvatarUrl } from '../../lib/imageUrl'
 import type { Usuario } from '../../types/api'
 
-type AvatarUser = Pick<Usuario, 'id' | 'foto_perfil' | 'username'>
+type AvatarUser = Pick<Usuario, 'foto_perfil' | 'username'>
 
 interface AvatarProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> {
     user?: AvatarUser | null
@@ -13,7 +13,7 @@ interface AvatarProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> {
 
 /** Foto de perfil circular com fallback para a imagem padrão. */
 function Avatar({ user, size, className = '', style, alt, ...rest }: AvatarProps) {
-    const src = user?.foto_perfil ? getUserImageUrl(user.id, user.foto_perfil) : defaultPhoto
+    const src = user?.foto_perfil ? getAvatarUrl(user.foto_perfil) : defaultPhoto
     const dimensions = size ? { width: size, height: size, objectFit: 'cover' as const } : undefined
 
     return (
