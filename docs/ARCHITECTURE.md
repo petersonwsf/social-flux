@@ -24,7 +24,7 @@ social_flux/
 ├── .env.example                  nomes das variáveis do ambiente (copiar para .env, que não é versionado)
 ├── .gitignore                    ignora .env, *.pem, node_modules e os avatares locais do profile_service
 ├── .dockerignore                 contexto de build da raiz (auth e profile): exclui .git, target, node_modules, segredos, FrontEnd e BackEnd
-├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, authentication_service, profile_service, social_graph_service
+├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, libs/socialflux-media, authentication_service, profile_service, social_graph_service
 ├── docker-compose.yml            ambiente de desenvolvimento completo (perfis `host` e `apps`)
 ├── docs/                         documentação transversal (este diretório)
 ├── infra/                        configuração de infraestrutura compartilhada
@@ -32,6 +32,7 @@ social_flux/
 │   └── mysql/schema.sql
 ├── scripts/dev/                  scripts para rodar os backends na máquina com o .env da raiz
 ├── libs/socialflux-events/       biblioteca compartilhada de eventos (outbox, relay, inbox, RabbitMQ) usada pelos serviços Spring
+├── libs/socialflux-media/        biblioteca compartilhada de mídia (imagens PNG/JPEG/WebP com orientação EXIF, GIFs, armazenamento S3/RustFS)
 ├── FrontEnd/                     SPA React + TypeScript (Vite)
 ├── authentication_service/       serviço de identidade (Spring Boot + PostgreSQL)
 ├── profile_service/              serviço de perfil (Spring Boot + PostgreSQL)
@@ -44,7 +45,7 @@ social_flux/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `pom.xml` | Agregador Maven: `mvn -pl <serviço> -am test` na raiz testa um serviço compilando a biblioteca de eventos junto; `mvn test` testa tudo. Não é parent de ninguém; o legado fica de fora |
+| `pom.xml` | Agregador Maven: `mvn -pl <serviço> -am test` na raiz testa um serviço compilando as bibliotecas (`libs/socialflux-events`, `libs/socialflux-media`) junto; `mvn test` testa tudo. Não é parent de ninguém; o legado fica de fora |
 | `.dockerignore` | Usado pelos builds de `authentication_service` e `profile_service`, que têm a raiz como contexto para copiar `libs/socialflux-events` |
 | `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init` e `graph_db_init` (criam os bancos `profile` e `social_graph`), `mysql` (legado, inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, `rustfs` (armazenamento de mídia compatível com S3, buckets privados, API só no loopback do host, console desligado) e `rustfs_init` (cria os buckets `post-media` e `avatars`), as cinco aplicações (perfil `apps`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `rustfs_data`, `profile_avatars`, `legacy_images` |
 | `.env.example` | Senhas dos bancos (inclui `GRAPH_DB_NAME` e os limites `GRAPH_*` do grafo), do RabbitMQ e do RustFS (`RUSTFS_ACCESS_KEY` só com `A-Z` e `0-9`), chave JWT RS256, TTLs da sessão, nomes dos cookies, URLs públicas e remetente de e-mail. Só nomes/valores de exemplo |

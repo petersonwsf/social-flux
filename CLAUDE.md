@@ -22,6 +22,7 @@ Identity, Profile and Relations (social graph) are already migrated; Posts, Like
 | `profile_service/` | User profile: profile data, search, avatar, privacy; JWT resource server; publishes `profile.*` events and projects them into the legacy `usuario` table | 8082 |
 | `social_graph_service/` | Social graph: follow/unfollow, followers/following, follow requests for private accounts; JWT resource server; consumes `profile.*`, publishes `follow.*`, projects accepted relations into the legacy `relacao` table. **In compose, the gateway (`/api/relacoes*`) and the frontend; the legacy `/api/relacao` routes are now unused** | 8083 |
 | `libs/socialflux-events/` | Shared event library (transactional outbox, relay, idempotent inbox, RabbitMQ topology) used by every Spring service; auto-configured, `socialflux.events.*` properties | — |
+| `libs/socialflux-media/` | Shared media library (PNG/JPEG/WebP validation and re-encoding with EXIF orientation, GIF sanitizer, S3/RustFS storage, concurrency limit); auto-configured, `socialflux.media.*` properties | — |
 | `BackEnd/` | **Legacy** Javalin backend (relations, posts, likes, post images, notifications). Runs in `AUTH_MODE=gateway`: trusts only `X-User-Id` from the gateway | 8000 (never published) |
 | `infra/` | `caddy/Caddyfile` (gateway routing) and `mysql/schema.sql` (legacy schema, inferred from code) | 8080 (gateway) |
 | `scripts/dev/` | Scripts that run each backend on the host using the root `.env` (`.ps1` and `.sh`) | — |
@@ -55,7 +56,7 @@ domains still in the legacy backend.
 - **Everything in containers:** `docker compose --profile apps up -d --build` → http://localhost:8080
 - **Stop:** `docker compose down` (never with `-v` without asking)
 - **Backends on host** (from the repo root, read `.env`): `scripts/dev/run-auth.ps1`, `run-profile.ps1`, `run-graph.ps1`, `run-legacy.ps1` (or the `.sh` versions)
-- **Spring services:** from the root, `mvn -pl <service> -am test` (also builds `libs/socialflux-events`; integration tests use embedded PostgreSQL, no Docker needed) · inside a service folder, `mvn test` / `mvn spring-boot:run` after `mvn -pl libs/socialflux-events install` from the root · the root `pom.xml` is only an aggregator
+- **Spring services:** from the root, `mvn -pl <service> -am test` (also builds the `libs/*` libraries; integration tests use embedded PostgreSQL, no Docker needed) · inside a service folder, `mvn test` / `mvn spring-boot:run` after `mvn -pl libs/socialflux-events,libs/socialflux-media install` from the root · the root `pom.xml` is only an aggregator
 - **Legacy:** `mvn compile exec:java` (no tests)
 - **Frontend** (`FrontEnd/`): `npm ci` · `npm run dev` · `npm run typecheck` · `npm run lint` · `npm run build` (no test runner)
 - Dev mailbox: http://localhost:8025 · RabbitMQ panel: http://localhost:15672

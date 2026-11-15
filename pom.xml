@@ -19,6 +19,7 @@
 
     <modules>
         <module>libs/socialflux-events</module>
+        <module>libs/socialflux-media</module>
         <module>authentication_service</module>
         <module>profile_service</module>
         <module>social_graph_service</module>

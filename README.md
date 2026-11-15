@@ -6,6 +6,7 @@
 | `profile_service/` | **Novo** serviço de perfil (Spring Boot, PostgreSQL próprio, busca, foto de perfil, eventos via RabbitMQ) |
 | `social_graph_service/` | **Novo** serviço do grafo social (seguir, seguidores, solicitações; PostgreSQL próprio; no compose, no gateway em `/api/relacoes*` e no frontend) |
 | `libs/socialflux-events/` | Biblioteca compartilhada de eventos (outbox, inbox, RabbitMQ) dos serviços Spring Boot |
+| `libs/socialflux-media/` | Biblioteca compartilhada de mídia (validação e re-codificação de imagens, GIFs, armazenamento S3/RustFS) |
 | `FrontEnd/` | SPA React + TypeScript (Vite) |
 | `BackEnd/` | Backend **legado** (Javalin + MySQL), sendo substituído domínio a domínio |
 | `infra/` | Caddy (gateway) e esquema MySQL de desenvolvimento |
