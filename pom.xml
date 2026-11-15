@@ -23,5 +23,6 @@
         <module>authentication_service</module>
         <module>profile_service</module>
         <module>social_graph_service</module>
+        <module>post_service</module>
     </modules>
 </project>

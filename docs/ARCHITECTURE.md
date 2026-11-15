@@ -24,7 +24,7 @@ social_flux/
 ├── .env.example                  nomes das variáveis do ambiente (copiar para .env, que não é versionado)
 ├── .gitignore                    ignora .env, *.pem, node_modules, target/ e arquivos de IDE
 ├── .dockerignore                 contexto de build da raiz (auth e profile): exclui .git, target, node_modules, segredos, FrontEnd e BackEnd
-├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, libs/socialflux-media, authentication_service, profile_service, social_graph_service
+├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, libs/socialflux-media, authentication_service, profile_service, social_graph_service, post_service
 ├── docker-compose.yml            ambiente de desenvolvimento completo (perfis `host` e `apps`)
 ├── docs/                         documentação transversal (este diretório)
 ├── infra/                        configuração de infraestrutura compartilhada
@@ -37,6 +37,7 @@ social_flux/
 ├── authentication_service/       serviço de identidade (Spring Boot + PostgreSQL)
 ├── profile_service/              serviço de perfil (Spring Boot + PostgreSQL)
 ├── social_graph_service/         serviço do grafo social: seguir, seguidores, solicitações (Spring Boot + PostgreSQL)
+├── post_service/                 serviço de postagens: postagens, respostas, curtidas, imagens e GIFs (Spring Boot + PostgreSQL + RustFS)
 ├── BackEnd/                      backend legado (Javalin + MySQL)
 └── .github/modernize/            artefatos locais da ferramenta "modernize/java-upgrade" (hooks de registro); não fazem parte do sistema
 ```
@@ -79,6 +80,7 @@ social_flux/
 | `load-env.ps1` | Funções PowerShell compartilhadas: carrega o `.env` da raiz no processo (`Import-DotEnv`) e lê variáveis com padrão (`Get-EnvOr`) |
 | `run-auth.ps1` / `run-auth.sh` | Instala `libs/socialflux-events` e roda o `authentication_service` no host (porta 8081) com as credenciais do `.env` |
 | `run-graph.ps1` / `run-graph.sh` | Instala `libs/socialflux-events` e roda o `social_graph_service` no host (porta 8083), com JWKS do auth e projeção da `relacao` no MySQL ligada |
+| `run-post.ps1` / `run-post.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `post_service` no host (porta 8084), com JWKS do auth, RabbitMQ e mídia no RustFS (`localhost:9000`) |
 | `run-profile.ps1` / `run-profile.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `profile_service` no host (porta 8082), com JWKS do auth, projeção no MySQL ligada e avatares no RustFS (`localhost:9000`) |
 | `run-legacy.ps1` / `run-legacy.sh` | Roda o backend legado no host (porta 8000) em `AUTH_MODE=gateway` |
 

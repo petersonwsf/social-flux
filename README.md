@@ -4,6 +4,7 @@
 | --- | --- |
 | `authentication_service/` | **Novo** serviço de identidade e acesso (Spring Boot, PostgreSQL, JWT RS256 em cookies HttpOnly) |
 | `profile_service/` | **Novo** serviço de perfil (Spring Boot, PostgreSQL próprio, busca, foto de perfil, eventos via RabbitMQ) |
+| `post_service/` | **Novo** serviço de postagens (postagens, respostas, curtidas, imagens e GIFs; PostgreSQL próprio, mídia no RustFS, eventos `post.*`) |
 | `social_graph_service/` | **Novo** serviço do grafo social (seguir, seguidores, solicitações; PostgreSQL próprio; no compose, no gateway em `/api/relacoes*` e no frontend) |
 | `libs/socialflux-events/` | Biblioteca compartilhada de eventos (outbox, inbox, RabbitMQ) dos serviços Spring Boot |
 | `libs/socialflux-media/` | Biblioteca compartilhada de mídia (validação e re-codificação de imagens, GIFs, armazenamento S3/RustFS) |
