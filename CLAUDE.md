@@ -24,8 +24,8 @@ Identity, Profile, Relations (social graph) and Posts (posts, replies, likes, po
 | `post_service/` | Posts: posts, replies (posts with a parent), likes and post media (images and GIFs in RustFS); JWT resource server; keeps local copies of `profile.*` (authors) and `follow.*` (accepted edges) to enforce private-account visibility server-side; publishes `post.*`; cursor-paginated feed with embedded counters | 8084 |
 | `libs/socialflux-events/` | Shared event library (transactional outbox, relay, idempotent inbox, RabbitMQ topology) used by every Spring service; auto-configured, `socialflux.events.*` properties | — |
 | `libs/socialflux-media/` | Shared media library (PNG/JPEG/WebP validation and re-encoding with EXIF orientation, GIF sanitizer, S3/RustFS storage, concurrency limit); auto-configured, `socialflux.media.*` properties | — |
-| `BackEnd/` | **Legacy** Javalin backend (relations, posts, likes, post images, notifications). Runs in `AUTH_MODE=gateway`: trusts only `X-User-Id` from the gateway | 8000 (never published) |
-| `infra/` | `caddy/Caddyfile` (gateway routing) and `mysql/schema.sql` (legacy schema, inferred from code) | 8080 (gateway) |
+| `BackEnd/` | **Legacy** Javalin backend (only notifications now). Runs in `AUTH_MODE=gateway`: trusts only `X-User-Id` from the gateway. Has a stray nested `.git`: run git commands from the repo root | 8000 (never published) |
+| `infra/` | `caddy/Caddyfile` (gateway routing) and `mysql/schema.sql` (legacy schema: `usuario` projection + `notification`) | 8080 (gateway) |
 | `scripts/dev/` | Scripts that run each backend on the host using the root `.env` (`.ps1` and `.sh`) | — |
 | `docs/` | Legacy analysis and migration plans (domain decisions D1–D12) and the local run guide | — |
 | `docker-compose.yml` / `.env.example` | Full dev environment and its variable names | — |

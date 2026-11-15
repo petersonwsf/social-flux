@@ -30,8 +30,8 @@ public class NotificationDao {
 
         preparedStatement.setInt(5, notification.getCategory().getId());
 
-        if (notification.getId_post() != null) preparedStatement.setInt(6, notification.getId_post());
-        else preparedStatement.setNull(6, Types.INTEGER);
+        if (notification.getId_post() != null) preparedStatement.setString(6, notification.getId_post());
+        else preparedStatement.setNull(6, Types.VARCHAR);
 
         preparedStatement.setBoolean(7, false);
 

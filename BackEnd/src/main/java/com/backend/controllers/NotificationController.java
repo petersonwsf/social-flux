@@ -35,7 +35,7 @@ public class NotificationController {
             notification.setCategory((String)json.get("category"));
             notification.setTitle((String)json.get("title"));
             notification.setDescription((String)json.get("description"));
-            notification.setId_post((Integer) json.get("id_post"));
+            notification.setId_post(postId(json.get("id_post")));
             notification.setSender(sender);
             notification.setReceiver(receiver);
 
@@ -43,6 +43,18 @@ public class NotificationController {
         } catch (JsonProcessingException e) {
             logger.error(e);
             ctx.status(500).json(new Mensagem("Erro interno no sistema", false));
+        }
+    }
+
+    /** Id da postagem do post_service (UUID em texto) ou nulo; qualquer outra coisa é descartada. */
+    private static String postId(Object value) {
+        if (!(value instanceof String text) || text.isBlank()) {
+            return null;
+        }
+        try {
+            return java.util.UUID.fromString(text.trim()).toString();
+        } catch (IllegalArgumentException e) {
+            return null;
         }
     }
 

@@ -24,7 +24,8 @@ public class NotificationService {
 
     public void insertNotification(Notification notification) {
         try {
-            if (notification.getSender().getId() != notification.getReceiver().getId()) {
+            // Objects.equals: comparar Integer com != falha para ids >= 128 (LOG-03).
+            if (!java.util.Objects.equals(notification.getSender().getId(), notification.getReceiver().getId())) {
                 notificationDao.insertNotification(notification);
             }
         } catch (SQLException e) {
@@ -83,7 +84,7 @@ public class NotificationService {
                 resultSet.getString("title"),
                 resultSet.getString("description"),
                 NotificationCategory.fromId(resultSet.getInt("id_category")),
-                resultSet.getInt("id_post"),
+                resultSet.getString("id_post"),
                 resultSet.getBoolean("viewed")
         );
     }

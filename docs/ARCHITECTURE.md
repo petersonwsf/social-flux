@@ -7,7 +7,7 @@ serviços Spring Boot com banco próprio, ligados por eventos no RabbitMQ e expo
 | --- | --- |
 | Identidade e acesso (conta, senha, sessão, e-mail) | `authentication_service/` |
 | Perfil (username, nome, bio, foto, privacidade, busca) | `profile_service/` |
-| Relações (seguir, solicitações) | `social_graph_service/` (**no compose, no gateway (`/api/relacoes*`) e no frontend**; o legado ainda tem as rotas `/api/relacao`, sem uso, até ser limpo) |
+| Relações (seguir, solicitações) | `social_graph_service/` (no compose, no gateway (`/api/relacoes*`) e no frontend) |
 | Postagens/comentários, curtidas, imagens e GIFs de postagem | `post_service/` (**no compose, no gateway (`/api/postagens*`, `/media/posts/*`) e no frontend**) |
 | Notificações | `BackEnd/` (legado) |
 
@@ -49,7 +49,7 @@ social_flux/
 | --- | --- |
 | `pom.xml` | Agregador Maven: `mvn -pl <serviço> -am test` na raiz testa um serviço compilando as bibliotecas (`libs/socialflux-events`, `libs/socialflux-media`) junto; `mvn test` testa tudo. Não é parent de ninguém; o legado fica de fora |
 | `.dockerignore` | Usado pelos builds dos serviços Spring, que têm a raiz como contexto para copiar `libs/socialflux-events` e `libs/socialflux-media` |
-| `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init`, `graph_db_init` e `post_db_init` (criam os bancos `profile`, `social_graph` e `post`), `mysql` (legado, inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, `rustfs` (armazenamento de mídia compatível com S3, buckets privados, API só no loopback do host, console desligado) e `rustfs_init` (cria os buckets `post-media` e `avatars`), as seis aplicações (perfil `apps`; `profile_service` e `post_service` esperam o `rustfs_init`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `rustfs_data`, `legacy_images` (os avatares do `profile_service` ficam no bucket `avatars` do RustFS) |
+| `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init`, `graph_db_init` e `post_db_init` (criam os bancos `profile`, `social_graph` e `post`), `mysql` (legado, só notificações e a projeção `usuario`; inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, `rustfs` (armazenamento de mídia compatível com S3, buckets privados, API só no loopback do host, console desligado) e `rustfs_init` (cria os buckets `post-media` e `avatars`), as seis aplicações (perfil `apps`; `profile_service` e `post_service` esperam o `rustfs_init`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `rustfs_data` (avatares e imagens de postagem ficam nos buckets `avatars` e `post-media` do RustFS) |
 | `.env.example` | Senhas dos bancos (inclui `GRAPH_DB_NAME` e os limites `GRAPH_*` do grafo), do RabbitMQ e do RustFS (`RUSTFS_ACCESS_KEY` só com `A-Z` e `0-9`), chave JWT RS256, TTLs da sessão, nomes dos cookies, URLs públicas e remetente de e-mail. Só nomes/valores de exemplo |
 | `README.md` | Ponto de entrada: tabela das pastas, comandos para subir o ambiente e o diagrama de comunicação |
 | `CLAUDE.md` | Contexto, stack, comandos e regras de trabalho para o Claude Code |
@@ -72,7 +72,7 @@ social_flux/
 | Arquivo | O que representa |
 | --- | --- |
 | `caddy/Caddyfile` | Gateway (mesma origem). Remove `X-User-Id`/`X-Account-Id` vindos do cliente; bloqueia `/internal/*` (404); `/auth/*` e `/.well-known/jwks.json` → authentication_service; `/media/avatars/*` → profile_service (público); `/api/usuarios*` e `/api/img/usuarios/*` → profile_service após `forward_auth`; `/api/relacoes*` → social_graph_service após `forward_auth` (sem copiar `X-User-Id`: o serviço usa o `sub` do token); `/api/postagens*` e `/media/posts/*` → post_service após `forward_auth` (as imagens de postagem não são públicas: o cookie vira Bearer e o serviço confere a visibilidade); demais `/api/*` → legado após `forward_auth` (copia `X-User-Id`); o resto → frontend. Converte o cookie de acesso em `Authorization: Bearer`. Os upstreams vêm de variáveis (`AUTH_UPSTREAM`, `PROFILE_UPSTREAM`, `GRAPH_UPSTREAM`, `POST_UPSTREAM`, `LEGACY_UPSTREAM`, `FRONTEND_UPSTREAM`). **Nunca validado por um binário do Caddy** (sintaxe revisada à mão) |
-| `mysql/schema.sql` | Esquema do MySQL do legado (`usuario` — projeção do perfil —, `relacao`, `postagem`, `curtida`, `notification`). As tabelas além de `usuario` foram inferidas do código. Só roda na criação do volume |
+| `mysql/schema.sql` | Esquema do MySQL do legado: `usuario` (projeção do perfil) e `notification` (`id_post` VARCHAR(36), UUID da postagem). `notification` foi inferida do código. Só roda na criação do volume: volumes antigos precisam ser recriados |
 
 ## `scripts/dev/`
 

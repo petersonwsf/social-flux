@@ -8,12 +8,12 @@ public class Notification {
     private Usuario sender, receiver;
     private String title, description;
     private NotificationCategory category;
-    private Integer id_post;
+    private String id_post;   // UUID da postagem no post_service
     private Boolean viewed;
 
     public Notification() {}
     
-    public Notification(Integer id, Usuario sender, Usuario receiver, String title, String description, NotificationCategory category, Integer id_post, Boolean viewed) {
+    public Notification(Integer id, Usuario sender, Usuario receiver, String title, String description, NotificationCategory category, String id_post, Boolean viewed) {
         this.id = id;
         this.sender = sender;
         this.receiver = receiver;
@@ -68,11 +68,11 @@ public class Notification {
         this.receiver = receiver;
     }
 
-    public Integer getId_post() {
+    public String getId_post() {
         return id_post;
     }
 
-    public void setId_post(Integer id_post) {
+    public void setId_post(String id_post) {
         this.id_post = id_post;
     }
 

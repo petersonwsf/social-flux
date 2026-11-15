@@ -386,8 +386,6 @@ services:
       SQLDB_URL: jdbc:mysql://mysql:3306/${LEGACY_DB_NAME:-social_flux}
       SQLDB_USERNAME: ${LEGACY_DB_USER:-social}
       SQLDB_PASSWORD: ${LEGACY_DB_PASSWORD}
-    volumes:
-      - legacy_images:/app/src/main/resources/public/images
     # Sem `ports`: só o gateway (rede interna) alcança este serviço, senão X-User-Id poderia ser forjado.
     expose:
       - "8000"
@@ -452,4 +450,3 @@ volumes:
   mysql_data:
   rabbitmq_data:
   rustfs_data:
-  legacy_images:

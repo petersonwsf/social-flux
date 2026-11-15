@@ -7,7 +7,6 @@ import com.backend.util.AuthMode;
 import com.backend.util.PropertiesUtil;
 import io.javalin.Javalin;
 import io.javalin.config.JavalinConfig;
-import io.javalin.http.staticfiles.Location;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import java.sql.Connection;
@@ -42,10 +41,6 @@ public class App {
 
     private void registrarServicos(JavalinConfig config, Connection connection) {
 
-        config.appData(Keys.USUARIO_SERVICE.key(), new UsuarioService(connection));
-        config.appData(Keys.AMIZADE_SERVICE.key(), new RelacaoService(connection));
-        config.appData(Keys.POSTAGEM_SERVICE.key(), new PostagemService(connection));
-        config.appData(Keys.CURTIDA_SERVICE.key(), new CurtidaService(connection));
         config.appData(Keys.NOTIFICATION_SERVICE.key(), new NotificationService(connection));
     }
 
@@ -74,10 +69,6 @@ public class App {
                    logger.info("Conexão encerrada com sucesso");
                }
            });
-        });
-        config.staticFiles.add(staticFileConfig -> {
-            staticFileConfig.directory = "/public";
-            staticFileConfig.location = Location.CLASSPATH;
         });
 
     }
@@ -126,29 +117,10 @@ public class App {
 
         // USUÁRIOS / PERFIL / FOTO DE PERFIL e AUTENTICAÇÃO (login, cadastro, sessão):
         // migrados para o profile_service e o authentication_service. O gateway (Caddy) nem encaminha essas rotas para cá.
-        // A tabela `usuario` deste banco é só uma PROJEÇÃO de leitura do perfil (usada nos JOINs abaixo).
+        // A tabela `usuario` deste banco é só uma PROJEÇÃO de leitura do perfil (usada nos JOINs das notificações).
 
-        //AMIZADE
-        app.post("/api/relacao", RelacaoController::criarRelacao);
-        app.get("/api/relacao", RelacaoController::buscarRelacao);
-        app.delete("/api/relacao/{id}", RelacaoController::removerRelacao);
-        app.patch("/api/relacao/{id}", RelacaoController::aceitarRelacao);
-        app.get("/api/relacao/compartilhado", RelacaoController::buscarRelacoesEmComum);
-
-        // POSTAGEM
-        app.post("/api/postagem", PostagemController::criarPostagem);
-        app.get("/api/postagem", PostagemController::buscarPostagens);
-        app.get("/api/postagem/{id}", PostagemController::buscarPostagemPorId);
-        app.delete("/api/postagem/{id}", PostagemController::excluirPostagem);
-
-        // CURTIDA
-        app.post("/api/curtida", CurtidaController::inserirCurtida);
-        app.get("/api/curtida", CurtidaController::buscarCurtida);
-        app.delete("/api/curtida/{id}", CurtidaController::removerCurtida);
-        app.get("/api/curtida/numero/{id_conteudo}", CurtidaController::numeroCurtidasPostagem);
-
-        //IMAGEM
-        app.get("/api/img/{id_usuario}/{id_imagem}", ImagemController::buscarImagem);
+        // RELAÇÕES (social_graph_service), POSTAGENS, CURTIDAS e IMAGENS DE POSTAGEM (post_service): migrados; as rotas
+        // saíram daqui. Só as notificações continuam neste backend até o domínio migrar.
 
         //NOTIFICATION
         app.get("/api/notification", NotificationController::getUserNotifications);

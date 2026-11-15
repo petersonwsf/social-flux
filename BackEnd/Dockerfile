@@ -15,8 +15,6 @@ RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 COPY --from=build /build/target/Backend-1.0-SNAPSHOT-jar-with-dependencies.jar app.jar
 
-# Imagens enviadas pelos usuários (caminho relativo usado pelo código legado). Montar um volume aqui.
-RUN mkdir -p src/main/resources/public/images && chown -R app:app /app
 USER app
 
 EXPOSE 8000
