@@ -1,14 +1,11 @@
 import { useCallback, useState } from 'react'
 import * as postagemService from '../services/postagemService'
-import * as notificationService from '../services/notificationService'
 import { getErrorMessage } from '../lib/errors'
 import { useToast } from './useToast'
-import { useCurrentUser } from './useAuth'
 import type { CriarPostagemPayload, Postagem } from '../types/api'
 
 /** Cria uma postagem (ou uma resposta, quando `pai` é informado). Devolve a postagem criada, ou `null` se falhou. */
 export function useCriarPostagem(onCriada?: (postagem: Postagem) => void) {
-    const user = useCurrentUser()
     const toast = useToast()
     const [enviando, setEnviando] = useState(false)
 
@@ -18,9 +15,6 @@ export function useCriarPostagem(onCriada?: (postagem: Postagem) => void) {
             try {
                 const criada = await postagemService.criar(values, pai?.id)
                 toast.success(pai ? 'Comentário publicado' : 'Postagem publicada')
-                if (pai) {
-                    notificationService.notificarComentario(user, pai, values.legenda).catch(() => undefined)
-                }
                 onCriada?.(criada)
                 return criada
             } catch (error) {
@@ -30,7 +24,7 @@ export function useCriarPostagem(onCriada?: (postagem: Postagem) => void) {
                 setEnviando(false)
             }
         },
-        [user, toast, onCriada],
+        [toast, onCriada],
     )
 
     return { criarPostagem, enviando }

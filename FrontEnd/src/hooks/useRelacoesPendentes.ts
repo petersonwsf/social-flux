@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as relacaoService from '../services/relacaoService'
-import * as notificationService from '../services/notificationService'
 import { getErrorMessage } from '../lib/errors'
 import { useToast } from './useToast'
 import type { ItemRelacao, Usuario } from '../types/api'
@@ -52,12 +51,11 @@ export function useRelacoesPendentes(user: Usuario) {
                 await relacaoService.aceitarSolicitacao(item.usuario.id)
                 setPendentes((lista) => lista.filter((outro) => outro.usuario.id !== item.usuario.id))
                 setTotal((atual) => Math.max(0, atual - 1))
-                notificationService.notificarSeguidor(item.usuario, user).catch(() => undefined)
             } catch (error) {
                 toast.error(getErrorMessage(error))
             }
         },
-        [user, toast],
+        [toast],
     )
 
     const recusar = useCallback(

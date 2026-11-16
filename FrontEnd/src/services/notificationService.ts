@@ -1,53 +1,31 @@
 import { api } from '../lib/api'
-import type { Notification, NotificationPayload, Postagem, Usuario, UsuarioResumo } from '../types/api'
+import type { PaginaNotificacoes } from '../types/api'
 
-export async function listar(idUsuario: number): Promise<Notification[]> {
-    const { data } = await api.get<Notification[]>('/api/notification', { params: { userId: idUsuario } })
+/**
+ * notification_service (`/api/notificacoes`). O usuário vem sempre do token e as notificações são geradas pelo servidor a
+ * partir dos eventos (curtir, responder, seguir…): o frontend só lê, marca como vistas e recebe o tempo real
+ * (`lib/notificacoesStream.ts`).
+ */
+
+export async function listar(cursor?: string): Promise<PaginaNotificacoes> {
+    const { data } = await api.get<PaginaNotificacoes>('/api/notificacoes', { params: { cursor } })
     return data
 }
 
-export async function contarNaoVistas(idUsuario: number): Promise<number> {
-    const { data } = await api.get<number>('/api/notification', { params: { userId: idUsuario, count: true } })
-    return data
+interface OpcoesContagem {
+    /** Não renova a sessão nem repete a chamada em 401 (usado pela sonda do tempo real: ela nunca mantém a sessão viva). */
+    semRenovar?: boolean
 }
 
-export async function marcarComoVistas(idUsuario: number): Promise<void> {
-    await api.patch(`/api/notification/${idUsuario}`)
-}
-
-async function enviar(payload: NotificationPayload): Promise<void> {
-    await api.post('/api/notification', payload)
-}
-
-export function notificarCurtida(sender: Usuario, post: Postagem): Promise<void> {
-    return enviar({
-        sender: JSON.stringify(sender),
-        receiver: JSON.stringify(post.autor),
-        title: 'curtiu sua publicação',
-        description: `Curtiu seu post: ${post.legenda ?? (post.imagem ? 'imagem' : '')}`,
-        category: 'LIKE',
-        id_post: post.id,
+/** Total de notificações não vistas (limitado a 100: a tela mostra "99+"). */
+export async function contarNaoVistas(opcoes: OpcoesContagem = {}): Promise<number> {
+    const { data } = await api.get<{ total: number }>('/api/notificacoes/nao-vistas', {
+        skipSessionRefresh: opcoes.semRenovar === true,
     })
+    return data.total
 }
 
-export function notificarComentario(sender: Usuario, post: Postagem, comentario: string): Promise<void> {
-    return enviar({
-        sender: JSON.stringify(sender),
-        receiver: JSON.stringify(post.autor),
-        title: 'comentou na sua publicação',
-        description: comentario || null,
-        category: 'COMENT',
-        id_post: post.id,
-    })
-}
-
-export function notificarSeguidor(follower: UsuarioResumo, followed: UsuarioResumo): Promise<void> {
-    return enviar({
-        sender: JSON.stringify(follower),
-        receiver: JSON.stringify(followed),
-        title: 'começou a seguir você',
-        description: '',
-        category: 'FOLLOW',
-        id_post: null,
-    })
+/** Marca como vistas as notificações até o `seq` informado (o maior que a tela exibiu); as mais novas continuam novas. */
+export async function marcarComoVistas(ate: number): Promise<void> {
+    await api.post('/api/notificacoes/vistas', { ate })
 }

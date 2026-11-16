@@ -18,6 +18,21 @@ declare module 'axios' {
  */
 export const api = axios.create({ baseURL: API_URL, withCredentials: true })
 
+type OuvinteSucesso = () => void
+const ouvintesSucesso = new Set<OuvinteSucesso>()
+
+/**
+ * Avisa quando uma chamada de API dá certo (exceto as de autenticação e as que pedem `skipSessionRefresh`, como a sonda do
+ * tempo real). O tempo real usa isso para saber que o usuário voltou a agir com a sessão válida e religar o stream, sem nunca
+ * renovar a sessão por conta própria. Devolve a função que remove o ouvinte.
+ */
+export function aoSucessoDaApi(ouvinte: OuvinteSucesso): () => void {
+    ouvintesSucesso.add(ouvinte)
+    return () => {
+        ouvintesSucesso.delete(ouvinte)
+    }
+}
+
 let unauthorizedHandler: (() => void) | null = null
 
 /** O AuthProvider registra aqui o que fazer quando a sessão não pode mais ser renovada. */
@@ -35,7 +50,10 @@ api.interceptors.request.use(async (config) => {
 
 // 401: tenta renovar a sessão uma vez e repete a requisição; se não der, a sessão acabou.
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        if (!response.config.skipSessionRefresh) ouvintesSucesso.forEach((ouvinte) => ouvinte())
+        return response
+    },
     async (error: unknown) => {
         if (axios.isAxiosError(error) && error.response?.status === 401 && error.config) {
             const config = error.config

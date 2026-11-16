@@ -1,15 +1,14 @@
 import { useCallback, useState } from 'react'
 import * as postagemService from '../services/postagemService'
-import * as notificationService from '../services/notificationService'
 import { getErrorMessage } from '../lib/errors'
 import { useToast } from './useToast'
-import type { Postagem, Usuario } from '../types/api'
+import type { Postagem } from '../types/api'
 
 /**
  * Curtida de uma postagem para o usuário logado. O estado inicial (`curtido`, `curtidas`) já vem na própria postagem;
  * curtir/descurtir são idempotentes no servidor e devolvem o estado real, que substitui o local.
  */
-export function useCurtidas(postagem: Postagem, user: Usuario) {
+export function useCurtidas(postagem: Postagem) {
     const toast = useToast()
     const [curtido, setCurtido] = useState(postagem.curtido)
     const [total, setTotal] = useState(postagem.curtidas)
@@ -22,16 +21,12 @@ export function useCurtidas(postagem: Postagem, user: Usuario) {
             const estado = curtido ? await postagemService.descurtir(postagem.id) : await postagemService.curtir(postagem.id)
             setCurtido(estado.curtido)
             setTotal(estado.curtidas)
-            if (estado.curtido && !curtido) {
-                // A notificação é secundária (ainda criada pelo frontend, D11): uma falha aqui não atrapalha a curtida.
-                notificationService.notificarCurtida(user, postagem).catch(() => undefined)
-            }
         } catch (error) {
             toast.error(getErrorMessage(error))
         } finally {
             setEnviando(false)
         }
-    }, [curtido, enviando, postagem, user, toast])
+    }, [curtido, enviando, postagem, toast])
 
     return { curtido, total, alternar }
 }

@@ -1,7 +1,7 @@
+import { useCurrentUser } from '../../hooks/useAuth'
 import { Link } from 'react-router-dom'
 import { calcTempPost } from '../../lib/dates'
 import { ehDoUsuario } from '../../lib/autoria'
-import { useCurrentUser } from '../../hooks/useAuth'
 import { usePostagemInteracoes } from '../../hooks/usePostagemInteracoes'
 import Avatar from '../common/Avatar'
 import FormComentar from '../forms/FormComentar'
@@ -19,7 +19,7 @@ interface PostSecondaryProps {
 /** Card compacto de postagem, usado em listas e na cadeia de pais da página de detalhe. */
 function PostSecondary({ postagem, onExcluir }: PostSecondaryProps) {
     const user = useCurrentUser()
-    const { curtidas, respostas, comentando, alternarComentario, comentar } = usePostagemInteracoes(postagem, user)
+    const { curtidas, respostas, comentando, alternarComentario, comentar } = usePostagemInteracoes(postagem)
     const autor = postagem.autor
 
     return (

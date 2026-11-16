@@ -1,14 +1,14 @@
 import { useCallback, useState } from 'react'
 import { useCurtidas } from './useCurtidas'
 import { useCriarPostagem } from './usePostagemActions'
-import type { CriarPostagemPayload, Postagem, Usuario } from '../types/api'
+import type { CriarPostagemPayload, Postagem } from '../types/api'
 
 /**
  * Curtidas, contagem de respostas e formulário de comentário de um card de postagem. Os contadores já vêm na postagem
  * (nenhuma chamada extra por card); comentar soma 1 localmente.
  */
-export function usePostagemInteracoes(postagem: Postagem, user: Usuario, onResposta?: () => void) {
-    const curtidas = useCurtidas(postagem, user)
+export function usePostagemInteracoes(postagem: Postagem, onResposta?: () => void) {
+    const curtidas = useCurtidas(postagem)
     const [totalRespostas, setTotalRespostas] = useState(postagem.respostas)
     const [comentando, setComentando] = useState(false)
 

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as relacaoService from '../services/relacaoService'
-import * as notificationService from '../services/notificationService'
 import { getErrorMessage } from '../lib/errors'
 import { useToast } from './useToast'
 import type { ContagensRelacao, EstadoRelacao, Usuario, UsuarioResumo } from '../types/api'
@@ -51,12 +50,11 @@ export function useRelacao(user: Usuario, perfil: Usuario) {
             setEstado(novoEstado)
             if (novoEstado === 'SEGUINDO') {
                 ajustarSeguidores(1)
-                notificationService.notificarSeguidor(user, perfil).catch(() => undefined)
             }
         } catch (error) {
             toast.error(getErrorMessage(error))
         }
-    }, [perfil, user, ajustarSeguidores, toast])
+    }, [perfil, ajustarSeguidores, toast])
 
     /** Deixa de seguir ou cancela a solicitação, conforme o estado atual. */
     const deixarDeSeguir = useCallback(async () => {

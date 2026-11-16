@@ -63,7 +63,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `SidebarMenu` | `src/components/layout/sidebar/SidebarMenu.tsx` | Links principais da sidebar com badges de solicitações (total real, também em tooltip: "N solicitações pendentes") e de não vistas | `solicitacoesPendentes`, `naoVistas`, `onAbrirSolicitacoes`, `onAbrirBusca`, `onAbrirNotificacoes` | `Sidebar` |
 | `SearchUsuario` | `src/components/layout/sidebar/SearchUsuario.tsx` | Busca de usuários dentro da sidebar | `onVoltar()` | `Sidebar` |
 | `SidebarRelacoes` | `src/components/layout/sidebar/SidebarRelacoes.tsx` | Solicitações de seguir dentro da sidebar | `solicitacoes`, `temMais`, `onVoltar`, `onCarregarMais`, `onAceitar(solicitacao)`, `onRecusar(solicitacao)` | `Sidebar` |
-| `NotificationsSidebar` | `src/components/layout/sidebar/NotificationsSidebar.tsx` | Notificações dentro da sidebar; marca como vistas ao voltar | `onVoltar()` | `Sidebar` |
+| `NotificationsSidebar` | `src/components/layout/sidebar/NotificationsSidebar.tsx` | Notificações dentro da sidebar (marca a área como aberta: badge zerado e sem toast); marca como vistas ao voltar | `onVoltar()` | `Sidebar` |
 | `SidebarBackLink` | `src/components/layout/sidebar/SidebarBackLink.tsx` | Link "voltar" das visões internas da sidebar | `onClick()` | visões da sidebar |
 
 ## `postagens/`
@@ -106,5 +106,5 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
 | --- | --- | --- | --- | --- |
-| `Notification` | `src/components/notifications/Notification.tsx` | Uma notificação com ícone por categoria (curtida, comentário, seguidor) e link para a postagem/perfil | `notification` | `ListNotifications` |
-| `ListNotifications` | `src/components/notifications/ListNotifications.tsx` | Lista de notificações | `notifications` | `Notifications`, `NotificationsSidebar` |
+| `Notification` | `src/components/notifications/Notification.tsx` | Uma notificação (grupo): ícone por tipo, até 2 avatares, frase agrupada, trecho da resposta, tempo relativo e link para a postagem/perfil; em `FOLLOW_REQUEST`, botões **Aceitar/Recusar** | `notificacao`, `onAceitar?`, `onRecusar?` | `ListNotifications` |
+| `ListNotifications` | `src/components/notifications/ListNotifications.tsx` | Lista de notificações (mensagem de vazio e "Carregar mais") | `notifications`, `onAceitar?`, `onRecusar?`, `temMais?`, `carregando?`, `onCarregarMais?` | `Notifications`, `NotificationsSidebar` |

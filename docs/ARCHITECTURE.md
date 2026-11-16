@@ -9,7 +9,7 @@ serviços Spring Boot com banco próprio, ligados por eventos no RabbitMQ e expo
 | Perfil (username, nome, bio, foto, privacidade, busca) | `profile_service/` |
 | Relações (seguir, solicitações) | `social_graph_service/` (no compose, no gateway (`/api/relacoes*`) e no frontend) |
 | Postagens/comentários, curtidas, imagens e GIFs de postagem | `post_service/` (**no compose, no gateway (`/api/postagens*`, `/media/posts/*`) e no frontend**) |
-| Notificações (geradas por eventos, com tempo real por SSE) | `notification_service/` (**no compose e no gateway (`/api/notificacoes*`); o frontend ainda usa o legado**) |
+| Notificações (geradas por eventos, com tempo real por SSE) | `notification_service/` (**no compose, no gateway (`/api/notificacoes*`) e no frontend, com tempo real por SSE**) |
 
 Cada aplicação tem o seu próprio `docs/ARCHITECTURE.md`:
 [`FrontEnd`](../FrontEnd/docs/ARCHITECTURE.md) · [`authentication_service`](../authentication_service/docs/ARCHITECTURE.md) ·
@@ -66,7 +66,7 @@ social_flux/
 | `plano-dominio-perfil-servico-proprio.md` | Plano (implementado) do domínio de perfil e da comunicação entre serviços — decisões D1–D12 |
 | `plano-dominio-relacoes-grafo-social.md` | Plano do domínio Relações: `social_graph_service`, análise SQL × NoSQL, seguir/solicitações — decisões D1–D14 (implementado: serviço, compose, gateway e frontend) |
 | `plano-dominio-postagens-servico-proprio.md` | Plano (**decisões D1–D18 fechadas, guia no §16; implementado: biblioteca de mídia, perfil no RustFS, `post_service`, compose/gateway e frontend — estado em §16.1**) do domínio Postagens: `post_service` (postagens, respostas, curtidas e mídia: imagens e GIFs no RustFS), biblioteca de mídia compartilhada, feed por cópia local de relações, privacidade imposta no servidor — decisões D1–D18 |
-| `plano-dominio-notificacoes-servico-proprio.md` | Plano (**decisões D1–D16 fechadas; implementado: `notification_service`, compose e gateway — frontend, desligamento do legado e remoção do id inteiro pendentes**) do domínio Notificações: notificações geradas por eventos, agrupadas, tempo real por SSE (sessão, revogação, aba líder), retenção, desligamento do legado |
+| `plano-dominio-notificacoes-servico-proprio.md` | Plano (**decisões D1–D16 fechadas; implementado: `notification_service`, compose, gateway e frontend — desligamento do legado e remoção do id inteiro pendentes**) do domínio Notificações: notificações geradas por eventos, agrupadas, tempo real por SSE (sessão, revogação, aba líder), retenção, desligamento do legado |
 | `plano-dominio-identidade-spring-auth0.md` | Plano **substituído** (Auth0 descartado); mantido só como registro da alternativa avaliada |
 
 ## `infra/`

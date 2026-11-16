@@ -109,7 +109,7 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `authContext.ts` / `AuthProvider.tsx` | Sessão: `user` (perfil), `account` (UUID, e-mail), `emailVerified`, `carregando`, `login`, `register`, `logout`, `applyAuth`, `updateUser`, `refreshUser`. Restaura a sessão pelos cookies ao abrir, apaga o token antigo do `localStorage` e volta ao login quando a sessão não pode ser renovada |
 | `themeContext.ts` / `ThemeProvider.tsx` | Tema claro/escuro via `data-bs-theme` do Bootstrap, persistido no `localStorage` (migra a chave antiga do redux-persist) |
 | `toastContext.ts` / `ToastProvider.tsx` | Fila de toasts (`success`, `error` e `notify` para `{ mensagem, sucesso }`) renderizada em `.toast-stack` |
-| `notificationsContext.ts` / `NotificationsProvider.tsx` | Notificações do usuário logado e contador de não vistas (`zerarContador`, `marcarComoVistas`); montado dentro do `ProtectedLayout` |
+| `notificationsContext.ts` / `NotificationsProvider.tsx` | Notificações do usuário logado (agrupadas, paginadas), contador de não vistas, aceitar/recusar solicitação direto da notificação e o **tempo real**: carrega a primeira página e liga o stream (`lib/notificacoesTempoReal.ts`); eventos `notificacao`/`removida`/`contagem`/`recarregar` atualizam a lista; toast quando chega algo fora da área de notificações (`abrirArea` marca a área aberta); montado dentro do `ProtectedLayout` |
 
 ### `src/hooks/`
 
@@ -124,7 +124,7 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `usePostagemDetalhe.ts` | Postagem da página de detalhe e a cadeia de pais (`/ancestrais`); `naoEncontrada` em 404; versão das respostas para recarregar |
 | `usePostagemActions.ts` | `useCriarPostagem` (postagem ou resposta; devolve a postagem criada) e `useExcluirPostagem` |
 | `usePostagemInteracoes.ts` | Junta curtidas, número de respostas (vindo da postagem, +1 local ao comentar) e o envio de comentário de um card |
-| `useCurtidas.ts` | `curtido`/`curtidas` iniciais vindos da postagem; curtir/descurtir (`PUT`/`DELETE …/curtida`) usam o estado devolvido; notifica o autor ao curtir |
+| `useCurtidas.ts` | `curtido`/`curtidas` iniciais vindos da postagem; curtir/descurtir (`PUT`/`DELETE …/curtida`) usam o estado devolvido (a notificação ao autor nasce no servidor, pelo evento `post.liked.v1`) |
 | `useRelacao.ts` | Relação entre o logado e o dono do perfil: `estado` (`NENHUM`/`SOLICITADO`/`SEGUINDO`), contadores e as ações seguir, deixar de seguir/cancelar e remover seguidor |
 | `useListaRelacoes.ts` | Lista paginada por cursor (seguidores/seguidos): a 1ª página só é buscada quando `ativo` vira `true`; `carregarMais`, `remover` e `erro` (ex.: conta privada) |
 | `useModalAberto.ts` | Diz se um modal do Bootstrap já foi aberto (evento `show.bs.modal`), para carregar o conteúdo só sob demanda |
@@ -135,7 +135,10 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 
 | Arquivo | O que representa |
 | --- | --- |
-| `api.ts` | Instância única do axios (`withCredentials`) com interceptors de renovação de sessão e repetição após `401`; `setUnauthorizedHandler` |
+| `api.ts` | Instância única do axios (`withCredentials`) com interceptors de renovação de sessão e repetição após `401`; `setUnauthorizedHandler`; `aoSucessoDaApi` (avisa quando uma chamada do usuário dá certo: religa o tempo real parado por 401) |
+| `notificacoesStream.ts` | Um stream SSE (`EventSource`) com reconexão própria: `encerrado` reconecta já; queda → sonda sem renovar a sessão (200: espera crescente e reconecta com `?desde=`; 401: PARA até o usuário agir). Valida cada evento (sem `any`) |
+| `notificacoesTempoReal.ts` | Aba líder (D10): Web Locks elege a aba que abre o stream e o BroadcastChannel repassa eventos e atividade às outras; se a líder fecha, outra assume. Sem essas APIs, um stream por aba |
+| `notificacoesTexto.ts` | Frases agrupadas ("Ana, Bia e mais 3 curtiram sua publicação") e destino de cada notificação |
 | `session.ts` | Temporização da sessão em memória (`setSessionTiming`, `shouldRenewSession`) e `refreshSession` (renovação única, com Web Locks entre abas) |
 | `errors.ts` | `getErrorMessage` (texto de qualquer erro) e `getErrorStatus` (status HTTP do axios) |
 | `dates.ts` | `calcTempPost` (tempo relativo curto) e `formatDate`, a partir de datas ISO-8601 (UTC) |
@@ -160,7 +163,7 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `CriarPostagem/CriarPostagem.tsx` | Nova postagem (texto e/ou imagem ou GIF) |
 | `PostPage/PostPage.tsx` | Postagem completa (`/postagem/:id`, id UUID), cadeia de pais (`/ancestrais`) acima e respostas paginadas |
 | `SearchUser/SearchUser.tsx` | Busca de usuários (no desktop a busca fica na sidebar) |
-| `Notifications/Notifications.tsx` | Abas de notificações e solicitações; zera o badge ao abrir e marca como vistas ao sair |
+| `Notifications/Notifications.tsx` | Abas de notificações (agrupadas, com Aceitar/Recusar nas solicitações) e solicitações; zera o badge e liga o modo "área aberta" (sem toast) ao abrir, e marca como vistas ao sair |
 | `Settings/Settings.tsx` | Tema, alterar senha, sair, sair de todos os dispositivos, reenviar verificação e excluir conta |
 | `NotFound/NotFound.tsx` | Página 404 |
 
@@ -174,7 +177,7 @@ Uma função por chamada, sempre pela instância `api`. Os nomes de rota estão 
 | `usuarioService.ts` | profile_service: meu perfil, perfil por username, pesquisa, editar perfil, trocar foto |
 | `postagemService.ts` | post_service (`/api/postagens`): criar (multipart `legenda`/`imagem`/`pai`), remover, buscar, respostas, ancestrais, feed e postagens do usuário por filtro (paginados por cursor), curtir e descurtir. Só informa o ALVO; quem age vem do token |
 | `relacaoService.ts` | social_graph_service (`/api/relacoes`): estado, contagens, seguir, deixar de seguir/cancelar, remover seguidor, seguidores/seguidos paginados, em comum, solicitações recebidas, aceitar e recusar. Só informa o ALVO; quem age vem do token |
-| `notificationService.ts` | Legado: listar, contar não vistas, marcar como vistas e criar notificações de curtida, comentário e novo seguidor (o frontend ainda as cria, ao seguir e ao aceitar uma solicitação; D11 de Postagens) e `id_post` é o UUID da postagem |
+| `notificationService.ts` | notification_service (`/api/notificacoes`): `listar` (cursor), `contarNaoVistas` (com `semRenovar` para a sonda do tempo real) e `marcarComoVistas(ate)`. O frontend **não cria** notificações: elas nascem dos eventos no servidor |
 
 ### `src/styles/`
 
@@ -187,6 +190,6 @@ Uma função por chamada, sempre pela instância `api`. Os nomes de rota estão 
 
 | Arquivo | O que representa |
 | --- | --- |
-| `types/api.ts` | Modelos e payloads da API (`Usuario`, `UsuarioResumo`, `Postagem` (com `ImagemPostagem`, `PaiPostagem`), `PaginaPostagens`, `EstadoCurtida`, `EstadoRelacao`, `RelacaoComUsuario`, `ContagensRelacao`, `ItemRelacao`, `PaginaRelacoes`, `PaginaSolicitacoes`, `EmComum`, `Notification`, `Mensagem`, respostas de auth...) |
+| `types/api.ts` | Modelos e payloads da API (`Usuario`, `UsuarioResumo`, `Postagem` (com `ImagemPostagem`, `PaiPostagem`), `PaginaPostagens`, `EstadoCurtida`, `EstadoRelacao`, `RelacaoComUsuario`, `ContagensRelacao`, `ItemRelacao`, `PaginaRelacoes`, `PaginaSolicitacoes`, `EmComum`, `Notificacao` (grupo), `AtorNotificacao`, `PaginaNotificacoes`, `Mensagem`, respostas de auth...) |
 | `ionicons.d.ts` | Declara `<ion-icon>` no JSX |
 | `vite-env.d.ts` | Referência aos tipos do Vite e tipagem de `import.meta.env` (`VITE_API_URL`) |

@@ -10,7 +10,7 @@ interface SidebarMenuProps {
 
 function Badge({ value }: { value: number }) {
     if (value <= 0) return null
-    return <span className="badge rounded-pill bg-primary ms-auto">{value}</span>
+    return <span className="badge rounded-pill bg-primary ms-auto">{value > 99 ? '99+' : value}</span>
 }
 
 /** Texto do tooltip do item de solicitações (singular/plural e nenhuma pendente). */

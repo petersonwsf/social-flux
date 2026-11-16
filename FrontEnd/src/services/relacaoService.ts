@@ -10,7 +10,7 @@ import type {
 
 /**
  * social_graph_service (`/api/relacoes`). O usuário logado vem sempre do token: aqui só se informa o ALVO da ação.
- * `idUsuario` é o id inteiro do perfil (a API também aceita o UUID da conta).
+ * `idUsuario` é o id inteiro do perfil (a API também aceita o UUID da conta; as notificações só conhecem o UUID).
  */
 
 export async function buscarEstado(idUsuario: number): Promise<RelacaoComUsuario> {
@@ -61,10 +61,10 @@ export async function listarSolicitacoes(cursor?: string): Promise<PaginaSolicit
     return data
 }
 
-export async function aceitarSolicitacao(idSolicitante: number): Promise<void> {
+export async function aceitarSolicitacao(idSolicitante: number | string): Promise<void> {
     await api.post(`/api/relacoes/solicitacoes/${idSolicitante}/aceitar`)
 }
 
-export async function recusarSolicitacao(idSolicitante: number): Promise<void> {
+export async function recusarSolicitacao(idSolicitante: number | string): Promise<void> {
     await api.delete(`/api/relacoes/solicitacoes/${idSolicitante}`)
 }

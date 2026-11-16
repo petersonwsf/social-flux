@@ -1,13 +1,24 @@
 import { createContext } from 'react'
-import type { Notification } from '../types/api'
+import type { Notificacao } from '../types/api'
 
 export interface NotificationsContextValue {
-    notificacoes: Notification[]
+    notificacoes: Notificacao[]
+    /** Notificações não vistas (limitado a 100: mostre "99+"). Fica 0 enquanto a área de notificações está aberta. */
     naoVistas: number
+    temMais: boolean
+    carregando: boolean
+    carregarMais: () => void
     /** Zera o contador do badge imediatamente (ao abrir a lista). */
     zerarContador: () => void
-    /** Marca todas como vistas no backend (ao sair da lista). */
+    /** Marca como vistas, no servidor, as notificações exibidas (ao sair da lista). */
     marcarComoVistas: () => void
+    /**
+     * A tela de notificações (página ou painel lateral) chama ao abrir e usa o retorno ao fechar: enquanto há uma aberta, o
+     * badge fica zerado e não aparece toast (D14).
+     */
+    abrirArea: () => () => void
+    aceitarSolicitacao: (notificacao: Notificacao) => Promise<void>
+    recusarSolicitacao: (notificacao: Notificacao) => Promise<void>
 }
 
 export const NotificationsContext = createContext<NotificationsContextValue | null>(null)

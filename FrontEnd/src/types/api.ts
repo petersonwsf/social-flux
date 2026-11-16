@@ -133,28 +133,40 @@ export interface EmComum {
     total: number
 }
 
-export type NotificationCategory = 'LIKE' | 'COMENT' | 'FOLLOW'
+/** notification_service: as notificações nascem dos eventos do servidor (o frontend não cria nenhuma). */
+export type NotificacaoTipo = 'LIKE' | 'REPLY' | 'FOLLOW' | 'FOLLOW_REQUEST' | 'FOLLOW_ACCEPTED'
 
-export interface Notification {
-    id: number
-    sender: Usuario
-    receiver: Usuario
-    title: string
-    description: string | null
-    category: NotificationCategory
-    /** UUID da postagem (post_service). */
-    id_post: string | null
-    viewed: boolean
+/** Quem agiu. O `id` é o UUID da conta. */
+export interface AtorNotificacao {
+    id: string
+    username: string
+    nome: string
+    foto_perfil: string | null
+    foto_url: string | null
 }
 
-/** O backend espera sender/receiver como JSON serializado em string. */
-export interface NotificationPayload {
-    sender: string
-    receiver: string
-    title: string
-    description: string | null
-    category: NotificationCategory
-    id_post: string | null
+/**
+ * Uma notificação é um GRUPO de ações do mesmo tipo (ex.: várias curtidas na mesma postagem). `atores` traz só os 2 mais
+ * recentes; `totalAtores` é o total. `seq` cresce a cada mudança do grupo (é o id do evento SSE e o limite de "vistas").
+ */
+export interface Notificacao {
+    id: string
+    seq: number
+    tipo: NotificacaoTipo
+    atores: AtorNotificacao[]
+    totalAtores: number
+    /** UUID da postagem alvo (curtida/resposta). */
+    postagem: string | null
+    /** UUID da resposta mais recente (só REPLY). */
+    resposta: string | null
+    trecho: string | null
+    atualizada_em: string
+    vista: boolean
+}
+
+export interface PaginaNotificacoes {
+    itens: Notificacao[]
+    proximoCursor: string | null
 }
 
 export interface LoginPayload {

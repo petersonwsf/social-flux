@@ -16,15 +16,29 @@ const TABS: ReadonlyArray<{ id: Aba; label: string }> = [
 
 function Notifications() {
     const user = useCurrentUser()
-    const { notificacoes, zerarContador, marcarComoVistas } = useNotificacoes()
+    const {
+        notificacoes,
+        temMais: temMaisNotificacoes,
+        carregando,
+        carregarMais: carregarMaisNotificacoes,
+        zerarContador,
+        marcarComoVistas,
+        abrirArea,
+        aceitarSolicitacao,
+        recusarSolicitacao,
+    } = useNotificacoes()
     const { pendentes, temMais, carregarMais, aceitar, recusar } = useRelacoesPendentes(user)
     const [aba, setAba] = useState<Aba>('notificacoes')
 
-    // Ao abrir a tela o badge zera; ao sair, as notificações são marcadas como vistas.
+    // Ao abrir a tela o badge zera (e o toast fica desligado, D14); ao sair, as notificações exibidas são marcadas como vistas.
     useEffect(() => {
         zerarContador()
-        return marcarComoVistas
-    }, [zerarContador, marcarComoVistas])
+        const fecharArea = abrirArea()
+        return () => {
+            fecharArea()
+            marcarComoVistas()
+        }
+    }, [zerarContador, abrirArea, marcarComoVistas])
 
     return (
         <div className="notifications-page">
@@ -33,7 +47,14 @@ function Notifications() {
             </div>
             <TabMenu tabs={TABS} active={aba} onChange={setAba} />
             {aba === 'notificacoes' ? (
-                <ListNotifications notifications={notificacoes} />
+                <ListNotifications
+                    notifications={notificacoes}
+                    onAceitar={(notificacao) => void aceitarSolicitacao(notificacao)}
+                    onRecusar={(notificacao) => void recusarSolicitacao(notificacao)}
+                    temMais={temMaisNotificacoes}
+                    carregando={carregando}
+                    onCarregarMais={carregarMaisNotificacoes}
+                />
             ) : (
                 <ListaRelacoesNaoAceitas
                     solicitacoes={pendentes}

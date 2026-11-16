@@ -1,7 +1,7 @@
+import { useCurrentUser } from '../../hooks/useAuth'
 import { Link } from 'react-router-dom'
 import { formatDate } from '../../lib/dates'
 import { ehDoUsuario } from '../../lib/autoria'
-import { useCurrentUser } from '../../hooks/useAuth'
 import { usePostagemInteracoes } from '../../hooks/usePostagemInteracoes'
 import Avatar from '../common/Avatar'
 import FormComentar from '../forms/FormComentar'
@@ -21,11 +21,7 @@ interface PostagemProps {
 /** Card completo de uma postagem (página de detalhe). A cadeia de pais é mostrada pela página, acima do card. */
 function Postagem({ postagem, onExcluir, onResposta }: PostagemProps) {
     const user = useCurrentUser()
-    const { curtidas, respostas, comentando, alternarComentario, comentar } = usePostagemInteracoes(
-        postagem,
-        user,
-        onResposta,
-    )
+    const { curtidas, respostas, comentando, alternarComentario, comentar } = usePostagemInteracoes(postagem, onResposta)
     const autor = postagem.autor
 
     return (
