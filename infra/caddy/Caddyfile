@@ -7,6 +7,7 @@
 #                                        -> profile_service (perfil, busca, foto de perfil)
 #   /api/relacoes*                       -> social_graph_service (seguir, seguidores, solicitações), com forward_auth
 #   /api/postagens*, /media/posts/*      -> post_service (postagens, respostas, curtidas, imagens/GIFs), com forward_auth
+#   /api/notificacoes*                   -> notification_service (notificações e o stream SSE), com forward_auth e sem buffer
 #   /api/*                               -> backend legado, depois de validar o token no authentication_service (forward_auth)
 #   /internal/*                          -> bloqueado para o público
 #
@@ -74,6 +75,22 @@
 			uri /internal/auth/verify
 		}
 		reverse_proxy {$POST_UPSTREAM:post_service:8084}
+	}
+
+	# Notificações (lista, contagem, vistas e o stream SSE). Igual ao grafo e às postagens: o serviço valida o JWT sozinho e o
+	# forward_auth acrescenta a checagem de REVOGAÇÃO (feita ao ABRIR o stream; o serviço fecha o stream em 15 min no máximo e
+	# o navegador reconecta, passando de novo por aqui). `flush_interval -1` entrega cada evento SSE na hora, sem bufferizar;
+	# não use `encode` (compressão) nesta rota.
+	@notifications path /api/notificacoes /api/notificacoes/*
+	handle @notifications {
+		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
+
+		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
+			uri /internal/auth/verify
+		}
+		reverse_proxy {$NOTIFICATION_UPSTREAM:notification_service:8085} {
+			flush_interval -1
+		}
 	}
 
 	handle /api/* {

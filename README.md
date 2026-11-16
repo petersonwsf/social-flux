@@ -5,6 +5,7 @@
 | `authentication_service/` | **Novo** serviço de identidade e acesso (Spring Boot, PostgreSQL, JWT RS256 em cookies HttpOnly) |
 | `profile_service/` | **Novo** serviço de perfil (Spring Boot, PostgreSQL próprio, busca, foto de perfil, eventos via RabbitMQ) |
 | `post_service/` | **Novo** serviço de postagens (postagens, respostas, curtidas, imagens e GIFs; PostgreSQL próprio, mídia no RustFS, eventos `post.*`) |
+| `notification_service/` | **Novo** serviço de notificações (geradas pelos eventos `post.*`, `follow.*` e `profile.*`, agrupadas; tempo real por SSE; PostgreSQL próprio; no compose e no gateway em `/api/notificacoes*`) |
 | `social_graph_service/` | **Novo** serviço do grafo social (seguir, seguidores, solicitações; PostgreSQL próprio; no compose, no gateway em `/api/relacoes*` e no frontend) |
 | `libs/socialflux-events/` | Biblioteca compartilhada de eventos (outbox, inbox, RabbitMQ) dos serviços Spring Boot |
 | `libs/socialflux-media/` | Biblioteca compartilhada de mídia (validação e re-codificação de imagens, GIFs, armazenamento S3/RustFS) |
@@ -24,7 +25,7 @@ cp .env.example .env              # ajuste as senhas (AUTH_ALLOW_EPHEMERAL_KEY=t
 ```bash
 docker compose --profile host up -d     # postgres, mysql, rabbitmq, rustfs, mailpit + gateway (Caddy) apontando para o host
 ```
-Depois rode as aplicações localmente (auth, perfil, grafo, postagens, legado e frontend) (comandos em `docs/rodando-localmente.md`) e abra http://localhost:5173.
+Depois rode as aplicações localmente (auth, perfil, grafo, postagens, notificações, legado e frontend) (comandos em `docs/rodando-localmente.md`) e abra http://localhost:5173.
 Sem o perfil `host` (`docker compose up -d`) sobem só os bancos, o RabbitMQ, o RustFS (mídia) e o mailpit.
 
 **B) Tudo em containers**
@@ -43,6 +44,7 @@ Navegador ─► Caddy (mesma origem)
               ├─ /auth/*                    authentication_service ─► PostgreSQL (banco identity)
               ├─ /api/usuarios*, /media/*   profile_service ─► PostgreSQL (banco profile) + disco (avatares)
               ├─ /api/relacoes*             social_graph_service ─► PostgreSQL (banco social_graph)
+              ├─ /api/notificacoes*         notification_service ─► PostgreSQL (banco notification)   (inclui o stream SSE)
               └─ /api/* (demais) ─ forward_auth ─► authentication_service /internal/auth/verify
                               └─ X-User-Id ─► backend legado (Javalin, AUTH_MODE=gateway, rede interna) ─► MySQL
 
@@ -51,7 +53,9 @@ authentication_service ──account.registered|deleted.v1──► RabbitMQ ─
 profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► projeção `usuario` no MySQL legado
                                                                      └──► social_graph_service (cópia local dos perfis)
 social_graph_service ──follow.*.v1──► RabbitMQ ──► post_service (cópia das arestas aceitas)
-post_service ──post.*.v1──► RabbitMQ ──► (futuro serviço de Notificações)
+post_service ──post.*.v1──► RabbitMQ ──► notification_service (curtidas e respostas)
+social_graph_service ──follow.*.v1──► notification_service (novos seguidores e solicitações)
+notification_service ──SSE──► navegador (tempo real)
 ```
 
 A **conta** (e-mail, senha, sessão) é do `authentication_service`; o **perfil** (username, nome, foto, privacidade) é do

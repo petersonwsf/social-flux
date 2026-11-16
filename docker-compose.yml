@@ -13,6 +13,7 @@
 #   profile_db_init          cria o banco `profile` se não existir (roda uma vez e sai; funciona em volume já existente)
 #   graph_db_init            idem para o banco `social_graph`
 #   post_db_init             idem para o banco `post`
+#   notification_db_init     idem para o banco `notification`
 #   rustfs                   armazenamento de mídia compatível com S3 (imagens e GIFs); buckets privados, só no loopback do host
 #   rustfs_init              cria os buckets de mídia (roda uma vez e sai)
 #   mysql                    banco do backend legado (notificações e a PROJEÇÃO `usuario` do perfil)
@@ -22,6 +23,7 @@
 #   profile_service          perfil, busca, foto de perfil (resource server: valida o JWT pelo JWKS do auth)
 #   social_graph_service     grafo social: seguir, seguidores, solicitações de contas privadas (resource server)
 #   post_service             postagens, respostas, curtidas e imagens/GIFs (resource server; mídia no RustFS)
+#   notification_service     notificações geradas pelos eventos dos outros serviços, com tempo real por SSE (resource server)
 #   legacy_backend           backend Javalin legado, em modo `gateway` (só aceita X-User-Id do gateway)
 #   frontend                 SPA (nginx)
 #   gateway                  Caddy: mesma origem para frontend, /auth, /api e /media
@@ -103,6 +105,25 @@ services:
       - |
         psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$POST_DB'" | grep -q 1 \
           || psql -v ON_ERROR_STOP=1 -c "create database \"$$POST_DB\""
+
+  # Cria o banco do notification_service na MESMA instância (um banco por serviço).
+  notification_db_init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${IDENTITY_DB_USER:-identity}
+      PGPASSWORD: ${IDENTITY_DB_PASSWORD}
+      PGDATABASE: ${IDENTITY_DB_NAME:-identity}
+      NOTIFICATION_DB: ${NOTIFICATION_DB_NAME:-notification}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$NOTIFICATION_DB'" | grep -q 1 \
+          || psql -v ON_ERROR_STOP=1 -c "create database \"$$NOTIFICATION_DB\""
 
   mysql:
     image: mysql:8.4
@@ -366,6 +387,39 @@ services:
     ports:
       - "127.0.0.1:${POST_SERVICE_PORT:-8084}:8084"   # só para depuração local; não exponha na internet
 
+  notification_service:
+    profiles: ["apps"]
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events
+      dockerfile: notification_service/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      notification_db_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      # Banco próprio, mesmas credenciais do auth (sobrescreva com NOTIFICATION_DB_USER/NOTIFICATION_DB_PASSWORD para um role próprio)
+      NOTIFICATION_DB_URL: jdbc:postgresql://postgres:5432/${NOTIFICATION_DB_NAME:-notification}
+      NOTIFICATION_DB_USER: ${NOTIFICATION_DB_USER:-${IDENTITY_DB_USER:-identity}}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:-${IDENTITY_DB_PASSWORD}}
+      # Valida o JWT com a chave PÚBLICA do auth
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # Tempo real (SSE), retenção e limites (opcionais)
+      NOTIFICATION_SSE_MAX_DURATION: ${NOTIFICATION_SSE_MAX_DURATION:-PT15M}
+      NOTIFICATION_SSE_MAX_PER_USER: ${NOTIFICATION_SSE_MAX_PER_USER:-5}
+      NOTIFICATION_SSE_MAX_TOTAL: ${NOTIFICATION_SSE_MAX_TOTAL:-5000}
+      NOTIFICATION_RETENTION: ${NOTIFICATION_RETENTION:-P45D}
+    ports:
+      - "127.0.0.1:${NOTIFICATION_SERVICE_PORT:-8085}:8085"   # só para depuração local; não exponha na internet
+
   legacy_backend:
     profiles: ["apps"]
     build: ./BackEnd
@@ -396,7 +450,7 @@ services:
   # Gateway quando as aplicações rodam NA SUA MÁQUINA (só a infra em containers):
   #   docker compose --profile host up -d     (sobe bancos + broker + mailpit + este gateway)
   # Encaminha para authentication_service (8081), profile_service (8082), social_graph_service (8083), post_service (8084),
-  # backend legado (8000) e Vite (5173) no host.
+  # notification_service (8085), backend legado (8000) e Vite (5173) no host.
   gateway_host:
     profiles: ["host"]
     image: caddy:2-alpine
@@ -407,6 +461,7 @@ services:
       PROFILE_UPSTREAM: host.docker.internal:8082
       GRAPH_UPSTREAM: host.docker.internal:8083
       POST_UPSTREAM: host.docker.internal:8084
+      NOTIFICATION_UPSTREAM: host.docker.internal:8085
       LEGACY_UPSTREAM: host.docker.internal:8000
       FRONTEND_UPSTREAM: host.docker.internal:5173
     volumes:
@@ -425,6 +480,7 @@ services:
       - profile_service
       - social_graph_service
       - post_service
+      - notification_service
       - legacy_backend
       - frontend
     environment:

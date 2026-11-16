@@ -9,10 +9,11 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/run-auth.ps1      # authent
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-profile.ps1   # profile_service (8082)
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-graph.ps1     # social_graph_service (8083)
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-post.ps1      # post_service (8084)
+powershell -ExecutionPolicy Bypass -File scripts/dev/run-notification.ps1   # notification_service (8085)
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-legacy.ps1    # backend legado (8000)
 ```
 
-(bash: `./scripts/dev/run-auth.sh`, `run-profile.sh`, `run-graph.sh`, `run-post.sh` e `run-legacy.sh`.) E em `FrontEnd/`: `npm ci && npm run dev`.
+(bash: `./scripts/dev/run-auth.sh`, `run-profile.sh`, `run-graph.sh`, `run-post.sh`, `run-notification.sh` e `run-legacy.sh`.) E em `FrontEnd/`: `npm ci && npm run dev`.
 
 Os scripts usam **o banco, o usuário e a senha do seu `.env`** — os mesmos dos containers. Os dois erros mais comuns ao rodar
 na mão vêm de usar valores diferentes dos do `.env`:
@@ -39,7 +40,7 @@ docker compose ps           # postgres e mysql devem ficar "healthy"
 Sobe: PostgreSQL (`localhost:5432`; o serviço `profile_db_init` cria o banco `profile` ao lado do banco do auth, com as mesmas credenciais), MySQL
 legado (`localhost:3306`), **RabbitMQ** (`localhost:5672`, painel http://localhost:15672), **RustFS** (armazenamento de mídia S3 em `localhost:9000`, só no loopback; o serviço `rustfs_init` cria os buckets; exige `RUSTFS_ACCESS_KEY` e `RUSTFS_SECRET_KEY` no `.env`) e Mailpit
 (SMTP `localhost:1025`, caixa de entrada http://localhost:8025) e o **gateway** Caddy em `localhost:8080`, que encaminha
-`/auth` → `localhost:8081`, `/api/usuarios*` e `/media/avatars` → `localhost:8082` (perfil), `/api/relacoes*` → `localhost:8083` (grafo), `/api/postagens*` e `/media/posts/*` → `localhost:8084` (postagens), o resto de `/api` → `localhost:8000` (depois de validar o token) e o resto → Vite `localhost:5173`.
+`/auth` → `localhost:8081`, `/api/usuarios*` e `/media/avatars` → `localhost:8082` (perfil), `/api/relacoes*` → `localhost:8083` (grafo), `/api/postagens*` e `/media/posts/*` → `localhost:8084` (postagens), `/api/notificacoes*` → `localhost:8085` (notificações e o stream SSE), o resto de `/api` → `localhost:8000` (depois de validar o token) e o resto → Vite `localhost:5173`.
 
 Se já houver Postgres/MySQL na sua máquina nas mesmas portas, mude `POSTGRES_PORT`/`MYSQL_PORT` no `.env` e use essas portas abaixo.
 
@@ -105,6 +106,15 @@ RabbitMQ e grava as imagens no bucket `post-media` do RustFS (`http://localhost:
 do `.env`). Pronto quando aparecer `Started PostServiceApplication`. O gateway roteia `/api/postagens*` e `/media/posts/*` para ele.
 Ele só conhece usuários e relações criados **depois** de subir (sem bootstrap): em desenvolvimento, crie contas novas ou recrie os volumes.
 
+## 2e. notification_service (porta 8085)
+
+Use `scripts/dev/run-notification.ps1` (ou `.sh`): banco `notification` na mesma instância PostgreSQL, **com o mesmo usuário e senha**
+do `IDENTITY_DB_*` (criado pelo `notification_db_init` do compose), valida o JWT pelo JWKS do auth e consome `profile.*`, `follow.*` e
+`post.*` do RabbitMQ. Não há rota para criar notificação: elas nascem dos eventos. Pronto quando aparecer `Started NotificationServiceApplication`.
+O gateway roteia `/api/notificacoes*` (inclusive o stream SSE `/api/notificacoes/stream`) para ele. Como os outros serviços, só conhece
+usuários e relações criados **depois** de subir (sem bootstrap). Para ver o tempo real sem o frontend:
+`curl -N --cookie "at=<token>" http://localhost:8080/api/notificacoes/stream` (o cookie `at` do navegador logado).
+
 ## 3. Backend legado (porta 8000), em modo gateway
 
 Em outro terminal, em `BackEnd/`:
@@ -159,6 +169,7 @@ Abra **http://localhost:5173**. O Vite encaminha `/auth`, `/api` e `/media` para
 | `/api/...` devolve 401/502 | backend legado ou auth service fora do ar, ou `AUTH_MODE` não está `gateway` |
 | Cadastro dá 503 `profile_unavailable` | `profile_service` fora do ar (ou `PROFILE_SERVICE_URL` errado) |
 | Cadastro funciona, mas postar dá 503 `perfil_indisponivel` | o `post_service` ainda não recebeu o `profile.created.v1` da conta: confira se o RabbitMQ está no ar e a fila `post-service.profile-events` no painel (http://localhost:15672). Contas criadas antes de o `post_service` subir não são conhecidas por ele (sem bootstrap): crie outra conta ou recrie os volumes |
+| Notificação não chega (tempo real ou lista) | o `notification_service` ainda não recebeu os eventos: confira se ele está no ar, o RabbitMQ e as filas `notification-service.{profile,follow,post}-events` no painel (http://localhost:15672). Contas e relações criadas antes de ele subir não são conhecidas (sem bootstrap). O stream SSE para de chegar se um proxy bufferiza ou comprime `/api/notificacoes/stream` |
 | Notificações dão erro | a projeção `usuario` no MySQL atrasou ou falhou (`PROFILE_LEGACY_ENABLED=true`, fila `profile-service.legacy-projection`), ou o volume MySQL é antigo (`notification.id_post` ainda `INT`): recrie o volume (ver `infra/mysql/schema.sql`) |
 | Perfil novo "invisível" para os outros | o evento `account.registered.v1` ainda não chegou ao profile_service (broker fora do ar?): fica pendente no outbox e é entregue quando o broker volta |
 | Sessão cai a cada reinício do serviço | chave RSA efêmera; configure `JWT_PRIVATE_KEY_B64` |
