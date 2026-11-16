@@ -18,7 +18,7 @@ interface PerfilPostagensProps {
 /** Lista paginada das postagens do perfil conforme a aba selecionada (posts, interações ou mídia). */
 function PerfilPostagens({ perfil, filtro }: PerfilPostagensProps) {
     const { postagens, setPostagens, carregando, temMais, carregandoMais, carregarMais } = usePostagensUsuario(
-        perfil.accountId ?? perfil.id,
+        perfil.id,
         filtro,
     )
 

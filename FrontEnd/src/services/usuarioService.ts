@@ -18,13 +18,13 @@ export async function pesquisar(search: string): Promise<Usuario[]> {
 }
 
 /** Devolve o perfil atualizado. */
-export async function editarPerfil(id: number, payload: EditarPerfilPayload): Promise<Usuario> {
+export async function editarPerfil(id: string, payload: EditarPerfilPayload): Promise<Usuario> {
     const { data } = await api.patch<Usuario>(`/api/usuarios/${id}`, payload)
     return data
 }
 
 /** Devolve o perfil com a nova foto (o servidor ignora qualquer nome de foto antiga: ele conhece a atual). */
-export async function atualizarFotoPerfil(id: number, foto: File): Promise<Usuario> {
+export async function atualizarFotoPerfil(id: string, foto: File): Promise<Usuario> {
     const formData = new FormData()
     formData.append('foto_perfil', foto)
 

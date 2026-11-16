@@ -82,8 +82,8 @@ export function useFeed() {
     return usePostagensPaginadas((cursor) => postagemService.buscarFeed(cursor), [])
 }
 
-/** Postagens de um usuário (`autor` = UUID da conta ou id inteiro legado) conforme a aba. */
-export function usePostagensUsuario(autor: string | number, filtro: postagemService.FiltroPostagensUsuario) {
+/** Postagens de um usuário (`autor` = UUID da conta) conforme a aba. */
+export function usePostagensUsuario(autor: string, filtro: postagemService.FiltroPostagensUsuario) {
     return usePostagensPaginadas((cursor) => postagemService.buscarDoUsuario(autor, filtro, cursor), [autor, filtro])
 }
 

@@ -40,7 +40,7 @@ export function useListaRelacoes(ativo: boolean, buscar: (cursor?: string) => Pr
         if (proximoCursor && !carregando) void carregar(proximoCursor)
     }, [proximoCursor, carregando, carregar])
 
-    const remover = useCallback((id: number) => {
+    const remover = useCallback((id: string) => {
         setUsuarios((atual) => atual.filter((usuario) => usuario.id !== id))
     }, [])
 

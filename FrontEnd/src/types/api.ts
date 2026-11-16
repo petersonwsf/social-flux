@@ -9,12 +9,11 @@ export interface Mensagem {
 }
 
 /**
- * Perfil devolvido pelo profile_service. `id` é o id inteiro (compatível com os domínios que ainda estão no backend
- * legado); `accountId` é o UUID da conta. Dados pessoais (telefone, sexo, data_nascimento) só vêm no perfil do PRÓPRIO usuário.
+ * Perfil devolvido pelo profile_service. `id` é o UUID da conta (o único id de usuário do sistema; o antigo id inteiro foi
+ * removido junto com o backend legado). Dados pessoais (telefone, sexo, data_nascimento) só vêm no perfil do PRÓPRIO usuário.
  */
 export interface Usuario {
-    id: number
-    accountId?: string
+    id: string
     username: string
     nome: string
     biografia: string | null
@@ -51,7 +50,7 @@ export interface RefreshResponse {
 }
 
 /** Usuário como aparece nas listas de relações e como autor de postagens: perfil público resumido, sem biografia. */
-export type UsuarioResumo = Pick<Usuario, 'id' | 'accountId' | 'username' | 'nome' | 'foto_perfil' | 'foto_url' | 'privado'>
+export type UsuarioResumo = Pick<Usuario, 'id' | 'username' | 'nome' | 'foto_perfil' | 'foto_url' | 'privado'>
 
 export type TipoImagem = 'IMAGE' | 'GIF'
 
@@ -191,7 +190,7 @@ export interface ChangePasswordPayload {
 }
 
 export interface EditarPerfilPayload {
-    id: number
+    id: string
     username: string
     nome: string
     biografia: string

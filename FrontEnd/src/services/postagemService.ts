@@ -42,9 +42,9 @@ export async function buscarFeed(cursor?: string): Promise<PaginaPostagens> {
     return data
 }
 
-/** Postagens de um usuário (`autor` = UUID da conta ou id inteiro legado). */
+/** Postagens de um usuário (`autor` = UUID da conta). */
 export async function buscarDoUsuario(
-    autor: string | number,
+    autor: string,
     filtro: FiltroPostagensUsuario,
     cursor?: string,
 ): Promise<PaginaPostagens> {

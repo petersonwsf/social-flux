@@ -35,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         async (auth: AuthResponse, forceProfile = false) => {
             setSessionTiming(auth)
             setAccount(auth.account)
-            if (forceProfile || !userRef.current || userRef.current.accountId !== auth.account.accountId) {
+            if (forceProfile || !userRef.current || userRef.current.id !== auth.account.accountId) {
                 updateUser(await usuarioService.meuPerfil())
             }
         },
