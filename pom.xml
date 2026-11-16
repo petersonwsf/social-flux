@@ -24,5 +24,6 @@
         <module>profile_service</module>
         <module>social_graph_service</module>
         <module>post_service</module>
+        <module>notification_service</module>
     </modules>
 </project>
