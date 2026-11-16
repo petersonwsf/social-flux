@@ -1,8 +1,7 @@
 # Arquitetura — profile_service
 
 Serviço de **perfil de usuário**: dados do perfil, busca, foto de perfil (avatar) e privacidade da conta. É um
-**resource server** JWT (valida pelo JWKS do authentication_service), publica eventos `profile.*` por outbox e, enquanto o
-legado existir, mantém a **projeção** do perfil na tabela `usuario` do MySQL.
+**resource server** JWT (valida pelo JWKS do authentication_service), publica eventos `profile.*` por outbox.
 Spring Boot 4 · Java 21 · Spring Security (OAuth2 Resource Server) · JPA + Flyway · PostgreSQL (banco `profile`) · RabbitMQ · porta **8082**.
 
 API pública/interna, eventos e configuração: [`../README.md`](../README.md). Decisões D1–D12:
@@ -15,7 +14,7 @@ web (ProfileController, InternalProfileController, MediaController, DTOs, erros)
   └─► service (ProfileService, AvatarService, ProfileRules, RateLimiter)
         ├─► domain (Profile + ProfileRepository) ─► PostgreSQL
         ├─► storage (AvatarProcessor → libs/socialflux-media, StorageService → bucket `avatars` no RustFS) 
-        └─► Outbox ─► OutboxRelay ─► RabbitMQ ─┬─► legacy/ (projeção no MySQL)     (libs/socialflux-events)
+        └─► Outbox ─► OutboxRelay ─► RabbitMQ                              (libs/socialflux-events)
                                               └─► outros consumidores
 events/AccountEventsListener ◄─ RabbitMQ (account.*) ─► AccountEventHandler ─► ProfileService
 security (JwtDecoder via JWKS, JwtAuthorities, OriginCheckFilter, SecurityConfig) envolve tudo.
@@ -27,7 +26,7 @@ security (JwtDecoder via JWKS, JwtAuthorities, OriginCheckFilter, SecurityConfig
 profile_service/
 ├── Dockerfile                    build Maven multi-stage (contexto = raiz do repo, para incluir libs/socialflux-events); runtime Temurin 21 JRE, usuário sem root
 ├── .gitignore                    exclui target/ e arquivos de IDE
-├── pom.xml                       dependências (Spring Boot 4, Security/Resource Server, JPA, Flyway, AMQP, MySQL driver; testes: embedded-postgres, H2)
+├── pom.xml                       dependências (Spring Boot 4, Security/Resource Server, JPA, Flyway, AMQP; testes: embedded-postgres)
 ├── README.md                     relação com os outros serviços, API, eventos e configuração
 ├── docs/ARCHITECTURE.md          este arquivo
 └── src/
@@ -35,7 +34,6 @@ profile_service/
     │   ├── config/               relógio e propriedades tipadas
     │   ├── domain/               entidade Profile e repositório
     │   ├── events/               topologia RabbitMQ, outbox, inbox e consumo dos eventos da conta
-    │   ├── legacy/               projeção TEMPORÁRIA do perfil no MySQL do legado
     │   ├── security/             validação do JWT, autoridades, CSRF e cadeia de segurança
     │   ├── service/              regras de perfil e avatar
     │   ├── storage/              processamento e armazenamento de avatares
@@ -74,21 +72,13 @@ profile_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `Amqp.java` | Filas `profile-service.account-events` (`account.#`) e `profile-service.legacy-projection` (`profile.#`) e suas ligações; o exchange e a DLX/DLQ vêm da biblioteca |
+| `Amqp.java` | Filas `profile-service.account-events` (`account.#`) e a sua ligação; o exchange e a DLX/DLQ vêm da biblioteca |
 | `AccountEventsListener.java` | `@RabbitListener` da fila de eventos da conta; repassa ao handler |
 | `AccountEventHandler.java` | `account.registered.v1` ativa o perfil; `account.deleted.v1` apaga os dados pessoais. Idempotente e tolerante a tipos desconhecidos |
 
 `Outbox`, `OutboxRelay`, `Inbox`, `EventPublisher`/`AmqpEventPublisher` e `EventEnvelope` vêm da biblioteca
 [`libs/socialflux-events`](../../libs/socialflux-events/README.md) (`com.socialflux.events.*`, configurada em
 `socialflux.events.*`). `ProfileService` grava `profile.created/updated/privacy-changed/deleted.v1` com `Outbox.add`.
-
-### `legacy/` (temporário — some quando os domínios do legado migrarem)
-
-| Arquivo | O que representa |
-| --- | --- |
-| `LegacyProjectionListener.java` | `@RabbitListener` da fila `profile-service.legacy-projection` (só liga com `profile.legacy.enabled`) |
-| `LegacyProjectionHandler.java` | Traduz os eventos `profile.*` em escritas idempotentes na tabela `usuario` |
-| `LegacyUsuarioWriter.java` | Pool próprio do MySQL e o upsert/remoção em `usuario`, protegido por `profile_version` (só versão maior sobrescreve) |
 
 ### `security/`
 
@@ -145,7 +135,6 @@ profile_service/
 | `AvatarTest.java` | Upload de avatar ponta a ponta (formato, tamanho, chave gerada, entrega em `/media`, foto em pé com orientação EXIF, WebP aceito), com armazenamento em memória |
 | `AvatarProcessorTest.java` | Unidade: tradução das recusas da biblioteca, chaves fora do formato recusadas pelo armazenamento do bucket, formato das chaves |
 | `EventsTest.java` | Reação a `account.*` (idempotência) e eventos `profile.*` gerados no outbox |
-| `LegacyProjectionTest.java` | Projeção na tabela `usuario` (H2 em modo MySQL) a partir dos eventos reais |
 | `support/AbstractProfileTest.java` | Base: serviço em porta aleatória com PostgreSQL embutido e servidor JWKS local de teste; helpers de tokens, contas e outbox |
 | `support/Http.java` | Cliente HTTP mínimo dos testes (JSON e multipart) |
 | `support/TestSupportConfig.java` | Publicador de eventos em memória (substitui o RabbitMQ e simula broker fora do ar) |

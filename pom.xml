@@ -4,7 +4,7 @@
   Não é parent de ninguém (cada serviço continua com o spring-boot-starter-parent).
     mvn -pl profile_service -am test     # testa um serviço compilando a biblioteca de eventos junto
     mvn test                             # tudo
-  O backend legado (BackEnd/) fica de fora de propósito: build próprio e sem testes.
+  O backend legado (Javalin + MySQL) já foi desligado e removido do repositório.
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"

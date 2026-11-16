@@ -19,7 +19,6 @@ import org.springframework.context.annotation.Configuration;
 public class Amqp {
 
     public static final String ACCOUNT_QUEUE = "profile-service.account-events";
-    public static final String LEGACY_QUEUE = "profile-service.legacy-projection";
 
     /** Eventos da conta (cadastro/exclusão) publicados pelo authentication_service. */
     @Bean
@@ -33,17 +32,4 @@ public class Amqp {
         return EventQueues.bind(accountQueue, exchange, "account.#");
     }
 
-    /** Projeção temporária no MySQL legado: só existe quando habilitada. */
-    @Bean
-    @ConditionalOnProperty(prefix = "profile.legacy", name = "enabled", havingValue = "true")
-    Queue legacyQueue() {
-        return EventQueues.durable(LEGACY_QUEUE);
-    }
-
-    @Bean
-    @ConditionalOnProperty(prefix = "profile.legacy", name = "enabled", havingValue = "true")
-    Binding legacyBinding(@Qualifier("legacyQueue") Queue legacyQueue,
-                          @Qualifier(EventQueues.EXCHANGE_BEAN) TopicExchange exchange) {
-        return EventQueues.bind(legacyQueue, exchange, "profile.#");
-    }
 }

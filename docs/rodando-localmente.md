@@ -10,10 +10,9 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/run-profile.ps1   # profile
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-graph.ps1     # social_graph_service (8083)
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-post.ps1      # post_service (8084)
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-notification.ps1   # notification_service (8085)
-powershell -ExecutionPolicy Bypass -File scripts/dev/run-legacy.ps1    # backend legado (8000)
 ```
 
-(bash: `./scripts/dev/run-auth.sh`, `run-profile.sh`, `run-graph.sh`, `run-post.sh`, `run-notification.sh` e `run-legacy.sh`.) E em `FrontEnd/`: `npm ci && npm run dev`.
+(bash: `./scripts/dev/run-auth.sh`, `run-profile.sh`, `run-graph.sh`, `run-post.sh` e `run-notification.sh`.) E em `FrontEnd/`: `npm ci && npm run dev`.
 
 Os scripts usam **o banco, o usuário e a senha do seu `.env`** — os mesmos dos containers. Os dois erros mais comuns ao rodar
 na mão vêm de usar valores diferentes dos do `.env`:
@@ -21,30 +20,27 @@ na mão vêm de usar valores diferentes dos do `.env`:
 | Erro | Causa |
 | --- | --- |
 | auth service: `database "identity" does not exist` / `password authentication failed` | o `.env` define outro `IDENTITY_DB_NAME`/`IDENTITY_DB_USER` (ex.: `social_flux`/`root`) e a app usou os padrões `identity`/`identity` |
-| backend legado: `Access denied for user 'root'` | rodou sem as variáveis: usou o `BackEnd/src/main/resources/application.properties` antigo (usuário `root` e a senha antiga) e sem `AUTH_MODE=gateway` |
-| backend legado: `Port already in use ... 8000` | já há outro processo na 8000 (outra execução do legado, ou o container `legacy_backend` do perfil `apps`) |
 | auth service: porta 8081 em uso | outra instância do serviço ainda rodando |
 
-Para ver quem usa a porta: `Get-NetTCPConnection -LocalPort 8000 -State Listen` (PowerShell).
+Para ver quem usa a porta: `Get-NetTCPConnection -LocalPort 8081 -State Listen` (PowerShell).
 
 ## 1. Infraestrutura
 
 Docker Desktop ligado e, na raiz do repositório:
 
 ```bash
-cp .env.example .env        # ajuste IDENTITY_DB_PASSWORD, LEGACY_DB_ROOT_PASSWORD e LEGACY_DB_PASSWORD
+cp .env.example .env        # ajuste IDENTITY_DB_PASSWORD, RABBITMQ_PASSWORD e as chaves do RustFS
 docker compose --profile host up -d
-docker compose ps           # postgres e mysql devem ficar "healthy"
+docker compose ps           # o postgres deve ficar "healthy"
 ```
 
-Sobe: PostgreSQL (`localhost:5432`; o serviço `profile_db_init` cria o banco `profile` ao lado do banco do auth, com as mesmas credenciais), MySQL
-legado (`localhost:3306`), **RabbitMQ** (`localhost:5672`, painel http://localhost:15672), **RustFS** (armazenamento de mídia S3 em `localhost:9000`, só no loopback; o serviço `rustfs_init` cria os buckets; exige `RUSTFS_ACCESS_KEY` e `RUSTFS_SECRET_KEY` no `.env`) e Mailpit
+Sobe: PostgreSQL (`localhost:5432`; o serviço `profile_db_init` cria o banco `profile` ao lado do banco do auth, com as mesmas credenciais), **RabbitMQ** (`localhost:5672`, painel http://localhost:15672), **RustFS** (armazenamento de mídia S3 em `localhost:9000`, só no loopback; o serviço `rustfs_init` cria os buckets; exige `RUSTFS_ACCESS_KEY` e `RUSTFS_SECRET_KEY` no `.env`) e Mailpit
 (SMTP `localhost:1025`, caixa de entrada http://localhost:8025) e o **gateway** Caddy em `localhost:8080`, que encaminha
-`/auth` → `localhost:8081`, `/api/usuarios*` e `/media/avatars` → `localhost:8082` (perfil), `/api/relacoes*` → `localhost:8083` (grafo), `/api/postagens*` e `/media/posts/*` → `localhost:8084` (postagens), `/api/notificacoes*` → `localhost:8085` (notificações e o stream SSE), o resto de `/api` → `localhost:8000` (depois de validar o token) e o resto → Vite `localhost:5173`.
+`/auth` → `localhost:8081`, `/api/usuarios*` e `/media/avatars` → `localhost:8082` (perfil), `/api/relacoes*` → `localhost:8083` (grafo), `/api/postagens*` e `/media/posts/*` → `localhost:8084` (postagens), `/api/notificacoes*` → `localhost:8085` (notificações e o stream SSE), o resto de `/api` → 404 e o resto → Vite `localhost:5173`.
 
-Se já houver Postgres/MySQL na sua máquina nas mesmas portas, mude `POSTGRES_PORT`/`MYSQL_PORT` no `.env` e use essas portas abaixo.
+Se já houver um Postgres na sua máquina na mesma porta, mude `POSTGRES_PORT` no `.env` e use essas portas abaixo.
 
-> O gateway é necessário: ele valida o JWT (cookie → Bearer, `forward_auth`) e entrega `X-User-Id` ao backend legado.
+> O gateway é necessário: ele converte o cookie de sessão em `Authorization: Bearer` e confere a revogação do token (`forward_auth`) antes de encaminhar para cada serviço.
 
 ## 2. authentication_service (porta 8081)
 
@@ -88,13 +84,13 @@ Para uma chave fixa: `./scripts/generate-jwt-key.sh` e use `JWT_PRIVATE_KEY_B64`
 
 Use `scripts/dev/run-profile.ps1` (ou `.sh`): ele usa o banco `profile` na mesma instância PostgreSQL, **com o mesmo usuário e senha**
 do `IDENTITY_DB_*` do `.env`, valida o JWT pelo JWKS do auth (`http://localhost:8081/.well-known/jwks.json`, **o auth precisa estar
-no ar**) e mantém a tabela `usuario` do MySQL atualizada (projeção). Pronto quando aparecer `Started ProfileServiceApplication`.
+no ar**). Pronto quando aparecer `Started ProfileServiceApplication`.
 As fotos de perfil vão para o bucket `avatars` do RustFS (`http://localhost:9000`, com `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY` do `.env`): suba a infra antes (`docker compose --profile host up -d`).
 
 ## 2c. social_graph_service (porta 8083)
 
 Use `scripts/dev/run-graph.ps1` (ou `.sh`): banco `social_graph` na mesma instância PostgreSQL, **com o mesmo usuário e senha** do
-`IDENTITY_DB_*`, valida o JWT pelo JWKS do auth e publica `follow.*` (o `post_service` consome; não usa o MySQL). O banco é criado
+`IDENTITY_DB_*`, valida o JWT pelo JWKS do auth e publica `follow.*` (o `post_service` e o `notification_service` consomem). O banco é criado
 pelo serviço `graph_db_init` do compose (suba a infra antes). Pronto quando aparecer `Started GraphServiceApplication`. O gateway já
 roteia `/api/relacoes*` para ele (porta 8083 no host); o frontend já o usa (veja o README dele).
 
@@ -115,32 +111,7 @@ O gateway roteia `/api/notificacoes*` (inclusive o stream SSE `/api/notificacoes
 usuários e relações criados **depois** de subir (sem bootstrap). Para ver o tempo real sem o frontend:
 `curl -N --cookie "at=<token>" http://localhost:8080/api/notificacoes/stream` (o cookie `at` do navegador logado).
 
-## 3. Backend legado (porta 8000), em modo gateway
-
-Em outro terminal, em `BackEnd/`:
-
-**bash**
-```bash
-export AUTH_MODE=gateway
-export PORTA_SERVIDOR=8000
-export SQLDB_URL=jdbc:mysql://localhost:3306/social_flux
-export SQLDB_USERNAME=social
-export SQLDB_PASSWORD='a-mesma-do-.env'
-mvn compile exec:java
-```
-
-**PowerShell**
-```powershell
-$env:AUTH_MODE='gateway'; $env:PORTA_SERVIDOR='8000'
-$env:SQLDB_URL='jdbc:mysql://localhost:3306/social_flux'
-$env:SQLDB_USERNAME='social'; $env:SQLDB_PASSWORD='a-mesma-do-.env'
-mvn compile exec:java
-```
-
-As variáveis de ambiente sobrescrevem o `application.properties` local (que pode ter dados antigos). As imagens enviadas
-são gravadas em `BackEnd/src/main/resources/public/images/`.
-
-## 4. Frontend (porta 5173)
+## 3. Frontend (porta 5173)
 
 Em `FrontEnd/`:
 
@@ -156,7 +127,7 @@ Abra **http://localhost:5173**. O Vite encaminha `/auth`, `/api` e `/media` para
 1. Cadastre-se pela tela. Você entra logado.
 2. Abra http://localhost:8025 e clique no link de confirmação de e-mail.
 3. Teste login/logout, "Esqueci minha senha" (link também no Mailpit), Configurações → alterar senha / sair de todos os dispositivos.
-4. Teste o perfil (editar nome/bio/privado, trocar foto, pesquisar usuários) postagens (texto, imagem, GIF, comentar, curtir, excluir, feed, abas do perfil, conta privada), seguir (use duas contas em janelas diferentes) e as notificações (legado).
+4. Teste o perfil (editar nome/bio/privado, trocar foto, pesquisar usuários) postagens (texto, imagem, GIF, comentar, curtir, excluir, feed, abas do perfil, conta privada), seguir (use duas contas em janelas diferentes) e as notificações (curtir, comentar e seguir chegam em tempo real na outra janela).
 5. Sessão deslizante: reinicie o serviço com `JWT_ACCESS_TTL=PT2M JWT_RENEW_WINDOW=PT1M JWT_REFRESH_GRACE=PT2M`, entre,
    espere mais de 1 minuto e faça uma ação: aparece `POST /auth/refresh` (200) na aba Network.
 
@@ -164,13 +135,11 @@ Abra **http://localhost:5173**. O Vite encaminha `/auth`, `/api` e `/media` para
 
 | Sintoma | Causa provável |
 | --- | --- |
-| `Connection refused` no Postgres/MySQL | containers ainda iniciando (`docker compose ps`) ou portas diferentes no `.env` |
-| `Access denied` no MySQL | senha/usuário diferentes de `LEGACY_DB_USER`/`LEGACY_DB_PASSWORD`. O MySQL só lê o `.env` ao criar o volume: depois de mudar a senha, `docker compose down -v` e suba de novo |
-| `/api/...` devolve 401/502 | backend legado ou auth service fora do ar, ou `AUTH_MODE` não está `gateway` |
+| `Connection refused` no Postgres | containers ainda iniciando (`docker compose ps`) ou portas diferentes no `.env` |
+| `/api/...` devolve 401/502 | o `authentication_service` (ou o serviço da rota) está fora do ar |
 | Cadastro dá 503 `profile_unavailable` | `profile_service` fora do ar (ou `PROFILE_SERVICE_URL` errado) |
 | Cadastro funciona, mas postar dá 503 `perfil_indisponivel` | o `post_service` ainda não recebeu o `profile.created.v1` da conta: confira se o RabbitMQ está no ar e a fila `post-service.profile-events` no painel (http://localhost:15672). Contas criadas antes de o `post_service` subir não são conhecidas por ele (sem bootstrap): crie outra conta ou recrie os volumes |
 | Notificação não chega (tempo real ou lista) | o `notification_service` ainda não recebeu os eventos: confira se ele está no ar, o RabbitMQ e as filas `notification-service.{profile,follow,post}-events` no painel (http://localhost:15672). Contas e relações criadas antes de ele subir não são conhecidas (sem bootstrap). O stream SSE para de chegar se um proxy bufferiza ou comprime `/api/notificacoes/stream` |
-| Notificações dão erro | a projeção `usuario` no MySQL atrasou ou falhou (`PROFILE_LEGACY_ENABLED=true`, fila `profile-service.legacy-projection`), ou o volume MySQL é antigo (`notification.id_post` ainda `INT`): recrie o volume (ver `infra/mysql/schema.sql`) |
 | Perfil novo "invisível" para os outros | o evento `account.registered.v1` ainda não chegou ao profile_service (broker fora do ar?): fica pendente no outbox e é entregue quando o broker volta |
 | Sessão cai a cada reinício do serviço | chave RSA efêmera; configure `JWT_PRIVATE_KEY_B64` |
 | `host.docker.internal` não resolve (Linux) | já há `extra_hosts` no compose; confira a versão do Docker (≥ 20.10) |

@@ -10,8 +10,7 @@
 | `libs/socialflux-events/` | Biblioteca compartilhada de eventos (outbox, inbox, RabbitMQ) dos serviços Spring Boot |
 | `libs/socialflux-media/` | Biblioteca compartilhada de mídia (validação e re-codificação de imagens, GIFs, armazenamento S3/RustFS) |
 | `FrontEnd/` | SPA React + TypeScript (Vite) |
-| `BackEnd/` | Backend **legado** (Javalin + MySQL), sendo substituído domínio a domínio |
-| `infra/` | Caddy (gateway) e esquema MySQL de desenvolvimento |
+| `infra/` | Caddy (gateway) de desenvolvimento |
 | `docs/` | Arquitetura geral (`ARCHITECTURE.md`), análise do backend e planos de migração. Cada app tem também o seu `docs/ARCHITECTURE.md` (e o FrontEnd, `docs/COMPONENTS.md`) |
 | `docker-compose.yml` | Ambiente de desenvolvimento completo |
 
@@ -23,9 +22,9 @@ cp .env.example .env              # ajuste as senhas (AUTH_ALLOW_EPHEMERAL_KEY=t
 
 **A) Só a infraestrutura em containers; as aplicações na sua máquina**
 ```bash
-docker compose --profile host up -d     # postgres, mysql, rabbitmq, rustfs, mailpit + gateway (Caddy) apontando para o host
+docker compose --profile host up -d     # postgres, rabbitmq, rustfs, mailpit + gateway (Caddy) apontando para o host
 ```
-Depois rode as aplicações localmente (auth, perfil, grafo, postagens, notificações, legado e frontend) (comandos em `docs/rodando-localmente.md`) e abra http://localhost:5173.
+Depois rode as aplicações localmente (auth, perfil, grafo, postagens, notificações e frontend) (comandos em `docs/rodando-localmente.md`) e abra http://localhost:5173.
 Sem o perfil `host` (`docker compose up -d`) sobem só os bancos, o RabbitMQ, o RustFS (mídia) e o mailpit.
 
 **B) Tudo em containers**
@@ -42,15 +41,15 @@ docker compose --profile apps up -d --build     # http://localhost:8080
 Navegador ─► Caddy (mesma origem)
               ├─ /                          frontend
               ├─ /auth/*                    authentication_service ─► PostgreSQL (banco identity)
-              ├─ /api/usuarios*, /media/*   profile_service ─► PostgreSQL (banco profile) + disco (avatares)
+              ├─ /api/usuarios*, /media/avatars/*   profile_service ─► PostgreSQL (banco profile) + RustFS (bucket avatars)
               ├─ /api/relacoes*             social_graph_service ─► PostgreSQL (banco social_graph)
               ├─ /api/notificacoes*         notification_service ─► PostgreSQL (banco notification)   (inclui o stream SSE)
-              └─ /api/* (demais) ─ forward_auth ─► authentication_service /internal/auth/verify
-                              └─ X-User-Id ─► backend legado (Javalin, AUTH_MODE=gateway, rede interna) ─► MySQL
+              ├─ /api/postagens*, /media/posts/*   post_service ─► PostgreSQL (banco post) + RustFS (bucket post-media)
+              └─ /api/* (demais)           404 em JSON (o backend legado foi desligado)
 
 authentication_service ──PUT /internal/profiles/{uuid}──► profile_service         (cadastro; token de serviço)
 authentication_service ──account.registered|deleted.v1──► RabbitMQ ──► profile_service
-profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► projeção `usuario` no MySQL legado
+profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ
                                                                      └──► social_graph_service (cópia local dos perfis)
 social_graph_service ──follow.*.v1──► RabbitMQ ──► post_service (cópia das arestas aceitas)
 post_service ──post.*.v1──► RabbitMQ ──► notification_service (curtidas e respostas)
@@ -59,16 +58,8 @@ notification_service ──SSE──► navegador (tempo real)
 ```
 
 A **conta** (e-mail, senha, sessão) é do `authentication_service`; o **perfil** (username, nome, foto, privacidade) é do
-`profile_service` e tem o mesmo UUID da conta. O PostgreSQL é uma instância com **um banco por serviço**. A tabela
-`usuario` do MySQL é só uma projeção do perfil para os JOINs do legado (some quando os demais domínios migrarem).
-
-O backend legado **não** valida mais token: só aceita `X-User-Id` vindo do gateway e não pode ficar acessível
-diretamente da internet (por isso o `compose` não publica a porta dele).
+`profile_service` e tem o mesmo UUID da conta. O PostgreSQL é uma instância com **um banco por serviço**.
+Todos os domínios já foram migrados: o backend legado (Javalin + MySQL) foi desligado e removido do repositório.
 
 Veja `authentication_service/README.md`, `profile_service/README.md`, `docs/plano-dominio-identidade-servico-proprio.md` e `docs/plano-dominio-perfil-servico-proprio.md`.
 
-## Aviso: esquema do MySQL
-
-`infra/mysql/schema.sql` é a fonte do esquema do legado em desenvolvimento (as tabelas além de `usuario` foram **inferidas do código**
-do backend Javalin). Um volume MySQL criado antes do `profile_service` tem o esquema antigo de `usuario`: como ainda não há dados
-reais, recrie-o (`docker compose rm -sf mysql && docker volume rm social-flux_mysql_data`).

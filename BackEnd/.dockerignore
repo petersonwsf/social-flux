@@ -1,7 +1,0 @@
-target
-logs
-.idea
-lib
-*.log
-# segredos locais nunca entram na imagem
-src/main/resources/application.properties

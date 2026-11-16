@@ -16,8 +16,7 @@ import java.util.List;
 public record ProfileProperties(
         @Valid @NotNull Security security,
         @DefaultValue List<String> allowedOrigins,
-        @Valid @NotNull Avatars avatars,
-        @Valid @NotNull Legacy legacy) {
+        @Valid @NotNull Avatars avatars) {
 
     public record Security(
             @NotBlank String jwksUri,
@@ -29,8 +28,5 @@ public record ProfileProperties(
 
     /** Bucket dos avatares no armazenamento de mídia (limites de imagem ficam em {@code socialflux.media.image.*}). */
     public record Avatars(@NotBlank String bucket) {
-    }
-
-    public record Legacy(boolean enabled, String url, String username, String password) {
     }
 }

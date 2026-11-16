@@ -8,7 +8,7 @@
 #   /api/relacoes*                       -> social_graph_service (seguir, seguidores, solicitações), com forward_auth
 #   /api/postagens*, /media/posts/*      -> post_service (postagens, respostas, curtidas, imagens/GIFs), com forward_auth
 #   /api/notificacoes*                   -> notification_service (notificações e o stream SSE), com forward_auth e sem buffer
-#   /api/*                               -> backend legado, depois de validar o token no authentication_service (forward_auth)
+#   /api/* (rest)                        -> 404 em JSON (o backend legado foi desligado)
 #   /internal/*                          -> bloqueado para o público
 #
 # IMPORTANTE: os blocos `handle` são avaliados NA ORDEM em que aparecem; as rotas específicas vêm antes de `/api/*`.
@@ -52,7 +52,7 @@
 	}
 
 	# Grafo social (seguir, seguidores, solicitações). Igual ao perfil: o serviço valida o JWT sozinho e o forward_auth
-	# acrescenta a checagem de REVOGAÇÃO. Não copia X-User-Id: o serviço identifica o usuário pelo `sub` do token.
+	# acrescenta a checagem de REVOGAÇÃO. O serviço identifica o usuário pelo `sub` do token.
 	# `/api/relacoes` (plural) é deste serviço; `/api/relacao` (singular) continua no legado até ele perder essas rotas.
 	@graph path /api/relacoes /api/relacoes/*
 	handle @graph {
@@ -93,15 +93,11 @@
 		}
 	}
 
+	# Toda rota /api/* que nenhum serviço reivindicou acima não existe mais (o backend legado foi desligado): 404 em JSON.
+	# Sem `forward_auth` de propósito: não há o que proteger e o 404 não revela nada.
 	handle /api/* {
-		# O navegador envia o JWT em cookie HttpOnly; os serviços internos recebem só `Authorization: Bearer`.
-		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
-
-		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
-			uri /internal/auth/verify
-			copy_headers X-User-Id X-Account-Id
-		}
-		reverse_proxy {$LEGACY_UPSTREAM:legacy_backend:8000}
+		header Content-Type application/json
+		respond `{"mensagem":"Recurso não encontrado","sucesso":false,"codigo":"not_found"}` 404
 	}
 
 	handle {

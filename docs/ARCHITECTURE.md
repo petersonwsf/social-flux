@@ -1,6 +1,6 @@
 # Arquitetura — visão geral do monorepo
 
-O Social Flux é uma rede social em **migração gradual, um domínio por vez**, de um backend legado (Javalin + MySQL) para
+O Social Flux é uma rede social em **migração gradual, um domínio por vez**, de um backend legado (Javalin + MySQL, já desligado e removido) para
 serviços Spring Boot com banco próprio, ligados por eventos no RabbitMQ e expostos por um gateway Caddy na mesma origem.
 
 | Domínio | Onde está hoje |
@@ -24,13 +24,12 @@ social_flux/
 ├── README.md                     visão geral, como rodar e como as peças se falam
 ├── .env.example                  nomes das variáveis do ambiente (copiar para .env, que não é versionado)
 ├── .gitignore                    ignora .env, *.pem, node_modules, target/ e arquivos de IDE
-├── .dockerignore                 contexto de build da raiz (auth e profile): exclui .git, target, node_modules, segredos, FrontEnd e BackEnd
+├── .dockerignore                 contexto de build da raiz (auth e profile): exclui .git, target, node_modules, segredos e FrontEnd
 ├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, libs/socialflux-media, authentication_service, profile_service, social_graph_service, post_service, notification_service
 ├── docker-compose.yml            ambiente de desenvolvimento completo (perfis `host` e `apps`)
 ├── docs/                         documentação transversal (este diretório)
 ├── infra/                        configuração de infraestrutura compartilhada
-│   ├── caddy/Caddyfile
-│   └── mysql/schema.sql
+│   └── caddy/Caddyfile
 ├── scripts/dev/                  scripts para rodar os backends na máquina com o .env da raiz
 ├── libs/socialflux-events/       biblioteca compartilhada de eventos (outbox, relay, inbox, RabbitMQ) usada pelos serviços Spring
 ├── libs/socialflux-media/        biblioteca compartilhada de mídia (imagens PNG/JPEG/WebP com orientação EXIF, GIFs, armazenamento S3/RustFS)
@@ -40,7 +39,6 @@ social_flux/
 ├── social_graph_service/         serviço do grafo social: seguir, seguidores, solicitações (Spring Boot + PostgreSQL)
 ├── post_service/                 serviço de postagens: postagens, respostas, curtidas, imagens e GIFs (Spring Boot + PostgreSQL + RustFS)
 ├── notification_service/         serviço de notificações: geradas por eventos, agrupadas, com tempo real por SSE (Spring Boot + PostgreSQL)
-├── BackEnd/                      backend legado (Javalin + MySQL)
 └── .github/modernize/            artefatos locais da ferramenta "modernize/java-upgrade" (hooks de registro); não fazem parte do sistema
 ```
 
@@ -48,9 +46,9 @@ social_flux/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `pom.xml` | Agregador Maven: `mvn -pl <serviço> -am test` na raiz testa um serviço compilando as bibliotecas (`libs/socialflux-events`, `libs/socialflux-media`) junto; `mvn test` testa tudo. Não é parent de ninguém; o legado fica de fora |
+| `pom.xml` | Agregador Maven: `mvn -pl <serviço> -am test` na raiz testa um serviço compilando as bibliotecas (`libs/socialflux-events`, `libs/socialflux-media`) junto; `mvn test` testa tudo. Não é parent de ninguém |
 | `.dockerignore` | Usado pelos builds dos serviços Spring, que têm a raiz como contexto para copiar `libs/socialflux-events` e `libs/socialflux-media` |
-| `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init`, `graph_db_init`, `post_db_init` e `notification_db_init` (criam os bancos `profile`, `social_graph`, `post` e `notification`), `mysql` (legado, só notificações e a projeção `usuario`; inicializado com `infra/mysql/schema.sql`), `rabbitmq`, `mailpit`, `rustfs` (armazenamento de mídia compatível com S3, buckets privados, API só no loopback do host, console desligado) e `rustfs_init` (cria os buckets `post-media` e `avatars`), as sete aplicações (perfil `apps`; `profile_service` e `post_service` esperam o `rustfs_init`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `mysql_data`, `rabbitmq_data`, `rustfs_data` (avatares e imagens de postagem ficam nos buckets `avatars` e `post-media` do RustFS) |
+| `docker-compose.yml` | Define `postgres` (uma instância, um banco por serviço), `profile_db_init`, `graph_db_init`, `post_db_init` e `notification_db_init` (criam os bancos `profile`, `social_graph`, `post` e `notification`), `rabbitmq`, `mailpit`, `rustfs` (armazenamento de mídia compatível com S3, buckets privados, API só no loopback do host, console desligado) e `rustfs_init` (cria os buckets `post-media` e `avatars`), as aplicações (perfil `apps`; `profile_service` e `post_service` esperam o `rustfs_init`), `gateway` (perfil `apps`) e `gateway_host` (perfil `host`, aponta para as apps rodando no host). Volumes nomeados: `postgres_data`, `rabbitmq_data`, `rustfs_data` (avatares e imagens de postagem ficam nos buckets `avatars` e `post-media` do RustFS) |
 | `.env.example` | Senhas dos bancos (inclui `GRAPH_DB_NAME`, os limites `GRAPH_*` do grafo e `NOTIFICATION_DB_NAME` e `NOTIFICATION_*` de Notificações), do RabbitMQ e do RustFS (`RUSTFS_ACCESS_KEY` só com `A-Z` e `0-9`), chave JWT RS256, TTLs da sessão, nomes dos cookies, URLs públicas e remetente de e-mail. Só nomes/valores de exemplo |
 | `README.md` | Ponto de entrada: tabela das pastas, comandos para subir o ambiente e o diagrama de comunicação |
 | `CLAUDE.md` | Contexto, stack, comandos e regras de trabalho para o Claude Code |
@@ -66,15 +64,14 @@ social_flux/
 | `plano-dominio-perfil-servico-proprio.md` | Plano (implementado) do domínio de perfil e da comunicação entre serviços — decisões D1–D12 |
 | `plano-dominio-relacoes-grafo-social.md` | Plano do domínio Relações: `social_graph_service`, análise SQL × NoSQL, seguir/solicitações — decisões D1–D14 (implementado: serviço, compose, gateway e frontend) |
 | `plano-dominio-postagens-servico-proprio.md` | Plano (**decisões D1–D18 fechadas, guia no §16; implementado: biblioteca de mídia, perfil no RustFS, `post_service`, compose/gateway e frontend — estado em §16.1**) do domínio Postagens: `post_service` (postagens, respostas, curtidas e mídia: imagens e GIFs no RustFS), biblioteca de mídia compartilhada, feed por cópia local de relações, privacidade imposta no servidor — decisões D1–D18 |
-| `plano-dominio-notificacoes-servico-proprio.md` | Plano (**decisões D1–D16 fechadas; implementado: `notification_service`, compose, gateway e frontend — desligamento do legado e remoção do id inteiro pendentes**) do domínio Notificações: notificações geradas por eventos, agrupadas, tempo real por SSE (sessão, revogação, aba líder), retenção, desligamento do legado |
+| `plano-dominio-notificacoes-servico-proprio.md` | Plano (**decisões D1–D16 fechadas; implementado: `notification_service`, compose, gateway, frontend e desligamento do legado — remoção do id inteiro pendente**) do domínio Notificações: notificações geradas por eventos, agrupadas, tempo real por SSE (sessão, revogação, aba líder), retenção, desligamento do legado |
 | `plano-dominio-identidade-spring-auth0.md` | Plano **substituído** (Auth0 descartado); mantido só como registro da alternativa avaliada |
 
 ## `infra/`
 
 | Arquivo | O que representa |
 | --- | --- |
-| `caddy/Caddyfile` | Gateway (mesma origem). Remove `X-User-Id`/`X-Account-Id` vindos do cliente; bloqueia `/internal/*` (404); `/auth/*` e `/.well-known/jwks.json` → authentication_service; `/media/avatars/*` → profile_service (público); `/api/usuarios*` e `/api/img/usuarios/*` → profile_service após `forward_auth`; `/api/relacoes*` → social_graph_service após `forward_auth` (sem copiar `X-User-Id`: o serviço usa o `sub` do token); `/api/postagens*` e `/media/posts/*` → post_service após `forward_auth` (as imagens de postagem não são públicas: o cookie vira Bearer e o serviço confere a visibilidade);  `/api/notificacoes*` → notification_service após `forward_auth`, com `flush_interval -1` (o stream SSE não pode ser bufferizado nem comprimido); demais `/api/*` → legado após `forward_auth` (copia `X-User-Id`); o resto → frontend. Converte o cookie de acesso em `Authorization: Bearer`. Os upstreams vêm de variáveis (`AUTH_UPSTREAM`, `PROFILE_UPSTREAM`, `GRAPH_UPSTREAM`, `POST_UPSTREAM`, `NOTIFICATION_UPSTREAM`, `LEGACY_UPSTREAM`, `FRONTEND_UPSTREAM`). **Nunca validado por um binário do Caddy** (sintaxe revisada à mão) |
-| `mysql/schema.sql` | Esquema do MySQL do legado: `usuario` (projeção do perfil) e `notification` (`id_post` VARCHAR(36), UUID da postagem). `notification` foi inferida do código. Só roda na criação do volume: volumes antigos precisam ser recriados |
+| `caddy/Caddyfile` | Gateway (mesma origem). Remove `X-User-Id`/`X-Account-Id` vindos do cliente; bloqueia `/internal/*` (404); `/auth/*` e `/.well-known/jwks.json` → authentication_service; `/media/avatars/*` → profile_service (público); `/api/usuarios*` e `/api/img/usuarios/*` → profile_service após `forward_auth`; `/api/relacoes*` → social_graph_service após `forward_auth` (sem copiar `X-User-Id`: o serviço usa o `sub` do token); `/api/postagens*` e `/media/posts/*` → post_service após `forward_auth` (as imagens de postagem não são públicas: o cookie vira Bearer e o serviço confere a visibilidade);  `/api/notificacoes*` → notification_service após `forward_auth`, com `flush_interval -1` (o stream SSE não pode ser bufferizado nem comprimido); demais `/api/*` → 404 em JSON (o legado foi desligado); o resto → frontend. Converte o cookie de acesso em `Authorization: Bearer`. Os upstreams vêm de variáveis (`AUTH_UPSTREAM`, `PROFILE_UPSTREAM`, `GRAPH_UPSTREAM`, `POST_UPSTREAM`, `NOTIFICATION_UPSTREAM`, `FRONTEND_UPSTREAM`). |
 
 ## `scripts/dev/`
 
@@ -82,11 +79,10 @@ social_flux/
 | --- | --- |
 | `load-env.ps1` | Funções PowerShell compartilhadas: carrega o `.env` da raiz no processo (`Import-DotEnv`) e lê variáveis com padrão (`Get-EnvOr`) |
 | `run-auth.ps1` / `run-auth.sh` | Instala `libs/socialflux-events` e roda o `authentication_service` no host (porta 8081) com as credenciais do `.env` |
-| `run-graph.ps1` / `run-graph.sh` | Instala `libs/socialflux-events` e roda o `social_graph_service` no host (porta 8083), com JWKS do auth e RabbitMQ (sem MySQL) |
+| `run-graph.ps1` / `run-graph.sh` | Instala `libs/socialflux-events` e roda o `social_graph_service` no host (porta 8083), com JWKS do auth e RabbitMQ |
 | `run-post.ps1` / `run-post.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `post_service` no host (porta 8084), com JWKS do auth, RabbitMQ e mídia no RustFS (`localhost:9000`) |
 | `run-notification.ps1` / `run-notification.sh` | Instala `libs/socialflux-events` e roda o `notification_service` no host (porta 8085), com JWKS do auth e RabbitMQ |
-| `run-profile.ps1` / `run-profile.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `profile_service` no host (porta 8082), com JWKS do auth, projeção no MySQL ligada e avatares no RustFS (`localhost:9000`) |
-| `run-legacy.ps1` / `run-legacy.sh` | Roda o backend legado no host (porta 8000) em `AUTH_MODE=gateway` |
+| `run-profile.ps1` / `run-profile.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `profile_service` no host (porta 8082), com JWKS do auth e avatares no RustFS (`localhost:9000`) |
 
 ## Comunicação entre as peças
 
@@ -103,12 +99,11 @@ Navegador ─► Caddy :8080 (mesma origem)
               ├─ /api/notificacoes* (inclui o stream SSE)  ─ forward_auth ─►
                                             notification_service :8085 ─► PostgreSQL (banco notification)
               ├─ /api/* (demais) ─ forward_auth ─► authentication_service /internal/auth/verify
-              │                └─ X-User-Id ─► BackEnd legado :8000 (rede interna) ─► MySQL
               └─ /internal/*                404
 
 authentication_service ──PUT /internal/profiles/{uuid} (token de serviço)──► profile_service   (cadastro)
 authentication_service ──account.registered.v1 | account.deleted.v1──► RabbitMQ ──► profile_service
-profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► projeção `usuario` no MySQL
+profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ
                                                                      ├──► social_graph_service (cópia local dos perfis)
                                                                      └──► post_service (cópia local dos autores)
 social_graph_service ──follow.created|removed|requested|request-cancelled|request-rejected.v1──► RabbitMQ

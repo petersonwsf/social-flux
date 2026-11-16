@@ -8,7 +8,7 @@ O frontend fala só com **a própria origem** (`/auth/*` e `/api/*`): em desenvo
 gateway (Caddy) do `docker compose` da raiz do repositório. Isso é necessário porque a sessão usa cookies `HttpOnly`.
 
 ```bash
-# na raiz do repositório: sobe postgres, mysql, mailpit, authentication_service, legacy_backend e o gateway
+# na raiz do repositório: sobe a infra (postgres, rabbitmq, rustfs, mailpit) e o gateway
 cp .env.example .env && docker compose up -d --build
 
 # no FrontEnd/

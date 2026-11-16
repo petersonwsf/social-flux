@@ -84,9 +84,3 @@ profile:
   avatars:
     # Bucket PRIVADO no RustFS (criado pelo rustfs_init). A entrega continua pública por /media/avatars/{chave} (D8 do perfil).
     bucket: ${PROFILE_AVATAR_BUCKET:avatars}
-  legacy:
-    # Projeção temporária do perfil na tabela `usuario` do MySQL legado (JOINs do backend Javalin).
-    enabled: ${PROFILE_LEGACY_ENABLED:false}
-    url: ${LEGACY_DB_URL:jdbc:mysql://localhost:3306/social_flux}
-    username: ${LEGACY_DB_USER:}
-    password: ${LEGACY_DB_PASSWORD:}

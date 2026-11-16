@@ -12,7 +12,7 @@ Navegador ─► Caddy ──► /api/usuarios*, PATCH /api/img/usuarios/*, /med
                        (cookie -> Bearer; forward_auth no auth confere a revogação)
 authentication_service ──PUT /internal/profiles/{uuid} (token de serviço)──► profile_service   (cadastro)
 authentication_service ──account.registered.v1 / account.deleted.v1 (RabbitMQ)──► profile_service
-profile_service ──profile.created|updated|privacy-changed|deleted.v1 (RabbitMQ)──► projetor MySQL (legado) e futuros serviços
+profile_service ──profile.created|updated|privacy-changed|deleted.v1 (RabbitMQ)──► social_graph_service, post_service e notification_service (cópias locais do perfil)
 ```
 
 - **Identidade:** o perfil tem o **mesmo UUID da conta** (`sub` do JWT). O serviço **nunca** usa um id vindo do cliente
@@ -60,18 +60,12 @@ Falhas repetidas vão para a fila `socialflux.events.dead`.
 **Novo serviço consumidor:** declare a sua fila, ligue ao exchange com `profile.#` e faça o bootstrap por
 `GET /internal/profiles` antes de depender dos eventos.
 
-## Projeção no MySQL legado (temporária)
-
-Com `PROFILE_LEGACY_ENABLED=true`, um consumidor (`LegacyProjectionHandler`) mantém a tabela `usuario` do MySQL
-(JOINs do backend Javalin) a partir dos eventos `profile.*`, de forma idempotente (`profile_version`). A tabela só tem
-colunas de perfil — nenhum dado pessoal. Removida quando Relações, Postagens e Notificações migrarem.
-
 ## Rodando
 
 Na raiz do repositório (usa o `.env` e o mesmo PostgreSQL do auth, em um **banco próprio** `profile`):
 
 ```bash
-docker compose up -d                  # postgres, mysql, rabbitmq, mailpit (+ cria o banco `profile`)
+docker compose up -d                  # postgres, rabbitmq, rustfs, mailpit (+ cria o banco `profile`)
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-auth.ps1       # 8081   (ou ./scripts/dev/run-auth.sh)
 powershell -ExecutionPolicy Bypass -File scripts/dev/run-profile.ps1    # 8082   (ou ./scripts/dev/run-profile.sh)
 ```
@@ -97,7 +91,6 @@ mvn test        # na pasta do serviço, depois de instalar as bibliotecas: mvn -
 | `PROFILE_AVATAR_MAX_BYTES`, `PROFILE_AVATAR_MAX_PIXELS` | Limites do upload (5MB, 16 MP) → `socialflux.media.image.*` |
 | `PROFILE_MEDIA_MAX_CONCURRENT` | Processamentos de imagem simultâneos (padrão 4) |
 | `RABBITMQ_HOST/PORT/USER/PASSWORD`, `EVENTS_EXCHANGE`, `PROFILE_EVENTS_ENABLED` | Broker e eventos |
-| `PROFILE_LEGACY_ENABLED`, `LEGACY_DB_URL/USER/PASSWORD` | Projeção no MySQL legado |
 | `PROFILE_ALLOWED_ORIGINS` | Origens aceitas em métodos não seguros (vazio = a própria origem) |
 
 ## Limites conhecidos

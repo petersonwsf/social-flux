@@ -10,8 +10,6 @@ export PROFILE_DB_URL="jdbc:postgresql://localhost:${POSTGRES_PORT:-5432}/${PROF
 # PROFILE_DB_USER/PROFILE_DB_PASSWORD, se ausentes, caem em IDENTITY_DB_USER/IDENTITY_DB_PASSWORD (do .env)
 export AUTH_JWKS_URI=http://localhost:8081/.well-known/jwks.json          # chave PÚBLICA do authentication_service
 export RABBITMQ_HOST=localhost RABBITMQ_PORT="${RABBITMQ_PORT:-5672}"
-export PROFILE_LEGACY_ENABLED=true
-export LEGACY_DB_URL="jdbc:mysql://localhost:${MYSQL_PORT:-3306}/${LEGACY_DB_NAME:-social_flux}"
 # Avatares no bucket `avatars` do RustFS (API S3 no loopback); RUSTFS_ACCESS_KEY / RUSTFS_SECRET_KEY já vêm do .env
 export RUSTFS_ENDPOINT="http://localhost:${RUSTFS_PORT:-9000}"
 

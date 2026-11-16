@@ -3,7 +3,7 @@
 #   cp .env.example .env                          # ajuste as senhas
 #
 # 1) Só a infraestrutura (bancos + broker + mailpit); as aplicações rodam na sua máquina:
-#      docker compose up -d                       # postgres, mysql, rabbitmq, mailpit
+#      docker compose up -d                       # postgres, rabbitmq, rustfs, mailpit
 #      docker compose --profile host up -d        # + gateway (Caddy) apontando para as apps no host
 # 2) Tudo em containers:
 #      docker compose --profile apps up -d --build   ->  http://localhost:8080
@@ -16,7 +16,6 @@
 #   notification_db_init     idem para o banco `notification`
 #   rustfs                   armazenamento de mídia compatível com S3 (imagens e GIFs); buckets privados, só no loopback do host
 #   rustfs_init              cria os buckets de mídia (roda uma vez e sai)
-#   mysql                    banco do backend legado (notificações e a PROJEÇÃO `usuario` do perfil)
 #   rabbitmq                 broker de eventos entre serviços (painel em http://localhost:15672)
 #   mailpit                  SMTP de desenvolvimento + caixa de entrada em http://localhost:8025
 #   authentication_service   login/cadastro/sessão (JWT RS256 em cookie HttpOnly)
@@ -24,7 +23,6 @@
 #   social_graph_service     grafo social: seguir, seguidores, solicitações de contas privadas (resource server)
 #   post_service             postagens, respostas, curtidas e imagens/GIFs (resource server; mídia no RustFS)
 #   notification_service     notificações geradas pelos eventos dos outros serviços, com tempo real por SSE (resource server)
-#   legacy_backend           backend Javalin legado, em modo `gateway` (só aceita X-User-Id do gateway)
 #   frontend                 SPA (nginx)
 #   gateway                  Caddy: mesma origem para frontend, /auth, /api e /media
 name: social-flux
@@ -124,26 +122,6 @@ services:
       - |
         psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$NOTIFICATION_DB'" | grep -q 1 \
           || psql -v ON_ERROR_STOP=1 -c "create database \"$$NOTIFICATION_DB\""
-
-  mysql:
-    image: mysql:8.4
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${LEGACY_DB_ROOT_PASSWORD:?defina LEGACY_DB_ROOT_PASSWORD no .env}
-      MYSQL_DATABASE: ${LEGACY_DB_NAME:-social_flux}
-      MYSQL_USER: ${LEGACY_DB_USER:-social}
-      MYSQL_PASSWORD: ${LEGACY_DB_PASSWORD:?defina LEGACY_DB_PASSWORD no .env}
-    volumes:
-      - mysql_data:/var/lib/mysql
-      # Esquema do legado (a tabela `usuario` é uma PROJEÇÃO do perfil). Só roda na primeira criação do volume.
-      - ./infra/mysql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
-    ports:
-      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
 
   rabbitmq:
     image: rabbitmq:4-management-alpine
@@ -287,8 +265,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      mysql:
-        condition: service_healthy
     environment:
       # Banco próprio, mesmas credenciais do auth (sobrescreva com PROFILE_DB_USER/PROFILE_DB_PASSWORD para um role próprio)
       PROFILE_DB_URL: jdbc:postgresql://postgres:5432/${PROFILE_DB_NAME:-profile}
@@ -308,11 +284,6 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
-      # Projeção temporária do perfil na tabela `usuario` do MySQL legado
-      PROFILE_LEGACY_ENABLED: "true"
-      LEGACY_DB_URL: jdbc:mysql://mysql:3306/${LEGACY_DB_NAME:-social_flux}
-      LEGACY_DB_USER: ${LEGACY_DB_USER:-social}
-      LEGACY_DB_PASSWORD: ${LEGACY_DB_PASSWORD}
     ports:
       - "127.0.0.1:${PROFILE_SERVICE_PORT:-8082}:8082"   # só para depuração local; não exponha na internet
 
@@ -420,23 +391,6 @@ services:
     ports:
       - "127.0.0.1:${NOTIFICATION_SERVICE_PORT:-8085}:8085"   # só para depuração local; não exponha na internet
 
-  legacy_backend:
-    profiles: ["apps"]
-    build: ./BackEnd
-    restart: unless-stopped
-    depends_on:
-      mysql:
-        condition: service_healthy
-    environment:
-      AUTH_MODE: gateway
-      PORTA_SERVIDOR: "8000"
-      SQLDB_URL: jdbc:mysql://mysql:3306/${LEGACY_DB_NAME:-social_flux}
-      SQLDB_USERNAME: ${LEGACY_DB_USER:-social}
-      SQLDB_PASSWORD: ${LEGACY_DB_PASSWORD}
-    # Sem `ports`: só o gateway (rede interna) alcança este serviço, senão X-User-Id poderia ser forjado.
-    expose:
-      - "8000"
-
   frontend:
     profiles: ["apps"]
     build:
@@ -450,7 +404,7 @@ services:
   # Gateway quando as aplicações rodam NA SUA MÁQUINA (só a infra em containers):
   #   docker compose --profile host up -d     (sobe bancos + broker + mailpit + este gateway)
   # Encaminha para authentication_service (8081), profile_service (8082), social_graph_service (8083), post_service (8084),
-  # notification_service (8085), backend legado (8000) e Vite (5173) no host.
+  # notification_service (8085) e Vite (5173) no host.
   gateway_host:
     profiles: ["host"]
     image: caddy:2-alpine
@@ -462,7 +416,6 @@ services:
       GRAPH_UPSTREAM: host.docker.internal:8083
       POST_UPSTREAM: host.docker.internal:8084
       NOTIFICATION_UPSTREAM: host.docker.internal:8085
-      LEGACY_UPSTREAM: host.docker.internal:8000
       FRONTEND_UPSTREAM: host.docker.internal:5173
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
@@ -481,7 +434,6 @@ services:
       - social_graph_service
       - post_service
       - notification_service
-      - legacy_backend
       - frontend
     environment:
       AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-at}
@@ -496,6 +448,5 @@ services:
 
 volumes:
   postgres_data:
-  mysql_data:
   rabbitmq_data:
   rustfs_data:

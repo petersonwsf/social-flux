@@ -4,14 +4,14 @@
 **Social Flux** is a social network: users sign up, follow each other (private accounts require approval), publish posts with
 text/image, reply to posts (comments are posts with a parent), like, search users and receive notifications.
 
-The project is in the middle of a **gradual migration, one domain at a time**, from a legacy monolith (Javalin + MySQL) to
-Spring Boot services (each with its own PostgreSQL database), talking through RabbitMQ events and sitting behind a Caddy gateway.
-Identity, Profile, Relations (social graph) and Posts (posts, replies, likes, post images/GIFs) are already migrated; only Notifications is still in the legacy backend.
+The project was **migrated, one domain at a time**, from a legacy monolith (Javalin + MySQL) to Spring Boot services (each
+with its own PostgreSQL database), talking through RabbitMQ events and sitting behind a Caddy gateway. Identity, Profile,
+Relations (social graph), Posts (posts, replies, likes, post images/GIFs) and Notifications (generated from events, real time
+over SSE) are all migrated; the legacy backend was shut down and removed from the repository.
 
 ## Stack
 - **Frontend:** React 18 + TypeScript (strict) + Vite · **Bootstrap 5** (+ `data-bs-*` JS) · Formik + Yup · axios · react-router 6 · ionicons
 - **New services:** Spring Boot 4 · Java 21 · Spring Security · JPA + Flyway · PostgreSQL 17 · RabbitMQ (outbox/inbox) · JWT RS256
-- **Legacy backend:** Javalin 6 · Java 17/21 · plain JDBC + HikariCP · MySQL 8.4
 - **Infra:** Docker Compose · Caddy 2 (gateway, same origin) · Mailpit (dev SMTP) · RustFS (S3-compatible media storage, private buckets)
 
 ## Structure (monorepo)
@@ -19,13 +19,13 @@ Identity, Profile, Relations (social graph) and Posts (posts, replies, likes, po
 | --- | --- | --- |
 | `FrontEnd/` | SPA. Talks only to its own origin (`/auth`, `/api`, `/media`); Vite proxies to the gateway in dev | 5173 |
 | `authentication_service/` | Identity & access: register, login, sliding session (HttpOnly cookies), password reset, e-mail verification, JWKS, gateway `forward_auth` | 8081 |
-| `profile_service/` | User profile: profile data, search, avatar, privacy; JWT resource server; publishes `profile.*` events and projects them into the legacy `usuario` table | 8082 |
-| `social_graph_service/` | Social graph: follow/unfollow, followers/following, follow requests for private accounts; JWT resource server; consumes `profile.*`, publishes `follow.*` (consumed by `post_service`). In compose, the gateway (`/api/relacoes*`) and the frontend; no MySQL dependency | 8083 |
+| `profile_service/` | User profile: profile data, search, avatar, privacy; JWT resource server; publishes `profile.*` events | 8082 |
+| `social_graph_service/` | Social graph: follow/unfollow, followers/following, follow requests for private accounts; JWT resource server; consumes `profile.*`, publishes `follow.*` (consumed by `post_service`). In compose, the gateway (`/api/relacoes*`) and the frontend | 8083 |
 | `post_service/` | Posts: posts, replies (posts with a parent), likes and post media (images and GIFs in RustFS); JWT resource server; keeps local copies of `profile.*` (authors) and `follow.*` (accepted edges) to enforce private-account visibility server-side; publishes `post.*`; cursor-paginated feed with embedded counters | 8084 |
+| `notification_service/` | Notifications: generated only from events (`post.*`, `follow.*`, `profile.*`; no create route), grouped per post/day, 45-day retention; REST list/count/mark-seen and a real-time SSE stream (`/api/notificacoes/stream`, closes in ≤15 min and never renews the session); JWT resource server; consumes only (publishes nothing) | 8085 |
 | `libs/socialflux-events/` | Shared event library (transactional outbox, relay, idempotent inbox, RabbitMQ topology) used by every Spring service; auto-configured, `socialflux.events.*` properties | — |
 | `libs/socialflux-media/` | Shared media library (PNG/JPEG/WebP validation and re-encoding with EXIF orientation, GIF sanitizer, S3/RustFS storage, concurrency limit); auto-configured, `socialflux.media.*` properties | — |
-| `BackEnd/` | **Legacy** Javalin backend (only notifications now). Runs in `AUTH_MODE=gateway`: trusts only `X-User-Id` from the gateway. Has a stray nested `.git`: run git commands from the repo root | 8000 (never published) |
-| `infra/` | `caddy/Caddyfile` (gateway routing) and `mysql/schema.sql` (legacy schema: `usuario` projection + `notification`) | 8080 (gateway) |
+| `infra/` | `caddy/Caddyfile` (gateway routing) | 8080 (gateway) |
 | `scripts/dev/` | Scripts that run each backend on the host using the root `.env` (`.ps1` and `.sh`) | — |
 | `docs/` | Legacy analysis and migration plans (domain decisions D1–D12) and the local run guide | — |
 | `docker-compose.yml` / `.env.example` | Full dev environment and its variable names | — |
@@ -44,40 +44,40 @@ Browser ─► Caddy (same origin)
             ├─ /api/relacoes*           → forward_auth → social_graph_service ─► PostgreSQL (db `social_graph`)
             ├─ /api/postagens*, /media/posts/*
             │                           → forward_auth → post_service ─► PostgreSQL (db `post`) + RustFS (bucket `post-media`)
-            ├─ /api/* (rest)            → forward_auth → X-User-Id → legacy BackEnd ─► MySQL
+            ├─ /api/notificacoes*       → forward_auth → notification_service ─► PostgreSQL (db `notification`) (incl. the SSE stream, no buffering)
+            ├─ /api/* (rest)            → 404 (JSON)
             └─ /internal/*              → 404 (service-to-service only)
 auth ──PUT /internal/profiles/{uuid} (service token)──► profile        (registration, D1: auth orchestrates)
 auth ──account.registered|deleted.v1──► RabbitMQ ──► profile
-profile ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► `usuario` projection in MySQL, and the graph's local copy
-graph ──follow.*.v1──► RabbitMQ ──► the posts service's local edge copy
-posts ──post.created|deleted|liked|unliked.v1──► RabbitMQ ──► (future Notifications service)
+profile ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ ──► the graph's, posts' and notifications' local copies
+graph ──follow.*.v1──► RabbitMQ ──► the posts service's local edge copy and notifications (followers, requests)
+posts ──post.created|deleted|liked|unliked.v1──► RabbitMQ ──► notifications (likes, replies)
+notifications ──SSE──► browser (one stream per browser: leader tab via Web Locks + BroadcastChannel)
 ```
 The account and the profile share the same **UUIDv7**. The integer `id`/`legacy_id`/`X-User-Id` is **temporary**, only for
 domains still in the legacy backend.
 
 ## Commands
-- **Infra only (apps on host):** `docker compose --profile host up -d` (Postgres, MySQL, RabbitMQ, RustFS, Mailpit + gateway on :8080; needs `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY` in `.env`) · status: `docker compose ps`
+- **Infra only (apps on host):** `docker compose --profile host up -d` (Postgres, RabbitMQ, RustFS, Mailpit + gateway on :8080; needs `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY` in `.env`) · status: `docker compose ps`
 - **Everything in containers:** `docker compose --profile apps up -d --build` → http://localhost:8080
 - **Stop:** `docker compose down` (never with `-v` without asking)
-- **Backends on host** (from the repo root, read `.env`): `scripts/dev/run-auth.ps1`, `run-profile.ps1`, `run-graph.ps1`, `run-legacy.ps1` (or the `.sh` versions)
+- **Backends on host** (from the repo root, read `.env`): `scripts/dev/run-auth.ps1`, `run-profile.ps1`, `run-graph.ps1`, `run-post.ps1`, `run-notification.ps1` (or the `.sh` versions)
 - **Spring services:** from the root, `mvn -pl <service> -am test` (also builds the `libs/*` libraries; integration tests use embedded PostgreSQL, no Docker needed) · inside a service folder, `mvn test` / `mvn spring-boot:run` after `mvn -pl libs/socialflux-events,libs/socialflux-media install` from the root · the root `pom.xml` is only an aggregator
-- **Legacy:** `mvn compile exec:java` (no tests)
 - **Frontend** (`FrontEnd/`): `npm ci` · `npm run dev` · `npm run typecheck` · `npm run lint` · `npm run build` (no test runner)
 - Dev mailbox: http://localhost:8025 · RabbitMQ panel: http://localhost:15672
 - Full guide and troubleshooting: `docs/rodando-localmente.md`
 
 ## Databases — always via Docker
-- PostgreSQL, MySQL and RabbitMQ **always run through Docker** (`docker-compose.yml`). Never install or depend on local installations.
-- **One PostgreSQL instance, one database per service** (`identity`, `profile`, `social_graph`; the last two are created by `profile_db_init` / `graph_db_init`). A service never reads another service's database.
+- PostgreSQL and RabbitMQ **always run through Docker** (`docker-compose.yml`). Never install or depend on local installations.
+- **One PostgreSQL instance, one database per service** (`identity`, `profile`, `social_graph`, `post`, `notification`; all but the first are created by `*_db_init` services). A service never reads another service's database.
 - Schema changes in Spring services go through **new Flyway migrations** (`src/main/resources/db/migration/V<n>__*.sql`). **Never edit an existing migration.**
-- `infra/mysql/schema.sql` only runs when the MySQL volume is created.
 - Data lives in named volumes. **Never run `docker compose down -v`, `docker volume rm` or drop/recreate a database without asking** — it erases data.
 - If a service can't reach a database, first check the containers (`docker compose ps`) and that the values match `.env`.
 
 ## Language — IMPORTANT
 - **Comments, UI text, log/error messages, API response messages (`mensagem`), docs and commit messages: pt-BR.**
 - **Identifiers follow each app's existing style:**
-  - `FrontEnd/` and `BackEnd/`: names in Portuguese (e.g. `listarPostagens`, `FormCriarPostagem`, `usePerfil`, `RelacaoService`).
+  - `FrontEnd/`: names in Portuguese (e.g. `listarPostagens`, `FormCriarPostagem`, `usePerfil`, `RelacaoService`).
   - `authentication_service/` and `profile_service/`: class/method/variable names in English (e.g. `AccountService`, `ProfileRules`), with Portuguese comments and messages.
 - JSON field names of the public API keep the contract the frontend already uses (Portuguese/snake_case: `foto_perfil`, `data_nascimento`, `{ mensagem, sucesso, codigo }`).
 - Language keywords, library APIs and established technical terms stay in English. This file is in English.
@@ -89,10 +89,9 @@ domains still in the legacy backend.
 - Small, single-purpose functions; early returns over deep nesting.
 - **Validate all input on the backend**, even if the frontend already validates it.
 
-## Legacy backend — frozen
-- **No new features in `BackEnd/`**: only bug/security fixes and the minimum needed to keep it working during the migration.
-- A new or migrated domain becomes its own Spring service (same patterns as `profile_service`: own database, Flyway, outbox via `libs/socialflux-events`, JWT resource server, README + `docs/ARCHITECTURE.md`), plus a route in the `Caddyfile` and a service in `docker-compose.yml`.
-- The legacy backend must never be reachable without the gateway (`X-User-Id` would be forgeable): do not publish its port.
+## New domains
+- A new domain becomes its own Spring service (same patterns as `post_service`/`notification_service`: own database, Flyway, inbox/outbox via `libs/socialflux-events`, JWT resource server, README + `docs/ARCHITECTURE.md`), plus a route in the `Caddyfile` and a service in `docker-compose.yml`.
+- Services must never be reachable without the gateway (the gateway enforces token revocation via `forward_auth`): do not expose their ports beyond the loopback used for local debugging.
 
 ## Service contracts
 - **Identity always comes from the token** (`sub` / `X-User-Id` set by the gateway); an id in the path or body is only checked, never trusted.
@@ -116,14 +115,14 @@ domains still in the legacy backend.
 
 ## Security
 - Never commit or expose secrets (JWT keys, DB/RabbitMQ passwords). Use the root `.env` (gitignored) and keep `.env.example` with variable names/placeholders only.
-- **Known issue:** `BackEnd/src/main/resources/application.properties` (contains an old `jwt.secret` and DB credentials) and `BackEnd/logs/app.log` are tracked by Git. Do not edit, print or commit changes to them; treat their secrets as leaked.
+- **Known issue:** the removed legacy backend left an old `jwt.secret` and DB credentials in the Git history (`BackEnd/src/main/resources/application.properties`). Treat those secrets as leaked; never reuse them.
 - Every state-changing route requires authentication and an authorization check on the backend, never only hidden UI.
 - Users may only read/change their own data (check ownership on every route that takes an id); private-account content must be enforced on the backend.
 - Passwords: Argon2id in `authentication_service` (legacy BCrypt hashes are upgraded on login). Never log credentials, tokens or personal data.
 - Uploaded files: server-generated names, validate magic bytes and size, re-encode images, resolve paths against a base directory (see `libs/socialflux-media` `ImageProcessor` / `GifSanitizer` and `profile_service` `BucketAvatarStorage`).
 
 ## Commits — Conventional Commits, message in Portuguese
-Format: `type(scope): descrição curta no imperativo` — scope = app or domain (`auth`, `perfil`, `frontend`, `legado`, `infra`, `postagens`…).
+Format: `type(scope): descrição curta no imperativo` — scope = app or domain (`auth`, `perfil`, `frontend`, `infra`, `postagens`, `notificacoes`…).
 
 | Type | Use for |
 |---|---|

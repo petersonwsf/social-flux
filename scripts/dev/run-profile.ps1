@@ -6,17 +6,12 @@ $root = (Resolve-Path "$PSScriptRoot\..\..").Path
 . "$PSScriptRoot\load-env.ps1"
 Import-DotEnv "$root\.env"
 
-$pgPort    = Get-EnvOr 'POSTGRES_PORT' '5432'
-$mysqlPort = Get-EnvOr 'MYSQL_PORT' '3306'
+$pgPort = Get-EnvOr 'POSTGRES_PORT' '5432'
 $env:PROFILE_DB_URL = "jdbc:postgresql://localhost:$pgPort/" + (Get-EnvOr 'PROFILE_DB_NAME' 'profile')
 # PROFILE_DB_USER/PROFILE_DB_PASSWORD, se ausentes, caem em IDENTITY_DB_USER/IDENTITY_DB_PASSWORD (do .env)
 $env:AUTH_JWKS_URI = 'http://localhost:8081/.well-known/jwks.json'      # chave PÚBLICA do authentication_service
 $env:RABBITMQ_HOST = 'localhost'; $env:RABBITMQ_PORT = (Get-EnvOr 'RABBITMQ_PORT' '5672')
 # RABBITMQ_USER / RABBITMQ_PASSWORD já vêm do .env
-# Projeção do perfil na tabela `usuario` do MySQL legado (JOINs do backend Javalin)
-$env:PROFILE_LEGACY_ENABLED = 'true'
-$env:LEGACY_DB_URL = "jdbc:mysql://localhost:$mysqlPort/" + (Get-EnvOr 'LEGACY_DB_NAME' 'social_flux')
-# LEGACY_DB_USER / LEGACY_DB_PASSWORD já vêm do .env
 # Avatares no bucket `avatars` do RustFS (API S3 no loopback); RUSTFS_ACCESS_KEY / RUSTFS_SECRET_KEY já vêm do .env
 $env:RUSTFS_ENDPOINT = "http://localhost:" + (Get-EnvOr 'RUSTFS_PORT' '9000')
 

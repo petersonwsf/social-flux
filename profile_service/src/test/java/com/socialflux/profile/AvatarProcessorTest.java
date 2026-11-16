@@ -25,8 +25,7 @@ class AvatarProcessorTest {
     private static ProfileProperties properties() {
         return new ProfileProperties(
                 new ProfileProperties.Security("http://x/jwks", "iss", "aud", "svc", Duration.ofSeconds(60)),
-                List.of(), new ProfileProperties.Avatars("avatars"),
-                new ProfileProperties.Legacy(false, null, null, null));
+                List.of(), new ProfileProperties.Avatars("avatars"));
     }
 
     private static AvatarProcessor processor(long maxBytes) {
