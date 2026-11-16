@@ -55,7 +55,8 @@ class FollowFlowTest extends AbstractGraphTest {
         assertThat(received).containsEntry("total", 1);
         @SuppressWarnings("unchecked")
         Map<String, Object> user = (Map<String, Object>) ((Map<String, Object>) items.get(0)).get("usuario");
-        assertThat(user.get("accountId")).isEqualTo(ana.id.toString());
+        assertThat(user.get("id")).isEqualTo(ana.id.toString());
+        assertThat(user).doesNotContainKey("accountId");
         assertThat(user.keySet()).doesNotContain("email", "telefone", "senha");
 
         assertThat(accept(priv, ana).status()).isEqualTo(204);
@@ -122,7 +123,7 @@ class FollowFlowTest extends AbstractGraphTest {
         assertThat(unknown.json()).containsEntry("codigo", "usuario_nao_encontrado");
 
         assertThat(http().send("PUT", "/api/relacoes/seguindo/nao-e-um-id", null, ana.token).status()).isEqualTo(400);
-        assertThat(http().send("PUT", "/api/relacoes/seguindo/999999999", null, ana.token).status()).isEqualTo(404);
+        assertThat(http().send("PUT", "/api/relacoes/seguindo/999999999", null, ana.token).status()).isEqualTo(400);   // id inteiro: só UUID
         assertThat(get(ana, "/api/relacoes/" + ana.path() + "/seguidores?limite=0").status()).isEqualTo(400);
         assertThat(get(ana, "/api/relacoes/" + ana.path() + "/seguidores?limite=101").status()).isEqualTo(400);
         assertThat(get(ana, "/api/relacoes/" + ana.path() + "/seguidores?cursor=lixo").status()).isEqualTo(400);
@@ -130,14 +131,11 @@ class FollowFlowTest extends AbstractGraphTest {
     }
 
     @Test
-    void theLegacyIntegerIdIsAcceptedInTheUrl() {
+    void onlyTheAccountUuidIsAcceptedInTheUrl() {
         TestUser ana = newUser();
-        TestUser bia = newUser();
 
-        Response response = http().send("PUT", "/api/relacoes/seguindo/" + bia.legacyId, null, ana.token);
-
-        assertThat(response.status()).isEqualTo(201);
-        assertThat(get(ana, "/api/relacoes/" + bia.legacyId + "/estado").json()).containsEntry("estado", "SEGUINDO");
+        assertThat(http().send("PUT", "/api/relacoes/seguindo/1001", null, ana.token).status()).isEqualTo(400);
+        assertThat(get(ana, "/api/relacoes/1001/estado").status()).isEqualTo(400);
     }
 
     @Test

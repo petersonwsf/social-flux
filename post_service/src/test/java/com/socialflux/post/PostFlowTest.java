@@ -27,7 +27,7 @@ class PostFlowTest extends AbstractPostTest {
         assertThat(Instant.parse((String) post.get("criado_em"))).isBefore(Instant.now().plusSeconds(1));
         @SuppressWarnings("unchecked")
         Map<String, Object> author = (Map<String, Object>) post.get("autor");
-        assertThat(author).containsEntry("id", ana.legacyId).containsEntry("accountId", ana.id.toString())
+        assertThat(author).containsEntry("id", ana.id.toString()).doesNotContainKey("accountId")
                 .containsEntry("username", ana.username).containsEntry("privado", false);
         assertThat(get(ana, "/api/postagens/" + post.get("id")).json()).containsEntry("legenda", "meu primeiro post");
     }
@@ -114,7 +114,7 @@ class PostFlowTest extends AbstractPostTest {
     }
 
     @Test
-    void anyAuthorCanDeleteRegardlessOfTheirLegacyId() {   // LOG-03: o legado comparava Integer com != (ids ≥ 128 falhavam)
+    void anyAuthorCanDeleteTheirOwnPost() {
         for (int i = 0; i < 3; i++) {
             TestUser user = newUser();
             assertThat(delete(user, post(user, "post " + i)).status()).isEqualTo(204);

@@ -54,8 +54,8 @@ graph ──follow.*.v1──► RabbitMQ ──► the posts service's local ed
 posts ──post.created|deleted|liked|unliked.v1──► RabbitMQ ──► notifications (likes, replies)
 notifications ──SSE──► browser (one stream per browser: leader tab via Web Locks + BroadcastChannel)
 ```
-The account and the profile share the same **UUIDv7**. The integer `id`/`legacy_id`/`X-User-Id` is **temporary**, only for
-domains still in the legacy backend.
+The account and the profile share the same **UUIDv7**, the only user id in the system (the public JSON `id` is that UUID; there is no integer id,
+`legacy_id`, `X-User-Id` or `legacy_uid` anymore).
 
 ## Commands
 - **Infra only (apps on host):** `docker compose --profile host up -d` (Postgres, RabbitMQ, RustFS, Mailpit + gateway on :8080; needs `RUSTFS_ACCESS_KEY`/`RUSTFS_SECRET_KEY` in `.env`) · status: `docker compose ps`
@@ -94,7 +94,7 @@ domains still in the legacy backend.
 - Services must never be reachable without the gateway (the gateway enforces token revocation via `forward_auth`): do not expose their ports beyond the loopback used for local debugging.
 
 ## Service contracts
-- **Identity always comes from the token** (`sub` / `X-User-Id` set by the gateway); an id in the path or body is only checked, never trusted.
+- **Identity always comes from the token** (`sub`); an id in the path or body is only checked, never trusted.
 - **Events:** versioned type as routing key (`<domain>.<event>.v<n>`) on the topic exchange `socialflux.events`; written to the **outbox in the same transaction** as the state change; consumers are **idempotent** (inbox/`processed_message`) and ignore unknown types and older `aggregateVersion`s. A breaking change means a new version (`.v2`), never changing `.v1`.
 - **Events never carry personal data** (e-mail, password, phone, sex, birth date).
 - `/internal/*` routes require a **service token** with explicit scope and are never routed by the gateway.

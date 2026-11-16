@@ -104,10 +104,9 @@ public class AccountService {
             created = tx.execute(status -> {
                 Instant now = clock.instant();
                 Account account = new Account(accountId, email, passwords.hash(command.password()), now);
-                account.setLegacyUserId(profile.legacyId());
                 Account saved = accounts.saveAndFlush(account);
                 outbox.add(EVENT_REGISTERED, accountId, 1, Map.of(
-                        "accountId", accountId.toString(), "legacyId", profile.legacyId()));
+                        "accountId", accountId.toString()));
                 return saved;
             });
         } catch (RuntimeException e) {
@@ -336,7 +335,6 @@ public class AccountService {
             managed.setStatus(AccountStatus.DELETED);
             managed.setEmail("deleted-" + managed.getId() + "@deleted.invalid");
             managed.setPasswordHash("{noop}!");
-            managed.setLegacyUserId(null);
             managed.setEmailVerified(false);
             accounts.save(managed);
             refreshTokens.revokeAllOfAccount(accountId, clock.instant(), "ACCOUNT_DELETED");

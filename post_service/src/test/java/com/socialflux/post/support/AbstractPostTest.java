@@ -37,7 +37,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -67,7 +66,6 @@ public abstract class AbstractPostTest {
     protected static final EmbeddedPostgres POSTGRES;
     protected static final RSAKey KEY;
     private static final HttpServer JWKS;
-    private static final AtomicInteger LEGACY_IDS = new AtomicInteger(5000);
 
     static {
         try {
@@ -150,7 +148,6 @@ public abstract class AbstractPostTest {
     /** Um usuário de teste. {@code version} é o {@code aggregateVersion} do último evento de perfil enviado. */
     protected static final class TestUser {
         public final UUID id = UUID.randomUUID();
-        public final int legacyId = LEGACY_IDS.incrementAndGet();
         public final String username = "u" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         public final String token = userToken(id);
         public final Map<UUID, UUID> relations = new HashMap<>();   // seguido -> relationId
@@ -194,9 +191,9 @@ public abstract class AbstractPostTest {
     protected static String profileEventJson(UUID messageId, String type, TestUser user) {
         return """
                 {"id":"%s","type":"%s","occurredAt":"2026-01-01T00:00:00Z","aggregateId":"%s","aggregateVersion":%d,
-                 "data":{"accountId":"%s","legacyId":%d,"username":"%s","displayName":"Pessoa %s","bio":null,
+                 "data":{"accountId":"%s","username":"%s","displayName":"Pessoa %s","bio":null,
                          "avatarKey":null,"isPrivate":%s,"createdAt":"2026-01-01T00:00:00Z"}}
-                """.formatted(messageId, type, user.id, user.version, user.id, user.legacyId, user.username,
+                """.formatted(messageId, type, user.id, user.version, user.id, user.username,
                 user.username, user.isPrivate);
     }
 

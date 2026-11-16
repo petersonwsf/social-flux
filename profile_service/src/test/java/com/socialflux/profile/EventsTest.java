@@ -31,7 +31,7 @@ class EventsTest extends AbstractProfileTest {
         publishAccountEvent("account.registered.v1", account.id());     // outra mensagem para um perfil já ativo
 
         assertThat(outboxTypes(account.id())).containsExactly("profile.created.v1");
-        assertThat(http().get("/api/usuarios?id=" + account.legacyId(), createActive(uniqueUsername()).token()).status())
+        assertThat(http().get("/api/usuarios?id=" + account.id(), createActive(uniqueUsername()).token()).status())
                 .isEqualTo(200);
     }
 
@@ -46,7 +46,7 @@ class EventsTest extends AbstractProfileTest {
     void accountDeletionErasesPersonalDataFreesTheUsernameAndNotifiesOthers() throws Exception {
         Account account = createActive(uniqueUsername());
         Account viewer = createActive(uniqueUsername());
-        String key = (String) http().multipart("PATCH", "/api/img/usuarios/" + account.legacyId(), account.token(),
+        String key = (String) http().multipart("PATCH", "/api/img/usuarios/" + account.id(), account.token(),
                 "foto_perfil", "a.png", "image/png", pngBytes(), Map.of()).json().get("foto_perfil");
         assertThat(mediaStorage.exists("avatars", key)).isTrue();
 
@@ -54,9 +54,9 @@ class EventsTest extends AbstractProfileTest {
         publishAccountEvent("account.deleted.v1", account.id());      // idempotente
 
         assertThat(http().get("/api/usuarios?username=" + account.username(), viewer.token()).status()).isEqualTo(404);
-        assertThat(http().get("/api/usuarios?id=" + account.legacyId(), viewer.token()).status()).isEqualTo(404);
+        assertThat(http().get("/api/usuarios?id=" + account.id(), viewer.token()).status()).isEqualTo(404);
         assertThat(http().get("/api/usuarios/me", account.token()).status()).isEqualTo(404);
-        assertThat(http().send("PATCH", "/api/usuarios/" + account.legacyId(), "{\"nome\":\"x y\"}", account.token()).status())
+        assertThat(http().send("PATCH", "/api/usuarios/" + account.id(), "{\"nome\":\"x y\"}", account.token()).status())
                 .isEqualTo(404);
         assertThat(mediaStorage.exists("avatars", key)).as("a foto é apagada").isFalse();
 
@@ -99,13 +99,13 @@ class EventsTest extends AbstractProfileTest {
     void changesAreRecordedInTheOutboxWithoutPersonalData() throws Exception {
         Account account = createPending(uniqueUsername());
         // Mudanças enquanto pendente não geram evento: o "created" leva o estado completo
-        http().send("PATCH", "/api/usuarios/" + account.legacyId(), "{\"nome\":\"Nome Ainda Pendente\"}", account.token());
+        http().send("PATCH", "/api/usuarios/" + account.id(), "{\"nome\":\"Nome Ainda Pendente\"}", account.token());
         assertThat(outboxTypes(account.id())).isEmpty();
 
         publishAccountEvent("account.registered.v1", account.id());
-        http().send("PATCH", "/api/usuarios/" + account.legacyId(), "{\"biografia\":\"olá\"}", account.token());
-        http().send("PATCH", "/api/usuarios/" + account.legacyId(), "{\"privado\":true}", account.token());
-        http().send("PATCH", "/api/usuarios/" + account.legacyId(), "{\"nome\":\"Nome Ainda Pendente\"}", account.token()); // sem mudança
+        http().send("PATCH", "/api/usuarios/" + account.id(), "{\"biografia\":\"olá\"}", account.token());
+        http().send("PATCH", "/api/usuarios/" + account.id(), "{\"privado\":true}", account.token());
+        http().send("PATCH", "/api/usuarios/" + account.id(), "{\"nome\":\"Nome Ainda Pendente\"}", account.token()); // sem mudança
 
         assertThat(outboxTypes(account.id())).containsExactly("profile.created.v1", "profile.updated.v1",
                 "profile.updated.v1", "profile.privacy-changed.v1");
@@ -120,7 +120,7 @@ class EventsTest extends AbstractProfileTest {
         }
         String created = sent.get(0).json();
         assertThat(created).contains("\"type\":\"profile.created.v1\"").contains("\"username\":\"" + account.username() + "\"")
-                .contains("\"displayName\":\"Nome Ainda Pendente\"").contains("\"legacyId\":" + account.legacyId())
+                .contains("\"displayName\":\"Nome Ainda Pendente\"").doesNotContain("legacyId")
                 .contains("\"aggregateId\":\"" + account.id() + "\"");
         // versões estritamente crescentes para os consumidores descartarem eventos antigos
         List<Long> versions = new ArrayList<>();
@@ -135,8 +135,8 @@ class EventsTest extends AbstractProfileTest {
     @Test
     void relayKeepsEventsPendingWhileTheBrokerIsDownAndDeliversThemInOrderAfterwards() {
         Account account = createActive(uniqueUsername());
-        http().send("PATCH", "/api/usuarios/" + account.legacyId(), "{\"nome\":\"Primeiro Nome\"}", account.token());
-        http().send("PATCH", "/api/usuarios/" + account.legacyId(), "{\"nome\":\"Segundo Nome\"}", account.token());
+        http().send("PATCH", "/api/usuarios/" + account.id(), "{\"nome\":\"Primeiro Nome\"}", account.token());
+        http().send("PATCH", "/api/usuarios/" + account.id(), "{\"nome\":\"Segundo Nome\"}", account.token());
 
         publisher.down = true;
         try {
@@ -174,7 +174,7 @@ class EventsTest extends AbstractProfileTest {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> items = (List<Map<String, Object>>) page.json().get("items");
             assertThat(items.size()).isLessThanOrEqualTo(2);
-            items.forEach(item -> seen.add((String) item.get("accountId")));
+            items.forEach(item -> seen.add((String) item.get("id")));
             cursor = (String) page.json().get("nextCursor");
             pages++;
         } while (cursor != null && pages < 500);
@@ -187,7 +187,7 @@ class EventsTest extends AbstractProfileTest {
         Response batch = http().send("POST", "/internal/profiles/batch-get", ids, read);
         assertThat(batch.status()).isEqualTo(200);
         assertThat(batch.jsonList()).hasSize(1);
-        assertThat(batch.jsonList().get(0).get("accountId")).isEqualTo(accounts.get(0).id().toString());
+        assertThat(batch.jsonList().get(0).get("id")).isEqualTo(accounts.get(0).id().toString());
     }
 
     private static String enc(String value) {

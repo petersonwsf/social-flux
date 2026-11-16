@@ -29,7 +29,7 @@ social_graph_service/
     ├── main/java/com/socialflux/graph/
     │   ├── config/ domain/ service/ events/ security/ web/
     │   └── GraphServiceApplication.java
-    ├── main/resources/           application.yml e db/migration/V1__social_graph.sql
+    ├── main/resources/           application.yml e db/migration/ (V1 esquema; V2 remove `legacy_id`)
     └── test/java/com/socialflux/graph/   testes de integração (+ support/)
 ```
 
@@ -50,8 +50,8 @@ social_graph_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `UserSnapshot.java` | Cópia local do perfil público (id, id legado, username, nome, avatar, privado, status `ACTIVE`/`DELETED`, versão do perfil) |
-| `UserRef.java` | Como o cliente cita um usuário na URL: UUID ou id inteiro legado |
+| `UserSnapshot.java` | Cópia local do perfil público (id, username, nome, avatar, privado, status `ACTIVE`/`DELETED`, versão do perfil) |
+| `UserRef.java` | Como o cliente cita um usuário na URL: o UUID da conta |
 | `Edge.java` | Item de lista paginada: o usuário do outro lado e quando a relação/solicitação foi criada |
 | `Cursor.java` | Cursor opaco de paginação por chave (`created_at`, id), sem `OFFSET` |
 | `SnapshotRepository.java` | `user_snapshot`: leituras (com `FOR SHARE`/`FOR UPDATE` para fechar corridas) e escrita |
@@ -99,12 +99,13 @@ social_graph_service/
 | --- | --- |
 | `application.yml` | Propriedades ligadas às variáveis de ambiente |
 | `db/migration/V1__social_graph.sql` | `user_snapshot`, `follow`, `follow_request`, `follow_stats`, `outbox_event`, `processed_message` e os índices das listas por cursor |
+| `db/migration/V2__remove_legacy_id.sql` | Remove `user_snapshot.legacy_id`: as rotas aceitam só UUID |
 
 ## Testes (`src/test`)
 
 | Arquivo | O que cobre |
 | --- | --- |
-| `FollowFlowTest` | Seguir/solicitar/aceitar/recusar/cancelar/remover, idempotência, contadores, validações, id legado na URL, ator sem perfil, eventos no outbox sem dado pessoal |
+| `FollowFlowTest` | Seguir/solicitar/aceitar/recusar/cancelar/remover, idempotência, contadores, validações, só UUID na URL, ator sem perfil, eventos no outbox sem dado pessoal |
 | `SecurityTest` | Sem token/audiência errada/expirado/serviço, IDOR em cada rota, ator só do token, `privado` do banco, listas de conta privada, CSRF, usuário inexistente |
 | `ListsTest` | Paginação por cursor (ordem, sem repetição, estável com inserção), solicitações por direção, em comum |
 | `ProfileSyncTest` | Cópia local por eventos (duplicado, antigo, desconhecido), privado→público aceita pendentes, exclusão de conta, túmulo |

@@ -62,11 +62,9 @@ public class BearerAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
             List<String> roles = jwt.getClaimAsStringList("roles");
-            Long legacy = jwt.getClaim("legacy_uid");
 
             AuthenticatedAccount principal = new AuthenticatedAccount(
                     accountId, sessionId,
-                    legacy == null ? null : legacy.intValue(),
                     roles == null ? Set.of() : new HashSet<>(roles),
                     version.intValue(), jwt.getExpiresAt());
             SecurityContextHolder.getContext().setAuthentication(new AccountAuthentication(principal));

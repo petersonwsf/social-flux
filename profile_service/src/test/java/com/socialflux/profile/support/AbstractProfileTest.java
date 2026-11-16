@@ -135,7 +135,7 @@ public abstract class AbstractProfileTest {
     // ------------------------------------------------------------------ cenários
 
     /** Uma conta de teste: perfil criado pelo "auth" (PUT interno) e, se pedido, confirmado pelo evento account.registered. */
-    protected record Account(UUID id, int legacyId, String username, String token) {
+    protected record Account(UUID id, String username, String token) {
     }
 
     protected static String uniqueUsername() {
@@ -155,7 +155,7 @@ public abstract class AbstractProfileTest {
         if (response.status() != 201) {
             throw new IllegalStateException("Criação falhou: " + response.status() + " " + response.body());
         }
-        return new Account(id, ((Number) response.json().get("legacyId")).intValue(), username, userToken(id));
+        return new Account(id, username, userToken(id));
     }
 
     protected Account createActive(String username) {

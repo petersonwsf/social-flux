@@ -23,7 +23,7 @@ social_graph_service ──follow.created|removed|requested|request-cancelled|re
 - **Quem é privado:** vem da **cópia local** (`user_snapshot`), alimentada pelos eventos do profile — nunca do cliente.
 - **Cópia local:** o serviço nunca consulta o `profile_service`. Um usuário "existe" aqui quando o `profile.created.v1`
   dele foi processado; antes disso as rotas respondem 404 (alvo) ou 503 `perfil_indisponivel` (quem age).
-- **`{usuario}` nas rotas:** o UUID da conta ou, durante a transição, o id inteiro legado (`legacyId`).
+- **`{usuario}` nas rotas:** o UUID da conta (outro formato: 400 `parametro_invalido`).
 
 ## API pública (`/api/relacoes`)
 
@@ -43,7 +43,7 @@ Todas exigem token de usuário. Nenhuma tem corpo. Erros: `{ "mensagem", "sucess
 | `POST /solicitacoes/{usuario}/aceitar` | Aceitar a solicitação de `{usuario}` (só existe solicitação dirigida a mim). `204` |
 | `DELETE /solicitacoes/{usuario}` | Recusar. `204` (não deixa rastro: é possível pedir de novo) |
 
-Listas: `{ itens: [{ usuario: { id, accountId, username, nome, foto_perfil, foto_url, privado }, desde }], proximoCursor }`.
+Listas: `{ itens: [{ usuario: { id (UUID), username, nome, foto_perfil, foto_url, privado }, desde }], proximoCursor }`.
 `limite` padrão 20, máximo 100; o cursor é opaco (paginação por chave, sem `OFFSET`: estável mesmo que entrem/saiam itens).
 O item de usuário **nunca** tem dado pessoal.
 

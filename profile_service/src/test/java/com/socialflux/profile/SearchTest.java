@@ -28,7 +28,7 @@ class SearchTest extends AbstractProfileTest {
         Account prefix = createActive(tag + "x");                        // prefixo
         Account contains = createActive("zz" + tag);                     // contém
         Account byName = createActive(uniqueUsername());
-        http().send("PATCH", "/api/usuarios/" + byName.legacyId(), "{\"nome\":\"Fulano %s\"}".formatted(tag), byName.token());
+        http().send("PATCH", "/api/usuarios/" + byName.id(), "{\"nome\":\"Fulano %s\"}".formatted(tag), byName.token());
         createPending(tag + "pend");                                     // pendente: nunca aparece
 
         Response response = http().get("/api/usuarios/search?search=" + tag.toUpperCase(), exact.token());

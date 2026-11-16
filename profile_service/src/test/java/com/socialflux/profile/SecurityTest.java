@@ -134,7 +134,7 @@ class SecurityTest extends AbstractProfileTest {
     @Test
     void crossSiteWritesAreRejectedButSameOriginAndNonBrowserClientsPass() {
         Account account = createActive(uniqueUsername());
-        String path = "/api/usuarios/" + account.legacyId();
+        String path = "/api/usuarios/" + account.id();
         String body = "{\"nome\":\"Nome Novo\"}";
 
         assertThat(http().send("PATCH", path, body, account.token(), Map.of("Origin", "http://evil.example")).status())

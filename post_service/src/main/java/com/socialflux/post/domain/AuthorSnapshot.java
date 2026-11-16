@@ -5,7 +5,6 @@ import java.util.UUID;
 /** Cópia local do perfil PÚBLICO de um autor (alimentada por {@code profile.*}). Nunca tem dados pessoais. */
 public record AuthorSnapshot(
         UUID userId,
-        Integer legacyId,
         String username,
         String displayName,
         String avatarKey,

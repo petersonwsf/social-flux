@@ -38,7 +38,7 @@ Plano e decisões: [`../docs/plano-dominio-postagens-servico-proprio.md`](../doc
 | `GET /media/posts/{chave}` | 200 (bytes) / 304 | 404 (chave desconhecida **ou** postagem invisível); 401 sem token |
 
 Parâmetros: `limite` 1–100 (padrão 20); `filtro` ∈ `posts` (padrão: só raízes), `interacoes` (raízes + respostas do autor),
-`midia` (só com anexo); `autor` = UUID da conta ou id inteiro legado; `cursor` opaco (`created_at` + id, base64url).
+`midia` (só com anexo); `autor` = UUID da conta; `cursor` opaco (`created_at` + id, base64url).
 
 **Postagem:**
 ```json
@@ -47,7 +47,7 @@ Parâmetros: `limite` 1–100 (padrão 20); `filtro` ∈ `posts` (padrão: só r
   "legenda": "texto",
   "imagem": { "url": "/media/posts/po_….jpg", "tipo": "IMAGE", "largura": 1200, "altura": 800 },
   "criado_em": "2026-11-15T14:03:22.123456Z",
-  "autor": { "id": 1001, "accountId": "…", "username": "ana", "nome": "Ana", "foto_perfil": "av_….jpg", "foto_url": "/media/avatars/av_….jpg", "privado": false },
+  "autor": { "id": "<uuid da conta>", "username": "ana", "nome": "Ana", "foto_perfil": "av_….jpg", "foto_url": "/media/avatars/av_….jpg", "privado": false },
   "pai": { "id": "…", "autor_username": "bia" },
   "curtidas": 3, "curtido": true, "respostas": 2
 }

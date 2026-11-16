@@ -71,7 +71,7 @@ social_flux/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `caddy/Caddyfile` | Gateway (mesma origem). Remove `X-User-Id`/`X-Account-Id` vindos do cliente; bloqueia `/internal/*` (404); `/auth/*` e `/.well-known/jwks.json` → authentication_service; `/media/avatars/*` → profile_service (público); `/api/usuarios*` e `/api/img/usuarios/*` → profile_service após `forward_auth`; `/api/relacoes*` → social_graph_service após `forward_auth` (sem copiar `X-User-Id`: o serviço usa o `sub` do token); `/api/postagens*` e `/media/posts/*` → post_service após `forward_auth` (as imagens de postagem não são públicas: o cookie vira Bearer e o serviço confere a visibilidade);  `/api/notificacoes*` → notification_service após `forward_auth`, com `flush_interval -1` (o stream SSE não pode ser bufferizado nem comprimido); demais `/api/*` → 404 em JSON (o legado foi desligado); o resto → frontend. Converte o cookie de acesso em `Authorization: Bearer`. Os upstreams vêm de variáveis (`AUTH_UPSTREAM`, `PROFILE_UPSTREAM`, `GRAPH_UPSTREAM`, `POST_UPSTREAM`, `NOTIFICATION_UPSTREAM`, `FRONTEND_UPSTREAM`). |
+| `caddy/Caddyfile` | Gateway (mesma origem). Remove `X-Account-Id` vindo do cliente; bloqueia `/internal/*` (404); `/auth/*` e `/.well-known/jwks.json` → authentication_service; `/media/avatars/*` → profile_service (público); `/api/usuarios*` e `/api/img/usuarios/*` → profile_service após `forward_auth`; `/api/relacoes*` → social_graph_service após `forward_auth` (sem copiar `X-User-Id`: o serviço usa o `sub` do token); `/api/postagens*` e `/media/posts/*` → post_service após `forward_auth` (as imagens de postagem não são públicas: o cookie vira Bearer e o serviço confere a visibilidade);  `/api/notificacoes*` → notification_service após `forward_auth`, com `flush_interval -1` (o stream SSE não pode ser bufferizado nem comprimido); demais `/api/*` → 404 em JSON (o legado foi desligado); o resto → frontend. Converte o cookie de acesso em `Authorization: Bearer`. Os upstreams vêm de variáveis (`AUTH_UPSTREAM`, `PROFILE_UPSTREAM`, `GRAPH_UPSTREAM`, `POST_UPSTREAM`, `NOTIFICATION_UPSTREAM`, `FRONTEND_UPSTREAM`). |
 
 ## `scripts/dev/`
 
@@ -114,8 +114,8 @@ profile_service ──profile.*.v1──► RabbitMQ ──► notification_serv
 notification_service ──SSE (/api/notificacoes/stream)──► navegador (tempo real)
 ```
 
-- **Identidade:** conta (auth) e perfil (profile) têm o mesmo UUIDv7 (`sub` do JWT). O id inteiro (`legacy_id`, `X-User-Id`,
-  claim `legacy_uid`) é temporário, só para os domínios ainda no legado.
+- **Identidade:** conta (auth) e perfil (profile) têm o mesmo UUIDv7 (`sub` do JWT), e é o **único** id de usuário no sistema:
+  o antigo id inteiro (`legacy_id`, `X-User-Id`, claim `legacy_uid`) foi removido junto com o backend legado.
 - **Sessão:** JWT RS256 de acesso (cookie `at`/`__Host-at`) + refresh token opaco rotativo (cookie `rt`/`__Secure-rt`, só em `/auth`).
   Os serviços validam o JWT pelo JWKS; a revogação imediata é checada pelo `forward_auth` no gateway.
 - **Eventos:** exchange topic `socialflux.events`, routing key = tipo do evento, outbox transacional no produtor, inbox

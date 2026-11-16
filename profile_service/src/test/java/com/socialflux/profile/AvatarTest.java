@@ -43,7 +43,7 @@ class AvatarTest extends AbstractProfileTest {
     void uploadsAreReEncodedToASquareJpegServedWithSafeHeaders() throws Exception {
         Account account = createActive(uniqueUsername());
 
-        Response response = upload(account, String.valueOf(account.legacyId()), png(300, 200, true), "minha.png", Map.of());
+        Response response = upload(account, String.valueOf(account.id()), png(300, 200, true), "minha.png", Map.of());
         assertThat(response.status()).as(response.body()).isEqualTo(200);
         String key = (String) response.json().get("foto_perfil");
         assertThat(key).matches(KEY_FORMAT);
@@ -73,10 +73,10 @@ class AvatarTest extends AbstractProfileTest {
         String victim = "av_" + UUID.randomUUID() + ".jpg";                    // objeto de OUTRA pessoa no mesmo bucket
         mediaStorage.put(BUCKET, victim, new byte[]{1, 2, 3}, "image/jpeg");
 
-        String first = (String) upload(account, String.valueOf(account.legacyId()), png(64, 64, false), "a.png", Map.of())
+        String first = (String) upload(account, String.valueOf(account.id()), png(64, 64, false), "a.png", Map.of())
                 .json().get("foto_perfil");
         // O legado apagava qualquer arquivo indicado em `foto_antiga` (path traversal). Aqui o campo é ignorado.
-        Response second = upload(account, String.valueOf(account.legacyId()), png(80, 80, false), "b.png",
+        Response second = upload(account, String.valueOf(account.id()), png(80, 80, false), "b.png",
                 Map.of("foto_antiga", victim, "foto_antiga2", "../" + first));
         assertThat(second.status()).isEqualTo(200);
         String secondKey = (String) second.json().get("foto_perfil");
@@ -93,17 +93,17 @@ class AvatarTest extends AbstractProfileTest {
         Account a = createActive(uniqueUsername());
         Account b = createActive(uniqueUsername());
 
-        Response attack = upload(a, String.valueOf(b.legacyId()), png(64, 64, false), "x.png", Map.of());
+        Response attack = upload(a, String.valueOf(b.id()), png(64, 64, false), "x.png", Map.of());
         assertThat(attack.status()).isEqualTo(403);
         assertThat(http().get("/api/usuarios/me", b.token()).json().get("foto_perfil")).isNull();
-        assertThat(http().multipart("PATCH", "/api/img/usuarios/" + a.legacyId(), null, "foto_perfil", "x.png",
+        assertThat(http().multipart("PATCH", "/api/img/usuarios/" + a.id(), null, "foto_perfil", "x.png",
                 "image/png", png(64, 64, false), Map.of()).status()).isEqualTo(401);
     }
 
     @Test
     void rejectsFakeCorruptAndOversizedImages() throws Exception {
         Account account = createActive(uniqueUsername());
-        String id = String.valueOf(account.legacyId());
+        String id = String.valueOf(account.id());
 
         // Texto com extensão/Content-Type de imagem (o legado só olhava a extensão)
         Response fake = upload(account, id, text("<html><script>alert(1)</script></html>"), "x.png", Map.of());
@@ -147,7 +147,7 @@ class AvatarTest extends AbstractProfileTest {
         ByteArrayOutputStream jpeg = new ByteArrayOutputStream();
         ImageIO.write(stored, "jpeg", jpeg);
 
-        Response response = upload(account, String.valueOf(account.legacyId()), withOrientation(jpeg.toByteArray(), 6),
+        Response response = upload(account, String.valueOf(account.id()), withOrientation(jpeg.toByteArray(), 6),
                 "foto.jpg", Map.of());
         assertThat(response.status()).as(response.body()).isEqualTo(200);
         String key = (String) response.json().get("foto_perfil");
@@ -163,7 +163,7 @@ class AvatarTest extends AbstractProfileTest {
         try (var in = AvatarTest.class.getResourceAsStream("/fixtures/foto.webp")) {
             webp = in.readAllBytes();
         }
-        Response response = upload(account, String.valueOf(account.legacyId()), webp, "foto.webp", Map.of());
+        Response response = upload(account, String.valueOf(account.id()), webp, "foto.webp", Map.of());
         assertThat(response.status()).as(response.body()).isEqualTo(200);
         byte[] served = http().get("/media/avatars/" + response.json().get("foto_perfil"), null).bytes();
         assertThat(served[0] & 0xFF).isEqualTo(0xFF);   // sempre JPEG

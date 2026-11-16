@@ -9,7 +9,7 @@ Plano completo: [`../docs/plano-dominio-identidade-servico-proprio.md`](../docs/
 
 | Item | Decisão |
 | --- | --- |
-| Token de acesso | JWT **RS256**, **2 h** (`JWT_ACCESS_TTL`), `sub` = **UUIDv7 da conta**, claims mínimas (`sid`, `roles`, `ver`, `jti`, `aud`, `iss`; `legacy_uid` temporária) |
+| Token de acesso | JWT **RS256**, **2 h** (`JWT_ACCESS_TTL`), `sub` = **UUIDv7 da conta**, claims mínimas (`sid`, `roles`, `ver`, `jti`, `aud`, `iss`) |
 | Refresh token | Opaco, **rotativo** (cada uso gera outro; reuso fora da tolerância revoga a sessão inteira); só o hash SHA-256 fica no banco |
 | Sessão deslizante | O usuário continua logado se agir de `exp − 10 min` até `exp + 5 min` (`JWT_RENEW_WINDOW`/`JWT_REFRESH_GRACE`); limite absoluto de 7 dias (`SESSION_ABSOLUTE_MAX`) |
 | Cookies | `HttpOnly`; acesso: `Path=/`, `SameSite=Lax`; refresh: `Path=/auth`, `SameSite=Strict`. Em produção: `__Host-at` / `__Secure-rt` + `Secure` |
@@ -33,7 +33,7 @@ Plano completo: [`../docs/plano-dominio-identidade-servico-proprio.md`](../docs/
 | `/auth/change-password` | POST | Troca a senha, encerra as outras sessões e mantém esta |
 | `/auth/account` | DELETE | Exclui a conta (exige a senha) e publica `account.deleted.v1` (o profile_service apaga o perfil) |
 | `/.well-known/jwks.json` | GET | Chaves públicas |
-| `/internal/auth/verify` | GET | **forward_auth do gateway**: `204` + `X-Account-Id`/`X-User-Id` ou `401`. Bloqueado ao público |
+| `/internal/auth/verify` | GET | **forward_auth do gateway**: `204` + `X-Account-Id` ou `401`. Bloqueado ao público |
 
 Erros: `{ "mensagem": "...", "sucesso": false, "codigo": "..." }`.
 
@@ -51,7 +51,7 @@ Os testes de integração usam um **PostgreSQL real embutido** (zonky), sem prec
 mvn test        # na pasta do serviço, depois de instalar a biblioteca: mvn -f ../libs/socialflux-events/pom.xml install
 # ou, na raiz: mvn -pl authentication_service -am test
 ```
-E há um servidor de desenvolvimento com Postgres embutido, chave efêmera, perfil legado em memória e e-mails no log:
+E há um servidor de desenvolvimento com Postgres embutido, chave efêmera, perfil em memória e e-mails no log:
 ```bash
 mvn -q test-compile dependency:build-classpath -Dmdep.outputFile=target/cp.txt -Dmdep.includeScope=test
 java -cp "target/test-classes;target/classes;$(cat target/cp.txt)" com.socialflux.auth.DevServer   # (use ':' no Linux/macOS)
@@ -95,7 +95,7 @@ com permissão restrita; não exponha `env`/`configprops` no Actuator (já só `
 1. `POST /auth/register` valida e-mail e senha e gera o UUID da conta.
 2. Chama `PUT /internal/profiles/{uuid}` no `profile_service` com um **token de serviço** (JWT RS256 de 5 min, `sub=svc:authentication-service`,
    `aud=profile-service`, `scope=profiles:write profiles:read`, assinado com a mesma chave do JWKS). O profile valida username, nome,
-   telefone, sexo e idade e devolve o `legacyId` (id inteiro temporário, gravado em `account.legacy_user_id` e na claim `legacy_uid`).
+   telefone, sexo e idade (o UUID da conta é o id do perfil).
    Erros 4xx do perfil chegam ao frontend com o mesmo `codigo`/`mensagem` (`username_taken`, `underage`...); indisponibilidade vira `503 profile_unavailable`.
 3. Grava a conta e o evento `account.registered.v1` na **mesma transação** (outbox). Se isso falhar, o perfil é removido (compensação;
    também quando a resposta do perfil se perde por timeout). O evento confirma o perfil (`PENDING → ACTIVE`).

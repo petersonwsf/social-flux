@@ -64,8 +64,8 @@ profile_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `Profile.java` | Entidade `profile`: UUID (= conta), `legacy_id`, username, nome de exibição, bio, chave do avatar, privado, dados pessoais (telefone, sexo, nascimento), status, versão e datas |
-| `ProfileRepository.java` | Busca por username / id legado / ids, perfis pendentes antigos e a pesquisa por username/nome ordenada por relevância (curingas escapados) |
+| `Profile.java` | Entidade `profile`: UUID (= conta), username, nome de exibição, bio, chave do avatar, privado, dados pessoais (telefone, sexo, nascimento), status, versão e datas |
+| `ProfileRepository.java` | Busca por username / ids, perfis pendentes antigos e a pesquisa por username/nome ordenada por relevância (curingas escapados) |
 | `ProfileStatus.java` | Enum `PENDING` (aguardando `account.registered.v1`), `ACTIVE`, `DELETED` (dados pessoais apagados) |
 
 ### `events/`
@@ -123,7 +123,8 @@ profile_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `V1__profile.sql` | Sequence `legacy_id_seq` (temporária) e tabelas `profile`, `outbox_event`, `processed_message` |
+| `V1__profile.sql` | Tabelas `profile`, `outbox_event`, `processed_message` (e a sequence `legacy_id_seq`, removida na V2) |
+| `V2__remove_legacy_id.sql` | Remove `profile.legacy_id` e a sequence `legacy_id_seq`: o id inteiro temporário não existe mais, só o UUID |
 
 ### `src/test/java/com/socialflux/profile/`
 

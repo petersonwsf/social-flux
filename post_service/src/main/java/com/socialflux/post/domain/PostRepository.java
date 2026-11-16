@@ -54,7 +54,7 @@ public class PostRepository {
     private static final String VIEW_COLUMNS = """
             p.id, p.author_id, p.parent_id, p.body, p.image_key, p.image_kind, p.image_width, p.image_height,
             p.likes_count, p.replies_count, p.created_at,
-            a.user_id, a.legacy_id, a.username, a.display_name, a.avatar_key, a.is_private, a.status, a.profile_version,
+            a.user_id, a.username, a.display_name, a.avatar_key, a.is_private, a.status, a.profile_version,
             case when pa.user_id is not null and %s then pa.username end as parent_username,
             exists (select 1 from post_like l where l.post_id = p.id and l.user_id = :viewer) as liked
             """.formatted(visible("pa", "fe_parent"));

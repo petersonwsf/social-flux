@@ -14,8 +14,7 @@ public final class Dtos {
 
     /** Visão pública de um usuário nas listas: mesmos campos do perfil público, sem nenhum dado pessoal. */
     public record User(
-            Integer id,
-            String accountId,
+            String id,
             String username,
             String nome,
             String foto_perfil,
@@ -23,7 +22,7 @@ public final class Dtos {
             Boolean privado) {
 
         public static User of(UserSnapshot s) {
-            return new User(s.legacyId(), s.userId().toString(), s.username(), s.displayName(), s.avatarKey(),
+            return new User(s.userId().toString(), s.username(), s.displayName(), s.avatarKey(),
                     s.avatarKey() == null ? null : "/media/avatars/" + s.avatarKey(), s.isPrivate());
         }
     }

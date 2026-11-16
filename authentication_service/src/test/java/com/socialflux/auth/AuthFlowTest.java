@@ -68,7 +68,6 @@ class AuthFlowTest extends AbstractIntegrationTest {
         assertThat(Duration.ofMillis(ttl)).isEqualTo(Duration.ofHours(2));
         assertThat(jwt.getJWTClaimsSet().getStringListClaim("roles")).containsExactly("USER");
         assertThat(jwt.getJWTClaimsSet().getLongClaim("ver")).isEqualTo(1L);
-        assertThat(jwt.getJWTClaimsSet().getLongClaim("legacy_uid")).isNotNull();
         assertThat(jwt.getJWTClaimsSet().getClaims()).doesNotContainKeys("email", "nome", "telefone");
 
         // A assinatura confere com a chave pública publicada no JWKS
@@ -468,7 +467,7 @@ class AuthFlowTest extends AbstractIntegrationTest {
         // Via cookie (navegador) e via Bearer (serviço-a-serviço / Caddy)
         Response viaCookie = api().get("/internal/auth/verify", jar);
         assertThat(viaCookie.status()).isEqualTo(204);
-        assertThat(viaCookie.header("X-User-Id")).matches("\\d+");
+        assertThat(viaCookie.header("X-User-Id")).isNull();   // o id inteiro legado não existe mais
         assertThat(viaCookie.header("X-Account-Id")).isNotBlank();
 
         Response viaBearer = api().send("GET", "/internal/auth/verify", null, null,

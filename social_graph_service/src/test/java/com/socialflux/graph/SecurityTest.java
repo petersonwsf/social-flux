@@ -84,8 +84,8 @@ class SecurityTest extends AbstractGraphTest {
         TestUser carla = newUser();
 
         // Corpo tentando fazer "carla" seguir "bia" em nome dela, e forjar "privado": tudo é ignorado
-        String forged = "{\"seguidor\":\"" + carla.id + "\",\"user\":{\"id\":" + carla.legacyId + "},"
-                + "\"profileUser\":{\"id\":" + bia.legacyId + ",\"privado\":false},\"aceito\":true}";
+        String forged = "{\"seguidor\":\"" + carla.id + "\",\"user\":{\"id\":\"" + carla.id + "\"},"
+                + "\"profileUser\":{\"id\":\"" + bia.id + "\",\"privado\":false},\"aceito\":true}";
         Response response = http().send("PUT", "/api/relacoes/seguindo/" + bia.path(), forged, ana.token);
 
         assertThat(response.status()).isEqualTo(201);
@@ -159,7 +159,7 @@ class SecurityTest extends AbstractGraphTest {
 
         String body = get(pub, "/api/relacoes/" + pub.path() + "/seguidores").body();
 
-        assertThat(body).contains(ana.username).contains("accountId").contains("foto_perfil");
+        assertThat(body).contains(ana.username).contains("\"id\"").contains("foto_perfil");
         assertThat(body).doesNotContain("telefone").doesNotContain("email").doesNotContain("data_nascimento")
                 .doesNotContain("sexo").doesNotContain("senha");
     }

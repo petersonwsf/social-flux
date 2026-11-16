@@ -45,9 +45,6 @@ public class Account {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
-    @Column(name = "legacy_user_id", unique = true)
-    private Integer legacyUserId;
-
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -86,8 +83,6 @@ public class Account {
     public void setTokenVersionChangedAt(Instant value) { this.tokenVersionChangedAt = value; }
     public Instant getLastLoginAt() { return lastLoginAt; }
     public void setLastLoginAt(Instant lastLoginAt) { this.lastLoginAt = lastLoginAt; }
-    public Integer getLegacyUserId() { return legacyUserId; }
-    public void setLegacyUserId(Integer legacyUserId) { this.legacyUserId = legacyUserId; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }

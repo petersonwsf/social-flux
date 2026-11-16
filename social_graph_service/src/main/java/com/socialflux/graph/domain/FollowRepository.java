@@ -16,7 +16,7 @@ public class FollowRepository {
     public record Counts(long followers, long following, long pending) {
     }
 
-    private static final String USER_COLUMNS = "u.user_id, u.legacy_id, u.username, u.display_name, u.avatar_key, "
+    private static final String USER_COLUMNS = "u.user_id, u.username, u.display_name, u.avatar_key, "
             + "u.is_private, u.status, u.profile_version";
 
     private final JdbcClient jdbc;

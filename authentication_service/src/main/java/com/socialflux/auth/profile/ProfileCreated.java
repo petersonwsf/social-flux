@@ -1,5 +1,5 @@
 package com.socialflux.auth.profile;
 
-/** {@code legacyId}: id inteiro do perfil (TEMPORÁRIO, enquanto houver domínios no backend legado). */
-public record ProfileCreated(int legacyId, boolean created) {
+/** Resultado da criação do perfil: {@code created} é falso quando o perfil já existia (a chamada é idempotente). */
+public record ProfileCreated(boolean created) {
 }

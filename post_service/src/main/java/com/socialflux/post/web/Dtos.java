@@ -15,8 +15,7 @@ public final class Dtos {
 
     /** Autor: mesmos campos do perfil público e das listas do grafo, sem nenhum dado pessoal. */
     public record Author(
-            Integer id,
-            String accountId,
+            String id,
             String username,
             String nome,
             String foto_perfil,
@@ -24,7 +23,7 @@ public final class Dtos {
             boolean privado) {
 
         public static Author of(AuthorSnapshot s) {
-            return new Author(s.legacyId(), s.userId().toString(), s.username(), s.displayName(), s.avatarKey(),
+            return new Author(s.userId().toString(), s.username(), s.displayName(), s.avatarKey(),
                     s.avatarKey() == null ? null : "/media/avatars/" + s.avatarKey(), s.isPrivate());
         }
     }

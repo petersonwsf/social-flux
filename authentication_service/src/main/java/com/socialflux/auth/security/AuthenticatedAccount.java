@@ -8,7 +8,6 @@ import java.util.UUID;
 public record AuthenticatedAccount(
         UUID accountId,
         UUID sessionId,
-        Integer legacyUserId,
         Set<String> roles,
         int tokenVersion,
         Instant expiresAt) {

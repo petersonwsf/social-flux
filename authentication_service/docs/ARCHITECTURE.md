@@ -66,7 +66,7 @@ authentication_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `Account.java` | Entidade `account`: UUID, e-mail, hash da senha, e-mail verificado, status, `token_version` (revogação), id legado, datas |
+| `Account.java` | Entidade `account`: UUID, e-mail, hash da senha, e-mail verificado, status, `token_version` (revogação), datas |
 | `AccountRepository.java` | Busca por e-mail, contas com versão de token alterada recentemente e expurgo de contas excluídas |
 | `AccountStatus.java` | Enum `ACTIVE`, `DISABLED`, `DELETED` |
 | `RefreshToken.java` | Entidade `refresh_token`: família (sessão), hash SHA-256, emissão/expiração, rotação e motivo de revogação |
@@ -97,7 +97,7 @@ fica pendente). `AccountService` grava `account.registered.v1` e `account.delete
 | `ProfileClient.java` | Implementação HTTP (`PUT`/`DELETE /internal/profiles/{uuid}`) com timeouts curtos; repassa erros 4xx com o mesmo código e converte indisponibilidade em `503 profile_unavailable` |
 | `ServiceTokenIssuer.java` | Emite o token de serviço (JWT RS256 de 5 min, `sub=svc:authentication-service`, `aud=profile-service`, `scope` explícito), com reutilização enquanto válido |
 | `NewProfile.java` | Dados de perfil informados no cadastro (username, nome, telefone, sexo, nascimento) |
-| `ProfileCreated.java` | Resposta da criação: `legacyId` (id inteiro temporário) e se foi criado agora |
+| `ProfileCreated.java` | Resposta da criação: se o perfil foi criado agora (a chamada é idempotente) |
 
 ### `security/`
 
@@ -107,7 +107,7 @@ fica pendente). `AccountService` grava `account.registered.v1` e `account.delete
 | `BearerAuthenticationFilter.java` | Autentica pelo JWT em `Authorization: Bearer` ou no cookie de acesso; checa assinatura, validade e revogação |
 | `OriginCheckFilter.java` | Defesa CSRF em métodos não seguros: rejeita `Sec-Fetch-Site: cross-site` e `Origin` fora da lista |
 | `AccountAuthentication.java` | `Authentication` do Spring já validada, com papéis `ROLE_*` |
-| `AuthenticatedAccount.java` | Identidade extraída do token: conta, sessão, id legado, papéis, versão do token, expiração |
+| `AuthenticatedAccount.java` | Identidade extraída do token: conta, sessão, papéis, versão do token, expiração |
 
 ### `service/`
 
@@ -137,7 +137,7 @@ fica pendente). `AccountService` grava `account.registered.v1` e `account.delete
 | Arquivo | O que representa |
 | --- | --- |
 | `AuthController.java` | API pública `/auth/*`: register, login, refresh, logout, logout-all, me, verify-email, resend-verification, forgot-password, reset-password, change-password, `DELETE /account` |
-| `InternalAuthController.java` | `GET /internal/auth/verify` — `forward_auth` do gateway: `204` + `X-Account-Id`/`X-User-Id` ou `401` |
+| `InternalAuthController.java` | `GET /internal/auth/verify` — `forward_auth` do gateway: `204` + `X-Account-Id` ou `401` |
 | `JwksController.java` | `GET /.well-known/jwks.json` — chaves públicas, com cache de 5 min |
 | `SessionCookies.java` | Monta/limpa os cookies de acesso (`Path=/`, `SameSite=Lax`) e de refresh (`Path=/auth`, `SameSite=Strict`) |
 | `Dtos.java` | Records de requisição/resposta com validação (campos em português/snake_case do contrato do frontend) |
@@ -152,6 +152,7 @@ fica pendente). `AccountService` grava `account.registered.v1` e `account.delete
 | `application.yml` | Datasource, JPA (`ddl-auto: validate`), Flyway, SMTP, RabbitMQ, Actuator (só `health`) e o bloco `auth.*` |
 | `db/migration/V1__identity.sql` | Tabelas `account`, `account_role`, `refresh_token`, `email_token`, `audit_event` |
 | `db/migration/V2__outbox.sql` | Tabela `outbox_event` |
+| `db/migration/V3__remove_legacy_user_id.sql` | Remove `account.legacy_user_id`: o id inteiro temporário não existe mais, só o UUID (`sub`) |
 
 ### `src/test/java/com/socialflux/auth/`
 

@@ -19,7 +19,6 @@
 
 :80 {
 	# Nunca confiar em identidade vinda do cliente: estes cabeçalhos só podem ser definidos pelo forward_auth.
-	request_header -X-User-Id
 	request_header -X-Account-Id
 
 	# Rotas entre serviços nunca saem pelo gateway. Precisa ser um `handle` (e vir primeiro): um `respond` solto perde para o

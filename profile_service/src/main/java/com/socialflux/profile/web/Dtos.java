@@ -18,8 +18,7 @@ public final class Dtos {
 
     /** Visão pública: o que QUALQUER usuário autenticado pode ver. Nunca contém dados pessoais. */
     public record PublicProfile(
-            Integer id,
-            String accountId,
+            String id,
             String username,
             String nome,
             String biografia,
@@ -28,15 +27,14 @@ public final class Dtos {
             Boolean privado) {
 
         public static PublicProfile of(Profile p) {
-            return new PublicProfile(p.getLegacyId(), p.getId().toString(), p.getUsername(), p.getDisplayName(),
+            return new PublicProfile(p.getId().toString(), p.getUsername(), p.getDisplayName(),
                     p.getBio(), p.getAvatarKey(), AvatarKeys.urlOf(p.getAvatarKey()), p.isPrivate());
         }
     }
 
     /** Visão do dono: pública + dados pessoais que só ele enxerga. */
     public record OwnerProfile(
-            Integer id,
-            String accountId,
+            String id,
             String username,
             String nome,
             String biografia,
@@ -49,7 +47,7 @@ public final class Dtos {
             LocalDate data_criacao) {
 
         public static OwnerProfile of(Profile p) {
-            return new OwnerProfile(p.getLegacyId(), p.getId().toString(), p.getUsername(), p.getDisplayName(),
+            return new OwnerProfile(p.getId().toString(), p.getUsername(), p.getDisplayName(),
                     p.getBio(), p.getAvatarKey(), AvatarKeys.urlOf(p.getAvatarKey()), p.isPrivate(),
                     p.getPhone(), p.getSex(), p.getBirthDate(),
                     p.getCreatedAt().atZone(java.time.ZoneOffset.UTC).toLocalDate());
@@ -72,7 +70,7 @@ public final class Dtos {
             @NotNull(message = "Informe a data de nascimento") LocalDate data_nascimento) {
     }
 
-    public record CreateProfileResponse(String accountId, int legacyId, boolean created) {
+    public record CreateProfileResponse(String accountId, boolean created) {
     }
 
     public record BatchRequest(@NotNull @Size(max = 200) List<UUID> ids) {

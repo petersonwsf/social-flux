@@ -180,9 +180,6 @@ public class TokenService {
                 .claim("sid", sessionId.toString())
                 .claim("roles", roles)
                 .claim("ver", account.getTokenVersion());
-        if (account.getLegacyUserId() != null) {
-            claims.claim("legacy_uid", account.getLegacyUserId()); // TEMPORÁRIA, removida quando Perfil migrar
-        }
 
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).type("JWT").build();
         return encoder.encode(JwtEncoderParameters.from(header, claims.build())).getTokenValue();

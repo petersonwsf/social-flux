@@ -36,7 +36,7 @@ class ServiceTokenTest extends AbstractIntegrationTest {
         assertThat(claims.getAudience()).containsExactly("profile-service");     // não serve na API pública
         assertThat(claims.getIssuer()).isEqualTo("http://auth.test");
         assertThat(claims.getStringClaim("scope")).isEqualTo("profiles:write profiles:read");
-        assertThat(claims.getClaims()).doesNotContainKeys("roles", "sid", "ver", "legacy_uid");
+        assertThat(claims.getClaims()).doesNotContainKeys("roles", "sid", "ver");
         long ttl = claims.getExpirationTime().getTime() - claims.getIssueTime().getTime();
         assertThat(Duration.ofMillis(ttl)).isEqualTo(Duration.ofMinutes(5));
 

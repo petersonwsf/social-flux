@@ -18,7 +18,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @TestConfiguration
 public class TestSupportConfig {
@@ -86,7 +85,6 @@ public class TestSupportConfig {
      */
     public static class FakeProfile implements ProfilePort {
 
-        private final AtomicInteger ids = new AtomicInteger(1000);
         private final Map<UUID, NewProfile> profiles = new ConcurrentHashMap<>();
         public final Set<UUID> discarded = ConcurrentHashMap.newKeySet();
         public volatile String rejectUsername;       // -> 409 username_taken
@@ -110,7 +108,7 @@ public class TestSupportConfig {
             if (profile.username().equals(timeoutAfterCreateForUsername)) {
                 throw new ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "profile_unavailable", "timeout");
             }
-            return new ProfileCreated(ids.incrementAndGet(), true);
+            return new ProfileCreated(true);
         }
 
         @Override

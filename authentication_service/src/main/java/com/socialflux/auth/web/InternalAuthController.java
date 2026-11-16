@@ -9,11 +9,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Endpoint de {@code forward_auth} do gateway (Caddy). Valida o token (assinatura, validade, audiência e revogação)
- * e devolve a identidade em cabeçalhos para os serviços legados:
- * <ul>
- *   <li>{@code X-Account-Id}: UUID da conta ({@code sub});</li>
- *   <li>{@code X-User-Id}: id inteiro do perfil legado (TEMPORÁRIO) — ausente se a conta não tem perfil legado.</li>
- * </ul>
+ * e devolve a identidade no cabeçalho {@code X-Account-Id} (o UUID da conta, o {@code sub}).
+ * Os serviços não dependem dele: validam o JWT sozinhos e identificam o usuário pelo {@code sub}.
  * NÃO deve ser acessível pela internet: o Caddy bloqueia {@code /internal/*}.
  */
 @RestController
@@ -23,9 +20,6 @@ public class InternalAuthController {
     ResponseEntity<Void> verify(@AuthenticationPrincipal AuthenticatedAccount principal) {
         ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.NO_CONTENT);
         response.header("X-Account-Id", principal.accountId().toString());
-        if (principal.legacyUserId() != null) {
-            response.header("X-User-Id", String.valueOf(principal.legacyUserId()));
-        }
         return response.build();
     }
 }

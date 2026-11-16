@@ -33,7 +33,7 @@ post_service/
     │   └── events/               filas, listeners e tratadores de eventos consumidos
     ├── main/resources/
     │   ├── application.yml       datasource, multipart (8/9 MB), Tomcat (swallow 16 MB), RabbitMQ, socialflux.events/media e bloco `post.*`
-    │   └── db/migration/V1__post.sql
+    │   └── db/migration/        V1__post.sql e V2__remove_legacy_id.sql (remove `author_snapshot.legacy_id`)
     └── test/java/com/socialflux/post/
 ```
 
@@ -95,7 +95,7 @@ post_service/
 | `AuthorSnapshot.java` | Cópia pública do perfil de um autor (`ACTIVE`/`DELETED`) |
 | `FollowEdgeRepository.java` | `follow_edge` (upsert pela aresta mais nova, remoção só do mesmo vínculo) e `follow_removed` (túmulos, poda) |
 | `Cursor.java` | Cursor opaco `(created_at, id)` em base64url; adulterado = 400 |
-| `UserRef.java` | Autor na URL: UUID ou id inteiro legado |
+| `UserRef.java` | Autor na URL: o UUID da conta |
 
 ### `events/`
 

@@ -16,18 +16,17 @@ profile_service ──profile.created|updated|privacy-changed|deleted.v1 (Rabbit
 ```
 
 - **Identidade:** o perfil tem o **mesmo UUID da conta** (`sub` do JWT). O serviço **nunca** usa um id vindo do cliente
-  como autoridade: a rota `PATCH /api/usuarios/{id}` só aceita o `id` do próprio usuário autenticado (inteiro legado ou UUID)
+  como autoridade: a rota `PATCH /api/usuarios/{id}` só aceita o `id` (UUID) do próprio usuário autenticado
   e ignora o `id` do corpo.
-- **Quem vê o quê (D3/D9):** qualquer usuário autenticado vê a visão **pública** (`id`, `accountId`, `username`, `nome`,
+- **Quem vê o quê (D3/D9):** qualquer usuário autenticado vê a visão **pública** (`id` = UUID da conta, `username`, `nome`,
   `biografia`, `foto_perfil`, `foto_url`, `privado`) — inclusive de contas privadas; **telefone, sexo e data de nascimento só o
   dono** vê (`GET /api/usuarios/me` e a própria visão em `GET /api/usuarios`). E-mail pertence ao authentication_service.
-- **Id inteiro (`id`):** temporário, só para os domínios ainda no backend legado (MySQL). `legacy_id` vem de uma sequence.
 
 ## API pública (mesmo contrato que o frontend usava)
 
 | Rota | Descrição |
 | --- | --- |
-| `GET /api/usuarios?username=` / `?id=` | Perfil (público; do dono inclui dados pessoais). `id` aceita o inteiro legado ou o UUID. 404 uniforme |
+| `GET /api/usuarios?username=` / `?id=` | Perfil (público; do dono inclui dados pessoais). `id` é o UUID da conta (outro formato: 400). 404 uniforme |
 | `GET /api/usuarios/me` | Perfil do usuário logado |
 | `GET /api/usuarios/search?search=` | 2–50 caracteres, curingas do `LIKE` escapados, ordenado por relevância, máx. 10, 60/min por usuário |
 | `PATCH /api/usuarios/{id}` | `username`, `nome`, `biografia`, `privado` (todos opcionais). Username é livre (D7), 3–30 chars `a-z0-9._` |
@@ -40,7 +39,7 @@ Erros: `{ "mensagem", "sucesso": false, "codigo" }`.
 
 | Rota | Escopo | Descrição |
 | --- | --- | --- |
-| `PUT /internal/profiles/{uuid}` | `profiles:write` | Criação idempotente no cadastro (o auth chama). Devolve `legacyId` |
+| `PUT /internal/profiles/{uuid}` | `profiles:write` | Criação idempotente no cadastro (o auth chama). Devolve `{ accountId, created }` |
 | `DELETE /internal/profiles/{uuid}` | `profiles:write` | Compensação: só perfis ainda `PENDING` |
 | `GET /internal/profiles/{uuid}`, `POST /internal/profiles/batch-get` | `profiles:read` | Visão pública |
 | `GET /internal/profiles?cursor=&limit=` | `profiles:read` | **Bootstrap** de novos consumidores (cópia local), paginado |

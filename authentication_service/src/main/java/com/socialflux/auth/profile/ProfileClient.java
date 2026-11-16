@@ -61,7 +61,7 @@ public class ProfileClient implements ProfilePort {
             throw translate(result);
         }
         JsonNode json = mapper.readTree(result.body());
-        return new ProfileCreated(json.path("legacyId").asInt(), json.path("created").asBoolean());
+        return new ProfileCreated(json.path("created").asBoolean());
     }
 
     @Override

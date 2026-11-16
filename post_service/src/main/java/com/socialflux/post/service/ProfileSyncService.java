@@ -67,7 +67,7 @@ public class ProfileSyncService {
             return;   // duplicado ou mais antigo que o já aplicado (inclui o "túmulo" de uma conta excluída)
         }
         JsonNode data = event.data();
-        AuthorSnapshot next = new AuthorSnapshot(id, legacyId(data), data.path("username").asString(),
+        AuthorSnapshot next = new AuthorSnapshot(id, data.path("username").asString(),
                 data.path("displayName").asString(), nullable(data.path("avatarKey")),
                 data.path("isPrivate").asBoolean(), AuthorSnapshot.ACTIVE, event.aggregateVersion());
         if (current.isPresent()) {
@@ -88,7 +88,7 @@ public class ProfileSyncService {
         if (before.isPrivate() == isPrivate) {
             return;
         }
-        authors.update(new AuthorSnapshot(before.userId(), before.legacyId(), before.username(), before.displayName(),
+        authors.update(new AuthorSnapshot(before.userId(), before.username(), before.displayName(),
                 before.avatarKey(), isPrivate, before.status(), event.aggregateVersion()), now());
     }
 
@@ -101,11 +101,11 @@ public class ProfileSyncService {
         long version = Math.max(event.aggregateVersion(), current.map(AuthorSnapshot::profileVersion).orElse(0L));
         if (current.isPresent()) {
             AuthorSnapshot s = current.get();
-            authors.update(new AuthorSnapshot(id, s.legacyId(), s.username(), s.displayName(), null, s.isPrivate(),
+            authors.update(new AuthorSnapshot(id, s.username(), s.displayName(), null, s.isPrivate(),
                     AuthorSnapshot.DELETED, version), now());
         } else {
             // Chegou antes do profile.created: guarda um "túmulo" para que um created atrasado (versão menor) não reviva a conta.
-            authors.insert(new AuthorSnapshot(id, null, "excluido-" + id, "", null, false, AuthorSnapshot.DELETED, version),
+            authors.insert(new AuthorSnapshot(id, "excluido-" + id, "", null, false, AuthorSnapshot.DELETED, version),
                     now());
         }
         edges.deleteAllOf(id);
@@ -130,11 +130,6 @@ public class ProfileSyncService {
 
     private OffsetDateTime now() {
         return OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
-    }
-
-    private static Integer legacyId(JsonNode data) {
-        JsonNode node = data.path("legacyId");
-        return node.isMissingNode() || node.isNull() ? null : node.asInt();
     }
 
     private static String nullable(JsonNode node) {

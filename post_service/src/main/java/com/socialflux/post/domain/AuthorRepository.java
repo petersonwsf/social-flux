@@ -13,10 +13,9 @@ import java.util.UUID;
 @Repository
 public class AuthorRepository {
 
-    static final String COLUMNS = "user_id, legacy_id, username, display_name, avatar_key, is_private, status, profile_version";
+    static final String COLUMNS = "user_id, username, display_name, avatar_key, is_private, status, profile_version";
     static final RowMapper<AuthorSnapshot> MAPPER = (rs, n) -> new AuthorSnapshot(
             rs.getObject("user_id", UUID.class),
-            rs.getObject("legacy_id", Integer.class),
             rs.getString("username"),
             rs.getString("display_name"),
             rs.getString("avatar_key"),
@@ -33,11 +32,6 @@ public class AuthorRepository {
     public Optional<AuthorSnapshot> find(UUID userId) {
         return jdbc.sql("select " + COLUMNS + " from author_snapshot where user_id = :id")
                 .param("id", userId).query(MAPPER).optional();
-    }
-
-    public Optional<AuthorSnapshot> findByLegacyId(int legacyId) {
-        return jdbc.sql("select " + COLUMNS + " from author_snapshot where legacy_id = :id")
-                .param("id", legacyId).query(MAPPER).optional();
     }
 
     /**
@@ -62,20 +56,20 @@ public class AuthorRepository {
     }
 
     public void insert(AuthorSnapshot s, OffsetDateTime now) {
-        jdbc.sql("insert into author_snapshot (user_id, legacy_id, username, display_name, avatar_key, is_private, status, "
-                        + "profile_version, updated_at) values (:id, :legacy, :username, :display, :avatar, :private, "
+        jdbc.sql("insert into author_snapshot (user_id, username, display_name, avatar_key, is_private, status, "
+                        + "profile_version, updated_at) values (:id, :username, :display, :avatar, :private, "
                         + ":status, :version, :now)")
-                .param("id", s.userId()).param("legacy", s.legacyId()).param("username", s.username())
+                .param("id", s.userId()).param("username", s.username())
                 .param("display", s.displayName()).param("avatar", s.avatarKey()).param("private", s.isPrivate())
                 .param("status", s.status()).param("version", s.profileVersion()).param("now", now)
                 .update();
     }
 
     public void update(AuthorSnapshot s, OffsetDateTime now) {
-        jdbc.sql("update author_snapshot set legacy_id = :legacy, username = :username, display_name = :display, "
+        jdbc.sql("update author_snapshot set username = :username, display_name = :display, "
                         + "avatar_key = :avatar, is_private = :private, status = :status, profile_version = :version, "
                         + "updated_at = :now where user_id = :id")
-                .param("id", s.userId()).param("legacy", s.legacyId()).param("username", s.username())
+                .param("id", s.userId()).param("username", s.username())
                 .param("display", s.displayName()).param("avatar", s.avatarKey()).param("private", s.isPrivate())
                 .param("status", s.status()).param("version", s.profileVersion()).param("now", now)
                 .update();

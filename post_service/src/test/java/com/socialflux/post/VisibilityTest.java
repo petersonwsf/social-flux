@@ -47,11 +47,10 @@ class VisibilityTest extends AbstractPostTest {
         String path = "/api/postagens?autor=" + s.owner().id;
         assertThat(ids(get(s.owner(), path))).containsExactly(s.post());
         assertThat(ids(get(s.follower(), path))).containsExactly(s.post());
-        assertThat(ids(get(s.follower(), "/api/postagens?autor=" + s.owner().legacyId))).containsExactly(s.post());
         Http.Response forbidden = get(s.stranger(), path);
         assertThat(forbidden.status()).isEqualTo(403);
         assertThat(forbidden.json()).containsEntry("codigo", "conta_privada");
-        assertThat(get(s.stranger(), "/api/postagens?autor=999999999").status()).isEqualTo(404);
+        assertThat(get(s.stranger(), "/api/postagens?autor=999999999").status()).isEqualTo(400);   // id inteiro: só UUID
         assertThat(get(s.stranger(), "/api/postagens").status()).isEqualTo(400);
     }
 

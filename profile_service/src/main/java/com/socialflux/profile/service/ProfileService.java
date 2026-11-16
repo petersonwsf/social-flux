@@ -10,7 +10,6 @@ import com.socialflux.profile.web.ApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -54,14 +53,12 @@ public class ProfileService {
     private final ProfileRepository profiles;
     private final Outbox outbox;
     private final StorageService storage;
-    private final JdbcClient jdbc;
     private final Clock clock;
 
-    public ProfileService(ProfileRepository profiles, Outbox outbox, StorageService storage, JdbcClient jdbc, Clock clock) {
+    public ProfileService(ProfileRepository profiles, Outbox outbox, StorageService storage, Clock clock) {
         this.profiles = profiles;
         this.outbox = outbox;
         this.storage = storage;
-        this.jdbc = jdbc;
         this.clock = clock;
     }
 
@@ -88,8 +85,7 @@ public class ProfileService {
         if (profiles.existsByUsername(username)) {
             throw usernameTaken("Já existe um usuário com esse username");
         }
-        int legacyId = jdbc.sql("select nextval('legacy_id_seq')").query(Integer.class).single();
-        Profile profile = new Profile(id, legacyId, username, displayName, phone, sex, birthDate, clock.instant());
+        Profile profile = new Profile(id, username, displayName, phone, sex, birthDate, clock.instant());
         try {
             profiles.saveAndFlush(profile);
         } catch (DataIntegrityViolationException e) {
@@ -156,7 +152,6 @@ public class ProfileService {
         if (wasProjected) {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("accountId", id.toString());
-            data.put("legacyId", profile.getLegacyId());
             outbox.add(DELETED, id, profile.getVersion(), data);
         }
         deleteFileAfterCommit(oldAvatar);
@@ -179,11 +174,6 @@ public class ProfileService {
     @Transactional(readOnly = true)
     public Optional<Profile> byUsername(String username) {
         return profiles.findByUsername(ProfileRules.normalizeUsername(username));
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<Profile> byLegacyId(int legacyId) {
-        return profiles.findByLegacyId(legacyId);
     }
 
     @Transactional(readOnly = true)
@@ -285,7 +275,6 @@ public class ProfileService {
         if (privacyChanged) {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("accountId", profile.getId().toString());
-            data.put("legacyId", profile.getLegacyId());
             data.put("isPrivate", profile.isPrivate());
             outbox.add(PRIVACY_CHANGED, profile.getId(), profile.getVersion(), data);
         }
@@ -295,7 +284,6 @@ public class ProfileService {
     static Map<String, Object> snapshot(Profile p) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("accountId", p.getId().toString());
-        data.put("legacyId", p.getLegacyId());
         data.put("username", p.getUsername());
         data.put("displayName", p.getDisplayName());
         data.put("bio", p.getBio());

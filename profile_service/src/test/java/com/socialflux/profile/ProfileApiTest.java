@@ -49,7 +49,7 @@ class ProfileApiTest extends AbstractProfileTest {
         assertThat(first.status()).isEqualTo(201);
         Response again = create(id, createBody(username));
         assertThat(again.status()).isEqualTo(200);
-        assertThat(again.json().get("legacyId")).isEqualTo(first.json().get("legacyId"));
+        assertThat(again.json().get("accountId")).isEqualTo(first.json().get("accountId"));
 
         Response other = create(UUID.randomUUID(), createBody(username.toUpperCase()));   // case-insensitive
         assertThat(other.status()).isEqualTo(409);
@@ -86,7 +86,7 @@ class ProfileApiTest extends AbstractProfileTest {
         assertThat(http().get("/api/usuarios/me", pending.token()).status()).isEqualTo(200);
         assertThat(http().get("/api/usuarios?username=" + pending.username(), pending.token()).status()).isEqualTo(200);
         assertThat(http().get("/api/usuarios?username=" + pending.username(), other.token()).status()).isEqualTo(404);
-        assertThat(http().get("/api/usuarios?id=" + pending.legacyId(), other.token()).status()).isEqualTo(404);
+        assertThat(http().get("/api/usuarios?id=" + pending.id(), other.token()).status()).isEqualTo(404);
 
         publishAccountEvent("account.registered.v1", pending.id());
         assertThat(http().get("/api/usuarios?username=" + pending.username(), other.token()).status()).isEqualTo(200);
@@ -98,15 +98,15 @@ class ProfileApiTest extends AbstractProfileTest {
         Account viewer = createActive(uniqueUsername());
 
         for (String path : List.of("/api/usuarios?username=" + owner.username(),
-                "/api/usuarios?id=" + owner.legacyId(), "/api/usuarios?id=" + owner.id())) {
+                "/api/usuarios?id=" + owner.id())) {
             Response response = http().get(path, viewer.token());
             assertThat(response.status()).as(path).isEqualTo(200);
             Map<String, Object> json = response.json();
-            assertThat(json).containsKeys("id", "accountId", "username", "nome", "biografia", "foto_perfil", "foto_url", "privado");
+            assertThat(json).containsKeys("id", "username", "nome", "biografia", "foto_perfil", "foto_url", "privado");
             assertThat(json).doesNotContainKeys("email", "telefone", "sexo", "data_nascimento", "data_criacao", "senha");
             assertThat(response.body()).doesNotContain("11999998888").doesNotContain("1990");
-            assertThat(json.get("id")).isEqualTo(owner.legacyId());
-            assertThat(json.get("accountId")).isEqualTo(owner.id().toString());
+            assertThat(json.get("id")).isEqualTo(owner.id().toString());
+            assertThat(json).doesNotContainKey("accountId");
         }
 
         Map<String, Object> own = http().get("/api/usuarios/me", owner.token()).json();
@@ -125,7 +125,8 @@ class ProfileApiTest extends AbstractProfileTest {
         Account account = createActive(uniqueUsername());
         assertThat(http().get("/api/usuarios", account.token()).status()).isEqualTo(400);
         assertThat(http().get("/api/usuarios?id=abc", account.token()).status()).isEqualTo(400);
-        assertThat(http().get("/api/usuarios?id=99999999", account.token()).status()).isEqualTo(404);
+        assertThat(http().get("/api/usuarios?id=99999999", account.token()).status()).isEqualTo(400);   // o id inteiro não existe mais: só UUID
+        assertThat(http().get("/api/usuarios?id=" + java.util.UUID.randomUUID(), account.token()).status()).isEqualTo(404);
         assertThat(http().get("/api/usuarios?username=nao.existe.mesmo", account.token()).status()).isEqualTo(404);
         assertThat(http().get("/api/usuarios?username=" + account.username().toUpperCase(), account.token()).status())
                 .isEqualTo(200);
@@ -139,15 +140,15 @@ class ProfileApiTest extends AbstractProfileTest {
         Account b = createActive(uniqueUsername());
 
         // Ataque clássico do legado: caminho/corpo apontando para outra pessoa
-        Response attack = http().send("PATCH", "/api/usuarios/" + b.legacyId(),
-                "{\"id\":%d,\"nome\":\"Hackeado\",\"privado\":true}".formatted(b.legacyId()), a.token());
+        Response attack = http().send("PATCH", "/api/usuarios/" + b.id(),
+                "{\"id\":\"%s\",\"nome\":\"Hackeado\",\"privado\":true}".formatted(b.id()), a.token());
         assertThat(attack.status()).isEqualTo(403);
         Response attackByUuid = http().send("PATCH", "/api/usuarios/" + b.id(), "{\"nome\":\"Hackeado\"}", a.token());
         assertThat(attackByUuid.status()).isEqualTo(403);
 
         // Caminho próprio + id de outra pessoa no corpo: edita SÓ o próprio
-        Response mixed = http().send("PATCH", "/api/usuarios/" + a.legacyId(),
-                "{\"id\":%d,\"nome\":\"Nome Do A\"}".formatted(b.legacyId()), a.token());
+        Response mixed = http().send("PATCH", "/api/usuarios/" + a.id(),
+                "{\"id\":\"%s\",\"nome\":\"Nome Do A\"}".formatted(b.id()), a.token());
         assertThat(mixed.status()).isEqualTo(200);
         assertThat(mixed.json().get("nome")).isEqualTo("Nome Do A");
 
@@ -162,24 +163,10 @@ class ProfileApiTest extends AbstractProfileTest {
     }
 
     @Test
-    void usersWithLegacyIdAbove127CanKeepTheirUsernameWhenEditing() {
-        jdbc.sql("select setval('legacy_id_seq', 1000)").query(Long.class).single();
-        Account account = createActive(uniqueUsername());
-        assertThat(account.legacyId()).isGreaterThan(127);
-
-        // Regressão de LOG-03: no legado, `Integer != Integer` dava 409 para o próprio username quando id >= 128
-        Response response = http().send("PATCH", "/api/usuarios/" + account.legacyId(),
-                "{\"id\":%d,\"username\":\"%s\",\"nome\":\"Outro Nome\",\"biografia\":\"\",\"privado\":false}"
-                        .formatted(account.legacyId(), account.username()), account.token());
-        assertThat(response.status()).as(response.body()).isEqualTo(200);
-        assertThat(response.json().get("nome")).isEqualTo("Outro Nome");
-    }
-
-    @Test
     void editValidationUniquenessAndPartialUpdates() {
         Account a = createActive(uniqueUsername());
         Account b = createActive(uniqueUsername());
-        String path = "/api/usuarios/" + a.legacyId();
+        String path = "/api/usuarios/" + a.id();
 
         Response taken = http().send("PATCH", path, "{\"username\":\"%s\"}".formatted(b.username()), a.token());
         assertThat(taken.status()).isEqualTo(409);
@@ -204,7 +191,7 @@ class ProfileApiTest extends AbstractProfileTest {
         String old = a.username();
         String renamed = uniqueUsername();
         assertThat(http().send("PATCH", path, "{\"username\":\"%s\"}".formatted(renamed), a.token()).status()).isEqualTo(200);
-        assertThat(http().send("PATCH", "/api/usuarios/" + b.legacyId(), "{\"username\":\"%s\"}".formatted(old), b.token()).status())
+        assertThat(http().send("PATCH", "/api/usuarios/" + b.id(), "{\"username\":\"%s\"}".formatted(old), b.token()).status())
                 .isEqualTo(200);
     }
 }

@@ -197,7 +197,7 @@ public class PostService {
             throw ApiException.badRequest("parametro_invalido", "Informe o autor");
         }
         UserRef ref = UserRef.parse(raw);
-        Optional<AuthorSnapshot> author = ref.uuid() != null ? authors.find(ref.uuid()) : authors.findByLegacyId(ref.legacyId());
+        Optional<AuthorSnapshot> author = authors.find(ref.uuid());
         return author.filter(AuthorSnapshot::isActive)
                 .orElseThrow(() -> ApiException.notFound("usuario_nao_encontrado", "Usuário não encontrado"));
     }

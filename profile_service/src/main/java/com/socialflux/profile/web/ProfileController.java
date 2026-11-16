@@ -25,7 +25,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 /**
  * API pública do perfil (contrato que o frontend já usa). Regras de segurança desta classe:
@@ -37,8 +36,6 @@ import java.util.regex.Pattern;
  */
 @RestController
 public class ProfileController {
-
-    private static final Pattern DIGITS = Pattern.compile("^\\d{1,9}$");
 
     private final ProfileService profiles;
     private final AvatarService avatars;
@@ -98,11 +95,8 @@ public class ProfileController {
 
     // ------------------------------------------------------------------ helpers
 
-    /** Aceita o id inteiro legado ou o UUID da conta. */
+    /** O id do usuário é o UUID da conta. */
     private Optional<Profile> byIdentifier(String id) {
-        if (DIGITS.matcher(id).matches()) {
-            return profiles.byLegacyId(Integer.parseInt(id));
-        }
         try {
             return profiles.byId(UUID.fromString(id));
         } catch (IllegalArgumentException e) {
@@ -111,21 +105,17 @@ public class ProfileController {
     }
 
     /**
-     * O {@code id} do caminho só é aceito se for o do próprio usuário autenticado (inteiro legado ou UUID).
+     * O {@code id} do caminho só é aceito se for o UUID do próprio usuário autenticado.
      * Qualquer outro valor é 403 — nunca se age sobre o perfil de outra pessoa.
      */
     private UUID requireSelf(String pathId, Jwt jwt) {
         UUID self = accountId(jwt);
-        Profile own = profiles.findOwn(self).orElseThrow(() -> ApiException.notFound("Usuário não encontrado"));
+        profiles.findOwn(self).orElseThrow(() -> ApiException.notFound("Usuário não encontrado"));
         boolean matches;
-        if (DIGITS.matcher(pathId).matches()) {
-            matches = Integer.parseInt(pathId) == own.getLegacyId();
-        } else {
-            try {
-                matches = UUID.fromString(pathId).equals(self);
-            } catch (IllegalArgumentException e) {
-                throw ApiException.badRequest("invalid_id", "ID inválido");
-            }
+        try {
+            matches = UUID.fromString(pathId).equals(self);
+        } catch (IllegalArgumentException e) {
+            throw ApiException.badRequest("invalid_id", "ID inválido");
         }
         if (!matches) {
             throw ApiException.forbidden("Você só pode alterar o seu próprio perfil");

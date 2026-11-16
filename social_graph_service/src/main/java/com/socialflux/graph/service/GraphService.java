@@ -215,8 +215,7 @@ public class GraphService {
     }
 
     private Optional<UserSnapshot> find(UserRef ref, boolean lock) {
-        Optional<UserSnapshot> found = ref.uuid() != null ? Optional.of(ref.uuid()).flatMap(snapshots::find)
-                : snapshots.findByLegacyId(ref.legacyId());
+        Optional<UserSnapshot> found = snapshots.find(ref.uuid());
         if (lock && found.isPresent()) {
             return snapshots.findForShare(found.get().userId());
         }

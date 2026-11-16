@@ -47,7 +47,7 @@ public class InternalProfileController {
                 body.username(), body.nome(), body.telefone(), body.sexo(), body.data_nascimento()));
         Profile profile = result.profile();
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
-                .body(new CreateProfileResponse(profile.getId().toString(), profile.getLegacyId(), result.created()));
+                .body(new CreateProfileResponse(profile.getId().toString(), result.created()));
     }
 
     /** Compensação: remove um perfil que ainda não foi confirmado pelo auth. */

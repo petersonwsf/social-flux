@@ -18,9 +18,6 @@ public class Profile {
     @Id
     private UUID id;
 
-    @Column(name = "legacy_id", nullable = false, updatable = false)
-    private int legacyId;
-
     @Column(nullable = false)
     private String username;
 
@@ -61,10 +58,9 @@ public class Profile {
     protected Profile() {
     }
 
-    public Profile(UUID id, int legacyId, String username, String displayName, String phone, String sex,
+    public Profile(UUID id, String username, String displayName, String phone, String sex,
                    LocalDate birthDate, Instant now) {
         this.id = id;
-        this.legacyId = legacyId;
         this.username = username;
         this.displayName = displayName;
         this.phone = phone;
@@ -82,10 +78,6 @@ public class Profile {
 
     public UUID getId() {
         return id;
-    }
-
-    public int getLegacyId() {
-        return legacyId;
     }
 
     public String getUsername() {
