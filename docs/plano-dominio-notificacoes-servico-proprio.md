@@ -3,7 +3,7 @@
 Data: 2026-11-15 · Complementa `analise-backend-e-migracao-spring-boot.md`, `plano-dominio-postagens-servico-proprio.md` e
 `plano-dominio-relacoes-grafo-social.md`. **Última migração do legado:** ao final, o `BackEnd/` (Javalin) e o MySQL deixam de existir.
 
-> **Estado (2026-11-16): todas as decisões fechadas (D1–D16, §13.1 e §13.2).** Nada foi implementado.
+> **Estado (2026-11-16): implementado — Fases 1 a 8 (estado e pendências em §15).** Todas as decisões fechadas (D1–D16, §13.1 e §13.2).
 > Base: leitura de `BackEnd/` (`NotificationController`, `NotificationService`, `NotificationDao`, `Notification`,
 > `NotificationCategory`, `AuthMiddleware`, `App`), `infra/mysql/schema.sql`, `infra/caddy/Caddyfile`, `docker-compose.yml`,
 > READMEs do `post_service`, `social_graph_service`, `profile_service`, `authentication_service` e `libs/socialflux-events`,
@@ -530,3 +530,29 @@ registrada no README do `profile_service` (seção de eventos).
   `Last-Event-ID` reenvia só as posteriores; fecha no `exp`/duração máxima; limite por usuário; outro usuário nunca recebe.
 - **Manual (Docker):** dois navegadores, curtir/responder/seguir e ver chegar sem recarregar; derrubar e subir o serviço (reconexão);
   logout geral com o stream aberto (fecha em ≤ D9); aba ociosa até o vencimento (não renova a sessão).
+
+---
+
+## 15. Estado da implementação (2026-11-16)
+
+| Fase | O que foi feito | Onde |
+| --- | --- | --- |
+| 1–4 | `notification_service`: esqueleto, segurança, migração `V1`, consumidores `profile.*`/`follow.*`/`post.*`, grupos e atores, API REST, SSE (fila por conexão, prazo, reenvio por `seq`, fecha o mais antigo) | `notification_service/` — 54 testes (eventos, API, SSE com cliente real) |
+| 5 | Compose (`notification_db_init`, `notification_service`), Caddyfile (`flush_interval -1`), scripts `run-notification`, variáveis `NOTIFICATION_*` no `.env.example` e no `.env` local | `docker-compose.yml`, `infra/caddy/Caddyfile`, `scripts/dev/` |
+| 6 | Frontend: lista agrupada e paginada, Aceitar/Recusar na notificação, toast (D14), stream com reconexão e sonda sem renovar a sessão, aba líder (D10) | `FrontEnd/src/lib/notificacoes*.ts`, `contexts/NotificationsProvider.tsx` |
+| 7 | Legado desligado: `BackEnd/` fora do git (pasta local ignorada), MySQL, `legacy_backend`, `run-legacy`, projeção `usuario` do `profile_service`; `/api/*` sem dono responde 404 em JSON | compose, Caddyfile, `profile_service` |
+| 8 | Só UUID: `legacy_id`/`legacy_user_id`/`legacy_uid`/`X-User-Id` removidos de auth, profile, grafo e posts (migrações `V2`/`V3`); `Usuario.id` é o UUID no frontend; `accountId` saiu do JSON | todos os serviços e `FrontEnd/` |
+
+**Diferenças em relação ao plano:** a tabela `notification_removed` (túmulos de "desfazer") não foi criada: `post.*` e `follow.*`
+chegam em ordem dentro da sua fila e o perfil ausente é tratado na leitura; `follow_removed` (túmulos de vínculos) existe. A
+exceção de contrato da §13.2 (tirar `legacyId` da `.v1`) foi aplicada na ordem do §10.1.
+
+**Pendências / não verificado:**
+- Nada rodou com **Docker** (daemon desligado durante o trabalho): `docker compose config` valida a sintaxe, mas a subida real, o
+  `Caddyfile` (nunca passou por um binário do Caddy), as filas no RabbitMQ real e o fluxo no navegador (SSE pelo gateway e pelo
+  proxy do Vite, aba líder entre várias abas, toast) **não foram exercitados**.
+- Os testes cobrem os serviços (PostgreSQL embutido) e o frontend só passa por `typecheck`, `lint` e `build` (sem runner de testes).
+- O `.env` local ganhou as variáveis `NOTIFICATION_*`; as `LEGACY_*`/`MYSQL_*` antigas ficam sem uso (podem ser apagadas).
+- A pasta local `BackEnd/` ainda existe (ignorada pelo git, com um `.git` aninhado antigo): pode ser apagada à mão. O volume Docker
+  `social-flux_mysql_data` também ficou: só se apaga com `docker volume rm` (decisão do dono do projeto).
+- A dependência `concurrently` do `FrontEnd/package.json` ficou sem uso (os scripts `start*` saíram).
