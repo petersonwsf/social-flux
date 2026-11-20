@@ -1,0 +1,24 @@
+name: CD Notification Service
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "notification_service/**"
+      - "libs/socialflux-events/**"
+      - "pom.xml"
+      - ".github/workflows/cd-notification_service.yml"
+      - ".github/workflows/_spring-cd.yml"
+
+concurrency:
+  group: cd-notification_service
+  cancel-in-progress: false
+
+jobs:
+  cd:
+    uses: ./.github/workflows/_spring-cd.yml
+    with:
+      service: notification_service
+      image: social_flux_notification_service
+      compose_service: notification_service
+    secrets: inherit

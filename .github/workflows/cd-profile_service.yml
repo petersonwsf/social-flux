@@ -1,0 +1,25 @@
+name: CD Profile Service
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "profile_service/**"
+      - "libs/socialflux-events/**"
+      - "libs/socialflux-media/**"
+      - "pom.xml"
+      - ".github/workflows/cd-profile_service.yml"
+      - ".github/workflows/_spring-cd.yml"
+
+concurrency:
+  group: cd-profile_service
+  cancel-in-progress: false
+
+jobs:
+  cd:
+    uses: ./.github/workflows/_spring-cd.yml
+    with:
+      service: profile_service
+      image: social_flux_profile_service
+      compose_service: profile_service
+    secrets: inherit

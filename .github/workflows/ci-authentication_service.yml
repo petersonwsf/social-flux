@@ -1,0 +1,20 @@
+name: CI Authentication Service
+
+on:
+  pull_request:
+    paths:
+      - "authentication_service/**"
+      - "libs/socialflux-events/**"
+      - "pom.xml"
+      - ".github/workflows/ci-authentication_service.yml"
+      - ".github/workflows/_spring-ci.yml"
+
+concurrency:
+  group: ci-authentication_service-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: ./.github/workflows/_spring-ci.yml
+    with:
+      service: authentication_service

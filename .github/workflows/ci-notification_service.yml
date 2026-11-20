@@ -1,0 +1,20 @@
+name: CI Notification Service
+
+on:
+  pull_request:
+    paths:
+      - "notification_service/**"
+      - "libs/socialflux-events/**"
+      - "pom.xml"
+      - ".github/workflows/ci-notification_service.yml"
+      - ".github/workflows/_spring-ci.yml"
+
+concurrency:
+  group: ci-notification_service-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: ./.github/workflows/_spring-ci.yml
+    with:
+      service: notification_service
