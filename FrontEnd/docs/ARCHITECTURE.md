@@ -199,4 +199,4 @@ Uma função por chamada, sempre pela instância `api`. Os nomes de rota estão 
 | Arquivo | O que faz |
 | --- | --- |
 | `ci.yml` | CI em cada pull request: lint e, só se passar, testes |
-| `cd.yml` | CD após o merge na `main`: repete os testes, publica a imagem no Docker Hub e atualiza o container na VPS por SSH (secrets listados no `docs/ARCHITECTURE.md` da raiz) |
+| `cd.yml` | CD após o merge na `main`: repete os testes, publica a imagem no GHCR e atualiza o container na VPS por SSH (secrets listados no `docs/ARCHITECTURE.md` da raiz) |
