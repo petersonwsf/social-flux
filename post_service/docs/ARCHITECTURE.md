@@ -121,3 +121,10 @@ post_service/
 | `MediaTest.java` | Re-codificação e redução, entrega com cabeçalhos e 304, revalidação confere visibilidade, GIF intacto, recusas com códigos, exclusão da árvore apaga objetos, chaves inválidas, varredura de órfãos |
 | `EventsTest.java` | Payloads `post.*` sem dado pessoal, um `deleted` por nó, broker fora do ar, reconciliador, manutenção |
 | `LimitsTest.java` | 429 de postagens e curtidas com `Retry-After`, tamanho do texto configurável |
+
+## `.github/workflows/`
+
+| Arquivo | O que faz |
+| --- | --- |
+| `ci.yml` | CI em cada pull request: lint e, só se passar, testes |
+| `cd.yml` | CD após o merge na `main`: repete os testes, publica a imagem no Docker Hub e atualiza o container na VPS por SSH (secrets listados no `docs/ARCHITECTURE.md` da raiz) |

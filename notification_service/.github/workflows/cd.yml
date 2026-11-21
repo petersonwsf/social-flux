@@ -1,14 +1,12 @@
-name: CD Frontend
+# CD de Notification Service: após o merge na main, repete os testes, publica a imagem no Docker Hub e atualiza a VPS.
+name: CD Notification Service
 
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - "FrontEnd/**"
-      - ".github/workflows/cd-frontend.yml"
 
 concurrency:
-  group: cd-frontend
+  group: cd-notification_service
   cancel-in-progress: false
 
 permissions:
@@ -16,24 +14,19 @@ permissions:
 
 jobs:
   test:
-    name: Lint, tipos e build pós-merge
+    name: Testes pós-merge
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: FrontEnd
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-java@v4
         with:
-          node-version: "22.11.0"
-          cache: npm
-          cache-dependency-path: FrontEnd/package-lock.json
+          distribution: temurin
+          java-version: "21"
+          cache: maven
 
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run build
+      - name: Testes (inclui as libs/* usadas pelo serviço)
+        run: mvn -B -ntp -pl notification_service -am test
 
   deploy_docker_hub:
     name: Imagem no Docker Hub
@@ -51,18 +44,16 @@ jobs:
           username: ${{ secrets.USERNAME_DOCKER_HUB }}
           password: ${{ secrets.PASSWORD_DOCKER_HUB }}
 
+      # O contexto é a RAIZ do repositório: o build inclui as bibliotecas compartilhadas (libs/*).
       - name: Build and push docker image
         uses: docker/build-push-action@v6.18.0
         with:
-          context: ./FrontEnd
-          file: ./FrontEnd/Dockerfile
+          context: .
+          file: ./notification_service/Dockerfile
           push: true
-          # Mesma origem via gateway: VITE_API_URL vazio (variáveis VITE_* são públicas, nunca segredos).
-          build-args: |
-            VITE_API_URL=
           tags: |
-            ${{ secrets.USERNAME_DOCKER_HUB }}/social_flux_frontend:latest
-            ${{ secrets.USERNAME_DOCKER_HUB }}/social_flux_frontend:${{ github.sha }}
+            ${{ secrets.USERNAME_DOCKER_HUB }}/social_flux_notification_service:latest
+            ${{ secrets.USERNAME_DOCKER_HUB }}/social_flux_notification_service:${{ github.sha }}
 
   deploy_vps:
     name: Deploy na VPS
@@ -80,6 +71,6 @@ jobs:
           script_stop: true
           script: |
             cd ${{ secrets.VPS_PROJECT_PATH }}
-            docker compose pull frontend
-            docker compose up -d frontend
+            docker compose pull notification_service
+            docker compose up -d notification_service
             docker image prune -f

@@ -69,3 +69,10 @@ notification_service/
 | `push/PushEvent` | `notificacao`, `removida`, `contagem`, `recarregar` |
 | `push/StreamRegistry` | Registro dos streams: fila por conexão, limites, ping, fim do prazo, entrega depois do commit |
 | `events/Amqp`, `EventListeners`, `EventHandlers` | Filas `notification-service.{profile,follow,post}-events`, listeners e tratadores com inbox |
+
+## `.github/workflows/`
+
+| Arquivo | O que faz |
+| --- | --- |
+| `ci.yml` | CI em cada pull request: lint e, só se passar, testes |
+| `cd.yml` | CD após o merge na `main`: repete os testes, publica a imagem no Docker Hub e atualiza o container na VPS por SSH (secrets listados no `docs/ARCHITECTURE.md` da raiz) |

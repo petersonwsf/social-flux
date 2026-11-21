@@ -1,22 +1,13 @@
-# Workflow reutilizável: CD de um serviço Spring Boot (testes -> imagem no Docker Hub -> deploy na VPS).
-# Chamado pelos cd-*.yml de cada serviço, após o merge na branch principal.
-name: Spring CD (reutilizável)
+# CD de Social Graph Service: após o merge na main, repete os testes, publica a imagem no Docker Hub e atualiza a VPS.
+name: CD Social Graph Service
 
 on:
-  workflow_call:
-    inputs:
-      service:
-        description: "Pasta do serviço (ex.: post_service)"
-        required: true
-        type: string
-      image:
-        description: "Nome da imagem no Docker Hub (ex.: social_flux_post_service)"
-        required: true
-        type: string
-      compose_service:
-        description: "Nome do serviço no docker-compose da VPS"
-        required: true
-        type: string
+  push:
+    branches: [ "main" ]
+
+concurrency:
+  group: cd-social_graph_service
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -35,7 +26,7 @@ jobs:
           cache: maven
 
       - name: Testes (inclui as libs/* usadas pelo serviço)
-        run: mvn -B -ntp -pl ${{ inputs.service }} -am test
+        run: mvn -B -ntp -pl social_graph_service -am test
 
   deploy_docker_hub:
     name: Imagem no Docker Hub
@@ -58,11 +49,11 @@ jobs:
         uses: docker/build-push-action@v6.18.0
         with:
           context: .
-          file: ./${{ inputs.service }}/Dockerfile
+          file: ./social_graph_service/Dockerfile
           push: true
           tags: |
-            ${{ secrets.USERNAME_DOCKER_HUB }}/${{ inputs.image }}:latest
-            ${{ secrets.USERNAME_DOCKER_HUB }}/${{ inputs.image }}:${{ github.sha }}
+            ${{ secrets.USERNAME_DOCKER_HUB }}/social_flux_social_graph_service:latest
+            ${{ secrets.USERNAME_DOCKER_HUB }}/social_flux_social_graph_service:${{ github.sha }}
 
   deploy_vps:
     name: Deploy na VPS
@@ -80,6 +71,6 @@ jobs:
           script_stop: true
           script: |
             cd ${{ secrets.VPS_PROJECT_PATH }}
-            docker compose pull ${{ inputs.compose_service }}
-            docker compose up -d ${{ inputs.compose_service }}
+            docker compose pull social_graph_service
+            docker compose up -d social_graph_service
             docker image prune -f

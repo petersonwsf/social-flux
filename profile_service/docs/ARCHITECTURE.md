@@ -139,3 +139,10 @@ profile_service/
 | `support/AbstractProfileTest.java` | Base: serviço em porta aleatória com PostgreSQL embutido e servidor JWKS local de teste; helpers de tokens, contas e outbox |
 | `support/Http.java` | Cliente HTTP mínimo dos testes (JSON e multipart) |
 | `support/TestSupportConfig.java` | Publicador de eventos em memória (substitui o RabbitMQ e simula broker fora do ar) |
+
+## `.github/workflows/`
+
+| Arquivo | O que faz |
+| --- | --- |
+| `ci.yml` | CI em cada pull request: lint e, só se passar, testes |
+| `cd.yml` | CD após o merge na `main`: repete os testes, publica a imagem no Docker Hub e atualiza o container na VPS por SSH (secrets listados no `docs/ARCHITECTURE.md` da raiz) |

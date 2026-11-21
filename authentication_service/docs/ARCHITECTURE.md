@@ -167,3 +167,10 @@ fica pendente). `AccountService` grava `account.registered.v1` e `account.delete
 | `support/ApiClient.java` | Cliente HTTP dos testes com "jar" de cookies manual |
 | `support/MutableClock.java` | Relógio controlável (avança no tempo sem esperar) |
 | `support/TestSupportConfig.java` | Substitutos de teste: relógio, e-mail gravado, perfil e publicador em memória |
+
+## `.github/workflows/`
+
+| Arquivo | O que faz |
+| --- | --- |
+| `ci.yml` | CI em cada pull request: lint e, só se passar, testes |
+| `cd.yml` | CD após o merge na `main`: repete os testes, publica a imagem no Docker Hub e atualiza o container na VPS por SSH (secrets listados no `docs/ARCHITECTURE.md` da raiz) |

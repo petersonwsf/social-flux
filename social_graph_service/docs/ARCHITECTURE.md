@@ -113,3 +113,10 @@ social_graph_service/
 | `LimitsTest` / `RateLimitTest` | Limites de seguidos/pendentes e de ações por hora (429) |
 | `CounterReconcilerTest` / `CounterReconcilerDisabledTest` | Contadores maiores e menores que a realidade são corrigidos; lote limitado e conclusão nas rodadas seguintes; relatório do que estava gravado e do real; nenhuma divergência nova sob corrida com seguir/deixar de seguir; rotina agendada desligada |
 | `support/` | `AbstractGraphTest` (Postgres embutido, JWKS local, usuários por evento), `Http`, `TestSupportConfig` (publicador falso) |
+
+## `.github/workflows/`
+
+| Arquivo | O que faz |
+| --- | --- |
+| `ci.yml` | CI em cada pull request: lint e, só se passar, testes |
+| `cd.yml` | CD após o merge na `main`: repete os testes, publica a imagem no Docker Hub e atualiza o container na VPS por SSH (secrets listados no `docs/ARCHITECTURE.md` da raiz) |

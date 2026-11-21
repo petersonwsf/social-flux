@@ -1,13 +1,13 @@
-# Workflow reutilizável: CI de um serviço Spring Boot (lint -> testes). Chamado pelos ci-*.yml de cada serviço.
-name: Spring CI (reutilizável)
+# CI de Notification Service: em cada pull request, lint e, só se passar, testes.
+# O build usa a raiz do monorepo (precisa das libs/* e do pom.xml agregador): o checkout é da raiz.
+name: CI Notification Service
 
 on:
-  workflow_call:
-    inputs:
-      service:
-        description: "Pasta do serviço (ex.: post_service)"
-        required: true
-        type: string
+  pull_request:
+
+concurrency:
+  group: ci-notification_service-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -28,7 +28,7 @@ jobs:
       # Não há Checkstyle/Spotless no projeto (adicionar exige aprovação de dependência): por ora o lint é a compilação
       # do serviço e das libs que ele usa, com os avisos do compilador ligados.
       - name: Compilar com avisos do compilador
-        run: mvn -B -ntp -pl ${{ inputs.service }} -am -DskipTests -Dmaven.compiler.showWarnings=true compile
+        run: mvn -B -ntp -pl notification_service -am -DskipTests -Dmaven.compiler.showWarnings=true compile
 
   test:
     name: Testes
@@ -45,4 +45,4 @@ jobs:
 
       # Os testes de integração usam PostgreSQL embarcado: não precisam de Docker.
       - name: Testes (inclui as libs/* usadas pelo serviço)
-        run: mvn -B -ntp -pl ${{ inputs.service }} -am test
+        run: mvn -B -ntp -pl notification_service -am test

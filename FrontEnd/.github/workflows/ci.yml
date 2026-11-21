@@ -2,9 +2,6 @@ name: CI Frontend
 
 on:
   pull_request:
-    paths:
-      - "FrontEnd/**"
-      - ".github/workflows/ci-frontend.yml"
 
 concurrency:
   group: ci-frontend-${{ github.ref }}
@@ -15,7 +12,7 @@ permissions:
 
 defaults:
   run:
-    working-directory: FrontEnd
+    working-directory: .
 
 jobs:
   lint:
@@ -28,7 +25,7 @@ jobs:
         with:
           node-version: "22.11.0"
           cache: npm
-          cache-dependency-path: FrontEnd/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
       - run: npm run lint
@@ -45,7 +42,7 @@ jobs:
         with:
           node-version: "22.11.0"
           cache: npm
-          cache-dependency-path: FrontEnd/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
       - run: npm run build

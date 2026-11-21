@@ -27,7 +27,6 @@ social_flux/
 ├── .dockerignore                 contexto de build da raiz (auth e profile): exclui .git, target, node_modules, segredos e FrontEnd
 ├── pom.xml                       agregador Maven (só lista módulos): libs/socialflux-events, libs/socialflux-media, authentication_service, profile_service, social_graph_service, post_service, notification_service
 ├── docker-compose.yml            ambiente de desenvolvimento completo (perfis `host` e `apps`)
-├── .github/workflows/            CI (em cada PR) e CD (após o merge na `main`) de cada serviço e do frontend
 ├── docs/                         documentação transversal (este diretório)
 ├── infra/                        configuração de infraestrutura compartilhada
 │   └── caddy/Caddyfile
@@ -74,17 +73,16 @@ social_flux/
 | --- | --- |
 | `caddy/Caddyfile` | Gateway (mesma origem). Remove `X-Account-Id` vindo do cliente; bloqueia `/internal/*` (404); `/auth/*` e `/.well-known/jwks.json` → authentication_service; `/media/avatars/*` → profile_service (público); `/api/usuarios*` e `/api/img/usuarios/*` → profile_service após `forward_auth`; `/api/relacoes*` → social_graph_service após `forward_auth` (sem copiar `X-User-Id`: o serviço usa o `sub` do token); `/api/postagens*` e `/media/posts/*` → post_service após `forward_auth` (as imagens de postagem não são públicas: o cookie vira Bearer e o serviço confere a visibilidade);  `/api/notificacoes*` → notification_service após `forward_auth`, com `flush_interval -1` (o stream SSE não pode ser bufferizado nem comprimido); demais `/api/*` → 404 em JSON (o legado foi desligado); o resto → frontend. Converte o cookie de acesso em `Authorization: Bearer`. Os upstreams vêm de variáveis (`AUTH_UPSTREAM`, `PROFILE_UPSTREAM`, `GRAPH_UPSTREAM`, `POST_UPSTREAM`, `NOTIFICATION_UPSTREAM`, `FRONTEND_UPSTREAM`). |
 
-## `.github/workflows/`
+## `<app>/.github/workflows/`
 
-CI e CD por aplicação, com filtro de caminhos (só roda o que o PR/merge tocou; mudar uma `libs/*` dispara os serviços que a usam).
+Cada aplicação (os 5 serviços Spring e o `FrontEnd/`) guarda o seu próprio CI e CD em `<app>/.github/workflows/ci.yml` e `cd.yml`, independentes entre si (sem workflow compartilhado). Atenção: o GitHub só executa workflows de `.github/workflows/` na **raiz do repositório**; estes arquivos funcionam quando a pasta da aplicação é a raiz de um repositório (ou são copiados/ligados à raiz).
 
 | Arquivo | O que faz |
 | --- | --- |
-| `ci-<serviço>.yml` (5 Spring) / `ci-frontend.yml` | Em cada **pull request**: lint e, só se passar, testes (`mvn -pl <serviço> -am test`; no frontend, `lint` + `typecheck`, depois `build`, pois não há test runner) |
-| `cd-<serviço>.yml` (5 Spring) / `cd-frontend.yml` | No **push na `main`** (merge): roda os testes de novo; se passarem, publica a imagem no Docker Hub (`social_flux_<serviço>`, tags `latest` e SHA) e atualiza o container na VPS por SSH (`docker compose pull` + `up -d`) |
-| `_spring-ci.yml` / `_spring-cd.yml` | Workflows reutilizáveis (`workflow_call`) com os passos comuns dos serviços Spring; os `ci-`/`cd-` de cada serviço só passam `service`, `image` e `compose_service` |
+| `ci.yml` | Em cada **pull request**: lint e, só se passar, testes (`mvn -pl <serviço> -am test`; no frontend `lint` + `typecheck`, depois `build`, pois não há test runner) |
+| `cd.yml` | No **push na `main`** (merge): roda os testes de novo; se passarem, publica a imagem no Docker Hub (`social_flux_<serviço>`, tags `latest` e SHA) e atualiza o container na VPS por SSH (`docker compose pull` + `up -d`) |
 
-Secrets do repositório usados pelo CD: `USERNAME_DOCKER_HUB`, `PASSWORD_DOCKER_HUB`, `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`, `VPS_PORT`, `SSH_PASSPHRASE`, `VPS_PROJECT_PATH`. O `docker-compose` da VPS deve ter serviços com o mesmo nome das pastas (`authentication_service`, ..., `frontend`) apontando para as imagens do Docker Hub.
+Secrets usados pelo CD: `USERNAME_DOCKER_HUB`, `PASSWORD_DOCKER_HUB`, `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`, `VPS_PORT`, `SSH_PASSPHRASE`, `VPS_PROJECT_PATH`. O `docker-compose` da VPS deve ter serviços com o nome das pastas (`authentication_service`, ..., `frontend`).
 
 ## `scripts/dev/`
 
