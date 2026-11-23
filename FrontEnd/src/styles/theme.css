@@ -171,7 +171,7 @@ ion-icon {
 
 /* ---------- Layout ---------- */
 .sidebar {
-    width: 340px;
+    width: 380px;
     height: 100vh;
     top: 0;
     background: var(--sf-surface);
