@@ -141,16 +141,16 @@
 
 /* ---------- Busca e relações ---------- */
 .foto-search {
-    width: 56px;
+    width: 40px;
 }
 
 .search-username {
-    font-size: 1.05rem;
+    font-size: 0.9rem;
     color: var(--bs-body-color);
 }
 
 .search-name {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
 }
 
 .card-relacao {

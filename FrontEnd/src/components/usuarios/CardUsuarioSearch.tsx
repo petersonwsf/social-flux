@@ -16,7 +16,7 @@ function CardUsuarioSearch({ userSearched }: { userSearched: Usuario }) {
                     <span className="search-username">{userSearched.username}</span>
                     <span className="search-name text-secondary">{userSearched.nome}</span>
                     {emComum > 0 && (
-                        <small className="text-secondary text-truncate">
+                        <small className="text-secondary text-truncate" style={{ fontSize: "0.75rem" }}>
                             Seguido por {emComum} {emComum === 1 ? 'usuário' : 'usuários'} em comum
                         </small>
                     )}
