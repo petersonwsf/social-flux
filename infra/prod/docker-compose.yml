@@ -1,0 +1,378 @@
+# Social Flux — produção (VPS). As imagens vêm do GHCR (publicadas pelo CD de cada repositório).
+# Ao lado deste arquivo fica o .env (copie de .env.example). A rede externa `proxy` (a do Caddy) já precisa existir.
+#
+#   echo "<PAT read:packages>" | docker login ghcr.io -u petersonwsf --password-stdin
+#   docker compose pull && docker compose up -d
+#
+# No Caddy do servidor:
+#   social.seudominio.com {
+#       reverse_proxy social-flux-gateway:80 { flush_interval -1 }
+#   }
+# Só o gateway entra na rede `proxy`; nenhum serviço publica porta no host. Nunca rode `docker compose down -v`.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: social-flux-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${IDENTITY_DB_NAME:-identity}
+      POSTGRES_USER: ${IDENTITY_DB_USER:-identity}
+      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:?defina IDENTITY_DB_PASSWORD no .env}
+    volumes:
+      - postgres-dados:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Cria os bancos dos demais serviços na mesma instância (um banco por serviço). Idempotente: roda e sai.
+  postgres-bancos:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${IDENTITY_DB_USER:-identity}
+      PGPASSWORD: ${IDENTITY_DB_PASSWORD}
+      PGDATABASE: ${IDENTITY_DB_NAME:-identity}
+      BANCOS: "${PROFILE_DB_NAME:-profile} ${GRAPH_DB_NAME:-social_graph} ${POST_DB_NAME:-post} ${NOTIFICATION_DB_NAME:-notification}"
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        for banco in $$BANCOS; do
+          psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$banco'" | grep -q 1 \
+            || psql -v ON_ERROR_STOP=1 -c "create database \"$$banco\""
+        done
+
+  rabbitmq:
+    image: rabbitmq:4-alpine
+    container_name: social-flux-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD no .env}
+    volumes:
+      - rabbitmq-dados:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  rustfs-permissoes:
+    image: alpine:3.20
+    user: root
+    command: chown -R 10001:10001 /data
+    volumes:
+      - rustfs-dados:/data
+
+  # Mídia (imagens e GIFs): buckets privados, só os serviços falam com ele (sem console e sem porta no host).
+  rustfs:
+    image: rustfs/rustfs:${RUSTFS_TAG:-1.0.1}
+    container_name: social-flux-rustfs
+    restart: unless-stopped
+    depends_on:
+      rustfs-permissoes:
+        condition: service_completed_successfully
+    command: /data
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?defina RUSTFS_ACCESS_KEY no .env (só A-Z e 0-9)}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?defina RUSTFS_SECRET_KEY no .env}
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "false"
+    volumes:
+      - rustfs-dados:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # Cria os buckets de mídia (idempotente: roda e sai).
+  rustfs-buckets:
+    image: amazon/aws-cli:latest
+    restart: "no"
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${RUSTFS_REGION:-us-east-1}
+      AWS_EC2_METADATA_DISABLED: "true"
+      BUCKETS: post-media avatars
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        endpoint=http://rustfs:9000
+        existentes=$$(aws --endpoint-url "$$endpoint" s3api list-buckets --query 'Buckets[].Name' --output text)
+        for bucket in $$BUCKETS; do
+          if echo "$$existentes" | tr '\t' '\n' | grep -qx "$$bucket"; then
+            echo "bucket $$bucket já existe"
+          else
+            aws --endpoint-url "$$endpoint" s3api create-bucket --bucket "$$bucket" && echo "bucket $$bucket criado"
+          fi
+        done
+
+  authentication_service:
+    image: ghcr.io/${GHCR_OWNER:-petersonwsf}/social_flux_authentication_service:${IMAGE_TAG:-latest}
+    container_name: social-flux-authentication
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      IDENTITY_DB_URL: jdbc:postgresql://postgres:5432/${IDENTITY_DB_NAME:-identity}
+      IDENTITY_DB_USER: ${IDENTITY_DB_USER:-identity}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64:?gere com authentication_service/scripts/generate-jwt-key.sh}
+      JWT_KEY_ID: ${JWT_KEY_ID:?defina JWT_KEY_ID no .env}
+      JWT_PUBLIC_KEYS_B64: ${JWT_PUBLIC_KEYS_B64:-}
+      AUTH_ALLOW_EPHEMERAL_KEY: "false"
+      JWT_ISSUER: ${JWT_ISSUER:?defina JWT_ISSUER (https://seu-dominio)}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-PT2H}
+      JWT_RENEW_WINDOW: ${JWT_RENEW_WINDOW:-PT10M}
+      JWT_REFRESH_GRACE: ${JWT_REFRESH_GRACE:-PT5M}
+      SESSION_ABSOLUTE_MAX: ${SESSION_ABSOLUTE_MAX:-P7D}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
+      AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-__Host-at}
+      AUTH_COOKIE_REFRESH_NAME: ${AUTH_COOKIE_REFRESH_NAME:-__Secure-rt}
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:?defina AUTH_ALLOWED_ORIGINS (https://seu-dominio)}
+      AUTH_PUBLIC_BASE_URL: ${AUTH_PUBLIC_BASE_URL:?defina AUTH_PUBLIC_BASE_URL (https://seu-dominio)}
+      AUTH_MAIL_ENABLED: "true"
+      SMTP_HOST: ${SMTP_HOST:?defina o SMTP real}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:?defina MAIL_FROM}
+      PROFILE_SERVICE_URL: http://profile_service:8082
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+  profile_service:
+    image: ghcr.io/${GHCR_OWNER:-petersonwsf}/social_flux_profile_service:${IMAGE_TAG:-latest}
+    container_name: social-flux-profile
+    restart: unless-stopped
+    depends_on:
+      postgres-bancos:
+        condition: service_completed_successfully
+      rustfs-buckets:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PROFILE_DB_URL: jdbc:postgresql://postgres:5432/${PROFILE_DB_NAME:-profile}
+      PROFILE_DB_USER: ${IDENTITY_DB_USER:-identity}
+      PROFILE_DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      PROFILE_SERVICE_AUDIENCE: ${PROFILE_SERVICE_AUDIENCE:-profile-service}
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_REGION: ${RUSTFS_REGION:-us-east-1}
+      PROFILE_AVATAR_BUCKET: avatars
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+  social_graph_service:
+    image: ghcr.io/${GHCR_OWNER:-petersonwsf}/social_flux_social_graph_service:${IMAGE_TAG:-latest}
+    container_name: social-flux-social-graph
+    restart: unless-stopped
+    depends_on:
+      postgres-bancos:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      GRAPH_DB_URL: jdbc:postgresql://postgres:5432/${GRAPH_DB_NAME:-social_graph}
+      GRAPH_DB_USER: ${IDENTITY_DB_USER:-identity}
+      GRAPH_DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      GRAPH_FOLLOW_RATE_PER_HOUR: ${GRAPH_FOLLOW_RATE_PER_HOUR:-60}
+      GRAPH_MAX_FOLLOWING: ${GRAPH_MAX_FOLLOWING:-7500}
+      GRAPH_MAX_PENDING_SENT: ${GRAPH_MAX_PENDING_SENT:-1000}
+
+  post_service:
+    image: ghcr.io/${GHCR_OWNER:-petersonwsf}/social_flux_post_service:${IMAGE_TAG:-latest}
+    container_name: social-flux-post
+    restart: unless-stopped
+    depends_on:
+      postgres-bancos:
+        condition: service_completed_successfully
+      rustfs-buckets:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      POST_DB_URL: jdbc:postgresql://postgres:5432/${POST_DB_NAME:-post}
+      POST_DB_USER: ${IDENTITY_DB_USER:-identity}
+      POST_DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_REGION: ${RUSTFS_REGION:-us-east-1}
+      POST_MEDIA_BUCKET: post-media
+      POST_RATE_POSTS_PER_HOUR: ${POST_RATE_POSTS_PER_HOUR:-60}
+      POST_RATE_LIKES_PER_HOUR: ${POST_RATE_LIKES_PER_HOUR:-600}
+
+  notification_service:
+    image: ghcr.io/${GHCR_OWNER:-petersonwsf}/social_flux_notification_service:${IMAGE_TAG:-latest}
+    container_name: social-flux-notification
+    restart: unless-stopped
+    depends_on:
+      postgres-bancos:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      NOTIFICATION_DB_URL: jdbc:postgresql://postgres:5432/${NOTIFICATION_DB_NAME:-notification}
+      NOTIFICATION_DB_USER: ${IDENTITY_DB_USER:-identity}
+      NOTIFICATION_DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      NOTIFICATION_SSE_MAX_DURATION: ${NOTIFICATION_SSE_MAX_DURATION:-PT15M}
+      NOTIFICATION_SSE_MAX_PER_USER: ${NOTIFICATION_SSE_MAX_PER_USER:-5}
+      NOTIFICATION_SSE_MAX_TOTAL: ${NOTIFICATION_SSE_MAX_TOTAL:-5000}
+      NOTIFICATION_RETENTION: ${NOTIFICATION_RETENTION:-P45D}
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER:-petersonwsf}/social_flux_frontend:${IMAGE_TAG:-latest}
+    container_name: social-flux-frontend
+    restart: unless-stopped
+
+  # Gateway interno: roteamento, forward_auth de revogação, SSE sem buffer e bloqueio de /internal/*.
+  # O HTTPS e o domínio ficam no Caddy do servidor.
+  gateway:
+    image: caddy:2-alpine
+    container_name: social-flux-gateway
+    restart: unless-stopped
+    depends_on:
+      - authentication_service
+      - profile_service
+      - social_graph_service
+      - post_service
+      - notification_service
+      - frontend
+    environment:
+      AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-__Host-at}
+    configs:
+      - source: gateway_caddyfile
+        target: /etc/caddy/Caddyfile
+    networks: [default, proxy]
+
+networks:
+  proxy:
+    external: true
+
+volumes:
+  postgres-dados:
+  rabbitmq-dados:
+  rustfs-dados:
+
+# Caddyfile do gateway embutido (precisa do Docker Compose >= 2.23.1). `$$` é o `$` literal para o compose não interpolar.
+configs:
+  gateway_caddyfile:
+    content: |
+      {
+      	auto_https off
+      	admin off
+      }
+
+      :80 {
+      	# Identidade nunca vem do cliente: só o forward_auth pode definir este cabeçalho.
+      	request_header -X-Account-Id
+
+      	# Rotas entre serviços nunca saem pelo gateway.
+      	@internal path /internal/*
+      	handle @internal {
+      		respond 404
+      	}
+
+      	@auth path /auth/* /.well-known/jwks.json
+      	handle @auth {
+      		reverse_proxy authentication_service:8081
+      	}
+
+      	# Avatares: públicos e imutáveis.
+      	handle /media/avatars/* {
+      		reverse_proxy profile_service:8082
+      	}
+
+      	# Os serviços validam o JWT sozinhos; o forward_auth acrescenta a checagem de REVOGAÇÃO imediata.
+      	@profile path /api/usuarios /api/usuarios/* /api/img/usuarios/*
+      	handle @profile {
+      		request_header Authorization "Bearer {http.request.cookie.{$$AUTH_COOKIE_ACCESS_NAME:at}}"
+      		forward_auth authentication_service:8081 {
+      			uri /internal/auth/verify
+      		}
+      		reverse_proxy profile_service:8082
+      	}
+
+      	@graph path /api/relacoes /api/relacoes/*
+      	handle @graph {
+      		request_header Authorization "Bearer {http.request.cookie.{$$AUTH_COOKIE_ACCESS_NAME:at}}"
+      		forward_auth authentication_service:8081 {
+      			uri /internal/auth/verify
+      		}
+      		reverse_proxy social_graph_service:8083
+      	}
+
+      	# Imagens de postagem NÃO são públicas: o cookie vira Bearer e o serviço confere a visibilidade.
+      	@posts path /api/postagens /api/postagens/* /media/posts/*
+      	handle @posts {
+      		request_header Authorization "Bearer {http.request.cookie.{$$AUTH_COOKIE_ACCESS_NAME:at}}"
+      		forward_auth authentication_service:8081 {
+      			uri /internal/auth/verify
+      		}
+      		reverse_proxy post_service:8084
+      	}
+
+      	# Inclui o stream SSE: sem buffer e sem compressão.
+      	@notifications path /api/notificacoes /api/notificacoes/*
+      	handle @notifications {
+      		request_header Authorization "Bearer {http.request.cookie.{$$AUTH_COOKIE_ACCESS_NAME:at}}"
+      		forward_auth authentication_service:8081 {
+      			uri /internal/auth/verify
+      		}
+      		reverse_proxy notification_service:8085 {
+      			flush_interval -1
+      		}
+      	}
+
+      	# Qualquer outra /api/* não existe: 404 em JSON.
+      	handle /api/* {
+      		header Content-Type application/json
+      		respond `{"mensagem":"Recurso não encontrado","sucesso":false,"codigo":"not_found"}` 404
+      	}
+
+      	handle {
+      		reverse_proxy frontend:8080
+      	}
+      }
