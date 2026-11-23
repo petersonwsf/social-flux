@@ -15,7 +15,7 @@ Legenda da coluna **Usado em**: onde o componente é usado hoje (ajuda a medir o
 | --- | --- | --- | --- | --- |
 | `Avatar` | `src/components/common/Avatar.tsx` | Foto de perfil circular com fallback para a imagem padrão; monta a URL com `getAvatarUrl` | `user?` (`foto_perfil`, `username`), `size?` (px ou CSS) + qualquer atributo de `<img>` | sidebar, cards de usuário/postagem, perfil, editar perfil |
 | `ButtonBack` | `src/components/common/ButtonBack.tsx` | Botão de ícone "voltar" (`navigate(-1)`) | — | quase todas as páginas autenticadas |
-| `Loading` | `src/components/common/Loading.tsx` | Animação de carregamento | — | `Perfil` |
+| `Loading` | `src/components/common/Loading.tsx` | Animação de carregamento | `width?` (CSS, padrão `300px`) | `Perfil` |
 | `NoContent` | `src/components/common/NoContent.tsx` | Ilustração + mensagem para listas vazias | `msg` | `Home`, `PerfilPostagens` |
 | `NotFoundMessage` | `src/components/common/NotFoundMessage.tsx` | Ilustração + mensagem de item não encontrado | `msg` | `Perfil`, `PostPage` |
 | `ProtectedContent` | `src/components/common/ProtectedContent.tsx` | Aviso de conteúdo protegido (perfil privado não seguido) | — | `Perfil` |
@@ -61,7 +61,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `FooterBar` | `src/components/layout/FooterBar.tsx` | Barra de navegação fixa no rodapé (só mobile): início, busca, criar, notificações (com badge), perfil | `user` | `ProtectedLayout` |
 | `Sidebar` | `src/components/layout/sidebar/Sidebar.tsx` | Sidebar fixa (só desktop) que troca entre as visões menu, busca, solicitações e notificações; botão "Sair" (vermelho, contorno; abre a confirmação) no rodapé | `user` | `ProtectedLayout` |
 | `SidebarMenu` | `src/components/layout/sidebar/SidebarMenu.tsx` | Links da sidebar: Página inicial, Buscar usuário, Notificações, Solicitações, Meu perfil (com a foto no lugar do ícone) e Configurações; badges de solicitações (total real, também em tooltip: "N solicitações pendentes") e de não vistas | `user`, `solicitacoesPendentes`, `naoVistas`, `onAbrirSolicitacoes`, `onAbrirBusca`, `onAbrirNotificacoes` | `Sidebar` |
-| `SearchUsuario` | `src/components/layout/sidebar/SearchUsuario.tsx` | Busca de usuários dentro da sidebar | `onVoltar()` | `Sidebar` |
+| `SearchUsuario` | `src/components/layout/sidebar/SearchUsuario.tsx` | Busca de usuários dentro da sidebar (input com lupa, debounce de 1 s e loading pequeno enquanto aguarda) | `onVoltar()` | `Sidebar` |
 | `SidebarRelacoes` | `src/components/layout/sidebar/SidebarRelacoes.tsx` | Solicitações de seguir dentro da sidebar | `solicitacoes`, `temMais`, `onVoltar`, `onCarregarMais`, `onAceitar(solicitacao)`, `onRecusar(solicitacao)` | `Sidebar` |
 | `NotificationsSidebar` | `src/components/layout/sidebar/NotificationsSidebar.tsx` | Notificações dentro da sidebar (marca a área como aberta: badge zerado e sem toast); marca como vistas ao voltar | `onVoltar()` | `Sidebar` |
 | `SidebarBackLink` | `src/components/layout/sidebar/SidebarBackLink.tsx` | Link "voltar" das visões internas da sidebar | `onClick()` | visões da sidebar |
