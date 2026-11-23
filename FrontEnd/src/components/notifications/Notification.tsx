@@ -45,18 +45,14 @@ function Notification({ notificacao, onAceitar, onRecusar }: NotificationProps) 
                         />
                     ))}
                 </div>
-                <div className="d-flex align-items-start">
-                    <div className="min-w-0 flex-grow-1 notification-text">
-                        <p className="mb-0">
-                            <span className="fw-medium">{nomesDosAtores(notificacao)}</span> {acaoDaNotificacao(notificacao)}
-                        </p>
-                        {notificacao.tipo === 'REPLY' && notificacao.trecho && (
-                            <p className="mb-0 text-muted text-truncate">{notificacao.trecho}</p>
-                        )}
-                    </div>
-                    <small className="text-muted flex-shrink-0 ms-2 notification-time">
-                        {calcTempPost(notificacao.atualizada_em)}
-                    </small>
+                <div className="min-w-0 notification-text notification-legenda">
+                    <p className="mb-0">
+                        <span className="fw-medium">{nomesDosAtores(notificacao)}</span> {acaoDaNotificacao(notificacao)}{' '}
+                        <small className="text-muted notification-time">{calcTempPost(notificacao.atualizada_em)}</small>
+                    </p>
+                    {notificacao.tipo === 'REPLY' && notificacao.trecho && (
+                        <p className="mb-0 text-muted text-truncate">{notificacao.trecho}</p>
+                    )}
                 </div>
             </Link>
             {ehSolicitacao && (

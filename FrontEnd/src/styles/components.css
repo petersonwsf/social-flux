@@ -204,3 +204,8 @@
     width: min(50%, 220px);
     margin-bottom: 1.5rem;
 }
+
+/* Legenda alinhada à foto: recuo = largura do ícone (1.25rem) + margem (1rem). */
+.notification-legenda {
+    margin-left: 2.25rem;
+}
