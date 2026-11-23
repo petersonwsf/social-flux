@@ -1,0 +1,10 @@
+# Segredos e configuração local
+.env
+*.pem
+
+# Dados locais
+node_modules/
+
+
+# Pasta local do backend legado (removido do repositório). Pode ser apagada: guarda um .git aninhado antigo e arquivos de build.
+/BackEnd/

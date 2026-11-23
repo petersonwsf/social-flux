@@ -1,0 +1,76 @@
+# CI de Social Graph Service: em cada pull request, lint e, só se passar, testes.
+# Este repositório contém só o serviço; as libs compartilhadas vêm dos repositórios social-flux-lib-*.
+name: CI Social Graph Service
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-social_graph_service-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: social_graph_service
+
+      - name: Código da lib socialflux-events
+        uses: actions/checkout@v4
+        with:
+          repository: petersonwsf/social-flux-lib-events
+          path: libs/socialflux-events
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: "**/pom.xml"
+
+      # As libs compartilhadas são dependências Maven: instaladas no repositório local antes do serviço.
+      - name: Instalar as libs compartilhadas
+        run: |
+          mvn -B -ntp -q -DskipTests -f libs/socialflux-events/pom.xml install
+
+      # Não há Checkstyle/Spotless no projeto (adicionar exige aprovação de dependência): por ora o lint é a compilação
+      # do serviço com os avisos do compilador ligados.
+      - name: Compilar com avisos do compilador
+        run: mvn -B -ntp -f social_graph_service/pom.xml -DskipTests -Dmaven.compiler.showWarnings=true compile
+
+  test:
+    name: Testes
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: social_graph_service
+
+      - name: Código da lib socialflux-events
+        uses: actions/checkout@v4
+        with:
+          repository: petersonwsf/social-flux-lib-events
+          path: libs/socialflux-events
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: "**/pom.xml"
+
+      # As libs compartilhadas são dependências Maven: instaladas no repositório local antes do serviço.
+      - name: Instalar as libs compartilhadas
+        run: |
+          mvn -B -ntp -q -DskipTests -f libs/socialflux-events/pom.xml install
+
+      # Os testes de integração usam PostgreSQL embarcado: não precisam de Docker.
+      - name: Testes
+        run: mvn -B -ntp -f social_graph_service/pom.xml test

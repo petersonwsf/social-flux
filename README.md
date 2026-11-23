@@ -1,0 +1,65 @@
+# Social Flux
+
+| Pasta | O que é |
+| --- | --- |
+| `authentication_service/` | **Novo** serviço de identidade e acesso (Spring Boot, PostgreSQL, JWT RS256 em cookies HttpOnly) |
+| `profile_service/` | **Novo** serviço de perfil (Spring Boot, PostgreSQL próprio, busca, foto de perfil, eventos via RabbitMQ) |
+| `post_service/` | **Novo** serviço de postagens (postagens, respostas, curtidas, imagens e GIFs; PostgreSQL próprio, mídia no RustFS, eventos `post.*`) |
+| `notification_service/` | **Novo** serviço de notificações (geradas pelos eventos `post.*`, `follow.*` e `profile.*`, agrupadas; tempo real por SSE; PostgreSQL próprio; no compose e no gateway em `/api/notificacoes*`) |
+| `social_graph_service/` | **Novo** serviço do grafo social (seguir, seguidores, solicitações; PostgreSQL próprio; no compose, no gateway em `/api/relacoes*` e no frontend) |
+| `libs/socialflux-events/` | Biblioteca compartilhada de eventos (outbox, inbox, RabbitMQ) dos serviços Spring Boot |
+| `libs/socialflux-media/` | Biblioteca compartilhada de mídia (validação e re-codificação de imagens, GIFs, armazenamento S3/RustFS) |
+| `FrontEnd/` | SPA React + TypeScript (Vite) |
+| `infra/` | Caddy (gateway) de desenvolvimento |
+| `docs/` | Arquitetura geral (`ARCHITECTURE.md`), análise do backend e planos de migração. Cada app tem também o seu `docs/ARCHITECTURE.md` (e o FrontEnd, `docs/COMPONENTS.md`) |
+| `docker-compose.yml` | Ambiente de desenvolvimento completo |
+
+## Rodando
+
+```bash
+cp .env.example .env              # ajuste as senhas (AUTH_ALLOW_EPHEMERAL_KEY=true dispensa a chave RSA em dev)
+```
+
+**A) Só a infraestrutura em containers; as aplicações na sua máquina**
+```bash
+docker compose --profile host up -d     # postgres, rabbitmq, rustfs, mailpit + gateway (Caddy) apontando para o host
+```
+Depois rode as aplicações localmente (auth, perfil, grafo, postagens, notificações e frontend) (comandos em `docs/rodando-localmente.md`) e abra http://localhost:5173.
+Sem o perfil `host` (`docker compose up -d`) sobem só os bancos, o RabbitMQ, o RustFS (mídia) e o mailpit.
+
+**B) Tudo em containers**
+```bash
+docker compose --profile apps up -d --build     # http://localhost:8080
+```
+
+- Caixa de e-mail (verificação/redefinição de senha): http://localhost:8025
+- Painel do RabbitMQ: http://localhost:15672 (usuário/senha: `RABBITMQ_USER`/`RABBITMQ_PASSWORD` do `.env`)
+
+## Como as peças se falam
+
+```
+Navegador ─► Caddy (mesma origem)
+              ├─ /                          frontend
+              ├─ /auth/*                    authentication_service ─► PostgreSQL (banco identity)
+              ├─ /api/usuarios*, /media/avatars/*   profile_service ─► PostgreSQL (banco profile) + RustFS (bucket avatars)
+              ├─ /api/relacoes*             social_graph_service ─► PostgreSQL (banco social_graph)
+              ├─ /api/notificacoes*         notification_service ─► PostgreSQL (banco notification)   (inclui o stream SSE)
+              ├─ /api/postagens*, /media/posts/*   post_service ─► PostgreSQL (banco post) + RustFS (bucket post-media)
+              └─ /api/* (demais)           404 em JSON (o backend legado foi desligado)
+
+authentication_service ──PUT /internal/profiles/{uuid}──► profile_service         (cadastro; token de serviço)
+authentication_service ──account.registered|deleted.v1──► RabbitMQ ──► profile_service
+profile_service ──profile.created|updated|privacy-changed|deleted.v1──► RabbitMQ
+                                                                     └──► social_graph_service (cópia local dos perfis)
+social_graph_service ──follow.*.v1──► RabbitMQ ──► post_service (cópia das arestas aceitas)
+post_service ──post.*.v1──► RabbitMQ ──► notification_service (curtidas e respostas)
+social_graph_service ──follow.*.v1──► notification_service (novos seguidores e solicitações)
+notification_service ──SSE──► navegador (tempo real)
+```
+
+A **conta** (e-mail, senha, sessão) é do `authentication_service`; o **perfil** (username, nome, foto, privacidade) é do
+`profile_service` e tem o mesmo UUID da conta. O PostgreSQL é uma instância com **um banco por serviço**.
+Todos os domínios já foram migrados: o backend legado (Javalin + MySQL) foi desligado e removido do repositório.
+
+Veja `authentication_service/README.md`, `profile_service/README.md`, `docs/plano-dominio-identidade-servico-proprio.md` e `docs/plano-dominio-perfil-servico-proprio.md`.
+

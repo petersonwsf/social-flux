@@ -1,0 +1,105 @@
+# Gateway do ambiente de desenvolvimento (docker compose).
+# Em produção o Caddy do servidor faz o mesmo papel, com HTTPS e o seu domínio.
+#
+#   /                                    -> frontend
+#   /auth/*, /.well-known                -> authentication_service (login, refresh, logout, me, reset de senha, JWKS)
+#   /api/usuarios*, PATCH /api/img/usuarios/*, /media/avatars/*
+#                                        -> profile_service (perfil, busca, foto de perfil)
+#   /api/relacoes*                       -> social_graph_service (seguir, seguidores, solicitações), com forward_auth
+#   /api/postagens*, /media/posts/*      -> post_service (postagens, respostas, curtidas, imagens/GIFs), com forward_auth
+#   /api/notificacoes*                   -> notification_service (notificações e o stream SSE), com forward_auth e sem buffer
+#   /api/* (rest)                        -> 404 em JSON (o backend legado foi desligado)
+#   /internal/*                          -> bloqueado para o público
+#
+# IMPORTANTE: os blocos `handle` são avaliados NA ORDEM em que aparecem; as rotas específicas vêm antes de `/api/*`.
+{
+	auto_https off
+	admin off
+}
+
+:80 {
+	# Nunca confiar em identidade vinda do cliente: estes cabeçalhos só podem ser definidos pelo forward_auth.
+	request_header -X-Account-Id
+
+	# Rotas entre serviços nunca saem pelo gateway. Precisa ser um `handle` (e vir primeiro): um `respond` solto perde para o
+	# `handle` genérico do frontend na ordem de diretivas do Caddy (verificado: /internal/* respondia pelo frontend, não 404).
+	@internal path /internal/*
+	handle @internal {
+		respond 404
+	}
+
+	@auth path /auth/* /.well-known/jwks.json
+	handle @auth {
+		reverse_proxy {$AUTH_UPSTREAM:authentication_service:8081}
+	}
+
+	# Avatares: públicos e imutáveis (o nome muda a cada troca de foto), sem autenticação.
+	handle /media/avatars/* {
+		reverse_proxy {$PROFILE_UPSTREAM:profile_service:8082}
+	}
+
+	# Perfil. O profile_service é um resource server (valida o JWT sozinho); o forward_auth acrescenta a checagem de
+	# REVOGAÇÃO imediata (logout geral, troca de senha, conta excluída) feita pelo authentication_service.
+	@profile path /api/usuarios /api/usuarios/* /api/img/usuarios/*
+	handle @profile {
+		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
+
+		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
+			uri /internal/auth/verify
+		}
+		reverse_proxy {$PROFILE_UPSTREAM:profile_service:8082}
+	}
+
+	# Grafo social (seguir, seguidores, solicitações). Igual ao perfil: o serviço valida o JWT sozinho e o forward_auth
+	# acrescenta a checagem de REVOGAÇÃO. O serviço identifica o usuário pelo `sub` do token.
+	# `/api/relacoes` (plural) é deste serviço; `/api/relacao` (singular) continua no legado até ele perder essas rotas.
+	@graph path /api/relacoes /api/relacoes/*
+	handle @graph {
+		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
+
+		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
+			uri /internal/auth/verify
+		}
+		reverse_proxy {$GRAPH_UPSTREAM:social_graph_service:8083}
+	}
+
+	# Postagens e as imagens delas. Igual ao grafo: o serviço valida o JWT sozinho e o forward_auth acrescenta a checagem de
+	# REVOGAÇÃO. As imagens de postagem NÃO são públicas (ao contrário dos avatares): `<img src="/media/posts/...">` leva o
+	# cookie, que vira `Authorization: Bearer`, e o serviço só entrega a quem pode ver a postagem.
+	@posts path /api/postagens /api/postagens/* /media/posts/*
+	handle @posts {
+		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
+
+		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
+			uri /internal/auth/verify
+		}
+		reverse_proxy {$POST_UPSTREAM:post_service:8084}
+	}
+
+	# Notificações (lista, contagem, vistas e o stream SSE). Igual ao grafo e às postagens: o serviço valida o JWT sozinho e o
+	# forward_auth acrescenta a checagem de REVOGAÇÃO (feita ao ABRIR o stream; o serviço fecha o stream em 15 min no máximo e
+	# o navegador reconecta, passando de novo por aqui). `flush_interval -1` entrega cada evento SSE na hora, sem bufferizar;
+	# não use `encode` (compressão) nesta rota.
+	@notifications path /api/notificacoes /api/notificacoes/*
+	handle @notifications {
+		request_header Authorization "Bearer {http.request.cookie.{$AUTH_COOKIE_ACCESS_NAME:at}}"
+
+		forward_auth {$AUTH_UPSTREAM:authentication_service:8081} {
+			uri /internal/auth/verify
+		}
+		reverse_proxy {$NOTIFICATION_UPSTREAM:notification_service:8085} {
+			flush_interval -1
+		}
+	}
+
+	# Toda rota /api/* que nenhum serviço reivindicou acima não existe mais (o backend legado foi desligado): 404 em JSON.
+	# Sem `forward_auth` de propósito: não há o que proteger e o 404 não revela nada.
+	handle /api/* {
+		header Content-Type application/json
+		respond `{"mensagem":"Recurso não encontrado","sucesso":false,"codigo":"not_found"}` 404
+	}
+
+	handle {
+		reverse_proxy {$FRONTEND_UPSTREAM:frontend:8080}
+	}
+}

@@ -1,0 +1,16 @@
+# Contexto de build da RAIZ (serviços Spring, que incluem libs/socialflux-events e libs/socialflux-media).
+# FrontEnd/ usa o próprio diretório como contexto e tem o seu .dockerignore.
+.git
+.github
+.claude
+**/.idea
+**/*.iml
+**/target
+**/node_modules
+**/*.pem
+**/.env
+.env
+docs
+infra
+scripts
+FrontEnd

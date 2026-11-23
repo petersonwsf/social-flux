@@ -1,0 +1,452 @@
+# Ambiente de desenvolvimento completo do Social Flux.
+#
+#   cp .env.example .env                          # ajuste as senhas
+#
+# 1) Só a infraestrutura (bancos + broker + mailpit); as aplicações rodam na sua máquina:
+#      docker compose up -d                       # postgres, rabbitmq, rustfs, mailpit
+#      docker compose --profile host up -d        # + gateway (Caddy) apontando para as apps no host
+# 2) Tudo em containers:
+#      docker compose --profile apps up -d --build   ->  http://localhost:8080
+#
+# Serviços:
+#   postgres                 UMA instância PostgreSQL; um BANCO por serviço (identity = auth, profile = perfil)
+#   profile_db_init          cria o banco `profile` se não existir (roda uma vez e sai; funciona em volume já existente)
+#   graph_db_init            idem para o banco `social_graph`
+#   post_db_init             idem para o banco `post`
+#   notification_db_init     idem para o banco `notification`
+#   rustfs                   armazenamento de mídia compatível com S3 (imagens e GIFs); buckets privados, só no loopback do host
+#   rustfs_init              cria os buckets de mídia (roda uma vez e sai)
+#   rabbitmq                 broker de eventos entre serviços (painel em http://localhost:15672)
+#   mailpit                  SMTP de desenvolvimento + caixa de entrada em http://localhost:8025
+#   authentication_service   login/cadastro/sessão (JWT RS256 em cookie HttpOnly)
+#   profile_service          perfil, busca, foto de perfil (resource server: valida o JWT pelo JWKS do auth)
+#   social_graph_service     grafo social: seguir, seguidores, solicitações de contas privadas (resource server)
+#   post_service             postagens, respostas, curtidas e imagens/GIFs (resource server; mídia no RustFS)
+#   notification_service     notificações geradas pelos eventos dos outros serviços, com tempo real por SSE (resource server)
+#   frontend                 SPA (nginx)
+#   gateway                  Caddy: mesma origem para frontend, /auth, /api e /media
+name: social-flux
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${IDENTITY_DB_NAME:-identity}
+      POSTGRES_USER: ${IDENTITY_DB_USER:-identity}
+      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:?defina IDENTITY_DB_PASSWORD no .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Cria o banco do profile_service na MESMA instância (D2: um banco por serviço), reutilizando as credenciais do
+  # authentication_service. Idempotente; roda também em volumes que já existiam antes do profile_service.
+  profile_db_init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${IDENTITY_DB_USER:-identity}
+      PGPASSWORD: ${IDENTITY_DB_PASSWORD}
+      PGDATABASE: ${IDENTITY_DB_NAME:-identity}
+      PROFILE_DB: ${PROFILE_DB_NAME:-profile}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$PROFILE_DB'" | grep -q 1 \
+          || psql -v ON_ERROR_STOP=1 -c "create database \"$$PROFILE_DB\""
+
+  # Cria o banco do social_graph_service na MESMA instância (um banco por serviço), reutilizando as credenciais do
+  # authentication_service. Idempotente; roda também em volumes que já existiam antes do social_graph_service.
+  graph_db_init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${IDENTITY_DB_USER:-identity}
+      PGPASSWORD: ${IDENTITY_DB_PASSWORD}
+      PGDATABASE: ${IDENTITY_DB_NAME:-identity}
+      GRAPH_DB: ${GRAPH_DB_NAME:-social_graph}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$GRAPH_DB'" | grep -q 1 \
+          || psql -v ON_ERROR_STOP=1 -c "create database \"$$GRAPH_DB\""
+
+  # Cria o banco do post_service na MESMA instância (D1 de Postagens: um banco por serviço).
+  post_db_init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${IDENTITY_DB_USER:-identity}
+      PGPASSWORD: ${IDENTITY_DB_PASSWORD}
+      PGDATABASE: ${IDENTITY_DB_NAME:-identity}
+      POST_DB: ${POST_DB_NAME:-post}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$POST_DB'" | grep -q 1 \
+          || psql -v ON_ERROR_STOP=1 -c "create database \"$$POST_DB\""
+
+  # Cria o banco do notification_service na MESMA instância (um banco por serviço).
+  notification_db_init:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${IDENTITY_DB_USER:-identity}
+      PGPASSWORD: ${IDENTITY_DB_PASSWORD}
+      PGDATABASE: ${IDENTITY_DB_NAME:-identity}
+      NOTIFICATION_DB: ${NOTIFICATION_DB_NAME:-notification}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -v ON_ERROR_STOP=1 -tAc "select 1 from pg_database where datname = '$$NOTIFICATION_DB'" | grep -q 1 \
+          || psql -v ON_ERROR_STOP=1 -c "create database \"$$NOTIFICATION_DB\""
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?defina RABBITMQ_PASSWORD no .env}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"            # AMQP (serviços rodando no host)
+      - "127.0.0.1:${RABBITMQ_UI_PORT:-15672}:15672"       # painel de administração
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # Armazenamento de MÍDIA (S3 compatível): imagens e GIFs de postagem e, depois, as fotos de perfil. Buckets PRIVADOS: o navegador
+  # nunca fala com ele; os serviços conferem a permissão e repassam os bytes. O console web (9001) fica DESLIGADO por padrão.
+  # A chave de acesso só aceita letras MAIÚSCULAS e dígitos (regra do RustFS). Sem RUSTFS_ACCESS_KEY/SECRET_KEY o RustFS usaria a senha
+  # pública padrão, por isso as duas são obrigatórias aqui. A imagem não tem tag fixa na documentação: fixe `RUSTFS_TAG` depois de testar.
+  rustfs:
+    image: rustfs/rustfs:${RUSTFS_TAG:-latest}
+    restart: unless-stopped
+    command: ["/data"]
+    security_opt:
+      - "no-new-privileges:true"
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:?defina RUSTFS_ACCESS_KEY no .env (só A-Z e 0-9)}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:?defina RUSTFS_SECRET_KEY no .env}
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: ${RUSTFS_CONSOLE_ENABLE:-false}
+      RUSTFS_OBS_LOGGER_LEVEL: ${RUSTFS_LOG_LEVEL:-error}
+    volumes:
+      - rustfs_data:/data
+    ports:
+      # API S3 só no loopback do host (para os serviços rodando na máquina); não é exposta à rede nem ao gateway.
+      - "127.0.0.1:${RUSTFS_PORT:-9000}:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  # Cria os buckets de mídia (idempotente: roda uma vez e sai; funciona em volume já existente).
+  rustfs_init:
+    image: amazon/aws-cli:latest
+    restart: "no"
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${RUSTFS_REGION:-us-east-1}
+      AWS_EC2_METADATA_DISABLED: "true"
+      MEDIA_BUCKETS: ${RUSTFS_BUCKETS:-post-media avatars}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        endpoint=http://rustfs:9000
+        existing=$$(aws --endpoint-url "$$endpoint" s3api list-buckets --query 'Buckets[].Name' --output text)
+        for bucket in $$MEDIA_BUCKETS; do
+          if echo "$$existing" | tr '\t' '\n' | grep -qx "$$bucket"; then
+            echo "bucket $$bucket já existe"
+          else
+            aws --endpoint-url "$$endpoint" s3api create-bucket --bucket "$$bucket" && echo "bucket $$bucket criado"
+          fi
+        done
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"   # caixa de entrada (e-mails de verificação/reset)
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+
+  authentication_service:
+    profiles: ["apps"]
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events
+      dockerfile: authentication_service/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+    environment:
+      IDENTITY_DB_URL: jdbc:postgresql://postgres:5432/${IDENTITY_DB_NAME:-identity}
+      IDENTITY_DB_USER: ${IDENTITY_DB_USER:-identity}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      # JWT RS256 (gere com authentication_service/scripts/generate-jwt-key.sh)
+      JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64:-}
+      JWT_KEY_ID: ${JWT_KEY_ID:-}
+      JWT_PUBLIC_KEYS_B64: ${JWT_PUBLIC_KEYS_B64:-}
+      AUTH_ALLOW_EPHEMERAL_KEY: ${AUTH_ALLOW_EPHEMERAL_KEY:-false}
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-PT2H}
+      JWT_RENEW_WINDOW: ${JWT_RENEW_WINDOW:-PT10M}
+      JWT_REFRESH_GRACE: ${JWT_REFRESH_GRACE:-PT5M}
+      SESSION_ABSOLUTE_MAX: ${SESSION_ABSOLUTE_MAX:-P7D}
+      # Cookies: em desenvolvimento (http) sem Secure e sem prefixo __Host-; em produção use os padrões.
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
+      AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-at}
+      AUTH_COOKIE_REFRESH_NAME: ${AUTH_COOKIE_REFRESH_NAME:-rt}
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-}
+      AUTH_PUBLIC_BASE_URL: ${AUTH_PUBLIC_BASE_URL:-http://localhost:8080}
+      # E-mail (Mailpit em desenvolvimento)
+      AUTH_MAIL_ENABLED: "true"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      MAIL_FROM: ${MAIL_FROM:-no-reply@socialflux.local}
+      # Perfil (cadastro orquestrado pelo auth) e eventos account.*
+      PROFILE_SERVICE_URL: http://profile_service:8082
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    ports:
+      - "127.0.0.1:${AUTH_SERVICE_PORT:-8081}:8081"   # só para depuração local; não exponha na internet
+
+  profile_service:
+    profiles: ["apps"]
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events e libs/socialflux-media
+      dockerfile: profile_service/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      profile_db_init:
+        condition: service_completed_successfully
+      rustfs_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      # Banco próprio, mesmas credenciais do auth (sobrescreva com PROFILE_DB_USER/PROFILE_DB_PASSWORD para um role próprio)
+      PROFILE_DB_URL: jdbc:postgresql://postgres:5432/${PROFILE_DB_NAME:-profile}
+      PROFILE_DB_USER: ${PROFILE_DB_USER:-${IDENTITY_DB_USER:-identity}}
+      PROFILE_DB_PASSWORD: ${PROFILE_DB_PASSWORD:-${IDENTITY_DB_PASSWORD}}
+      # Valida o JWT com a chave PÚBLICA do auth
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      PROFILE_SERVICE_AUDIENCE: ${PROFILE_SERVICE_AUDIENCE:-profile-service}
+      # Avatares no bucket `avatars` do RustFS (entrega continua pública em /media/avatars/*). Credencial raiz por ora (D18).
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_REGION: ${RUSTFS_REGION:-us-east-1}
+      PROFILE_AVATAR_BUCKET: avatars
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    ports:
+      - "127.0.0.1:${PROFILE_SERVICE_PORT:-8082}:8082"   # só para depuração local; não exponha na internet
+
+  social_graph_service:
+    profiles: ["apps"]
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events
+      dockerfile: social_graph_service/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      graph_db_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      # Banco próprio, mesmas credenciais do auth (sobrescreva com GRAPH_DB_USER/GRAPH_DB_PASSWORD para um role próprio)
+      GRAPH_DB_URL: jdbc:postgresql://postgres:5432/${GRAPH_DB_NAME:-social_graph}
+      GRAPH_DB_USER: ${GRAPH_DB_USER:-${IDENTITY_DB_USER:-identity}}
+      GRAPH_DB_PASSWORD: ${GRAPH_DB_PASSWORD:-${IDENTITY_DB_PASSWORD}}
+      # Valida o JWT com a chave PÚBLICA do auth
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # Limites antiabuso (opcionais)
+      GRAPH_FOLLOW_RATE_PER_HOUR: ${GRAPH_FOLLOW_RATE_PER_HOUR:-60}
+      GRAPH_MAX_FOLLOWING: ${GRAPH_MAX_FOLLOWING:-7500}
+      GRAPH_MAX_PENDING_SENT: ${GRAPH_MAX_PENDING_SENT:-1000}
+    ports:
+      - "127.0.0.1:${GRAPH_SERVICE_PORT:-8083}:8083"   # só para depuração local; não exponha na internet
+
+  post_service:
+    profiles: ["apps"]
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events e libs/socialflux-media
+      dockerfile: post_service/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      post_db_init:
+        condition: service_completed_successfully
+      rustfs_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      # Banco próprio, mesmas credenciais do auth (sobrescreva com POST_DB_USER/POST_DB_PASSWORD para um role próprio)
+      POST_DB_URL: jdbc:postgresql://postgres:5432/${POST_DB_NAME:-post}
+      POST_DB_USER: ${POST_DB_USER:-${IDENTITY_DB_USER:-identity}}
+      POST_DB_PASSWORD: ${POST_DB_PASSWORD:-${IDENTITY_DB_PASSWORD}}
+      # Valida o JWT com a chave PÚBLICA do auth
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # Imagens e GIFs no bucket `post-media` do RustFS. Credencial raiz por ora (D18).
+      RUSTFS_ENDPOINT: http://rustfs:9000
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY}
+      RUSTFS_REGION: ${RUSTFS_REGION:-us-east-1}
+      POST_MEDIA_BUCKET: post-media
+      # Limites (opcionais, D10)
+      POST_RATE_POSTS_PER_HOUR: ${POST_RATE_POSTS_PER_HOUR:-60}
+      POST_RATE_LIKES_PER_HOUR: ${POST_RATE_LIKES_PER_HOUR:-600}
+    ports:
+      - "127.0.0.1:${POST_SERVICE_PORT:-8084}:8084"   # só para depuração local; não exponha na internet
+
+  notification_service:
+    profiles: ["apps"]
+    build:
+      context: .                                  # raiz: o build inclui libs/socialflux-events
+      dockerfile: notification_service/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      notification_db_init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      # Banco próprio, mesmas credenciais do auth (sobrescreva com NOTIFICATION_DB_USER/NOTIFICATION_DB_PASSWORD para um role próprio)
+      NOTIFICATION_DB_URL: jdbc:postgresql://postgres:5432/${NOTIFICATION_DB_NAME:-notification}
+      NOTIFICATION_DB_USER: ${NOTIFICATION_DB_USER:-${IDENTITY_DB_USER:-identity}}
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:-${IDENTITY_DB_PASSWORD}}
+      # Valida o JWT com a chave PÚBLICA do auth
+      AUTH_JWKS_URI: http://authentication_service:8081/.well-known/jwks.json
+      JWT_ISSUER: ${JWT_ISSUER:-http://localhost:8080}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-socialflux-api}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-socialflux}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # Tempo real (SSE), retenção e limites (opcionais)
+      NOTIFICATION_SSE_MAX_DURATION: ${NOTIFICATION_SSE_MAX_DURATION:-PT15M}
+      NOTIFICATION_SSE_MAX_PER_USER: ${NOTIFICATION_SSE_MAX_PER_USER:-5}
+      NOTIFICATION_SSE_MAX_TOTAL: ${NOTIFICATION_SSE_MAX_TOTAL:-5000}
+      NOTIFICATION_RETENTION: ${NOTIFICATION_RETENTION:-P45D}
+    ports:
+      - "127.0.0.1:${NOTIFICATION_SERVICE_PORT:-8085}:8085"   # só para depuração local; não exponha na internet
+
+  frontend:
+    profiles: ["apps"]
+    build:
+      context: ./FrontEnd
+      args:
+        VITE_API_URL: ""   # mesma origem (via gateway)
+    restart: unless-stopped
+    expose:
+      - "8080"
+
+  # Gateway quando as aplicações rodam NA SUA MÁQUINA (só a infra em containers):
+  #   docker compose --profile host up -d     (sobe bancos + broker + mailpit + este gateway)
+  # Encaminha para authentication_service (8081), profile_service (8082), social_graph_service (8083), post_service (8084),
+  # notification_service (8085) e Vite (5173) no host.
+  gateway_host:
+    profiles: ["host"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-at}
+      AUTH_UPSTREAM: host.docker.internal:8081
+      PROFILE_UPSTREAM: host.docker.internal:8082
+      GRAPH_UPSTREAM: host.docker.internal:8083
+      POST_UPSTREAM: host.docker.internal:8084
+      NOTIFICATION_UPSTREAM: host.docker.internal:8085
+      FRONTEND_UPSTREAM: host.docker.internal:5173
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  gateway:
+    profiles: ["apps"]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - authentication_service
+      - profile_service
+      - social_graph_service
+      - post_service
+      - notification_service
+      - frontend
+    environment:
+      AUTH_COOKIE_ACCESS_NAME: ${AUTH_COOKIE_ACCESS_NAME:-at}
+      # Para desenvolver o frontend com HMR: FRONTEND_UPSTREAM=host.docker.internal:5173
+      FRONTEND_UPSTREAM: ${FRONTEND_UPSTREAM:-frontend:8080}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "${GATEWAY_PORT:-8080}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  rustfs_data:

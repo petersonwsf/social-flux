@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Agregador Maven do monorepo: só lista os módulos Java novos para compilar/testar juntos a partir da raiz.
+  Não é parent de ninguém (cada serviço continua com o spring-boot-starter-parent).
+    mvn -pl profile_service -am test     # testa um serviço compilando a biblioteca de eventos junto
+    mvn test                             # tudo
+  O backend legado (Javalin + MySQL) já foi desligado e removido do repositório.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.socialflux</groupId>
+    <artifactId>socialflux</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>socialflux (agregador)</name>
+
+    <modules>
+        <module>libs/socialflux-events</module>
+        <module>libs/socialflux-media</module>
+        <module>authentication_service</module>
+        <module>profile_service</module>
+        <module>social_graph_service</module>
+        <module>post_service</module>
+        <module>notification_service</module>
+    </modules>
+</project>
