@@ -42,8 +42,8 @@ function PostSecondary({ postagem, onExcluir }: PostSecondaryProps) {
                             </div>
                             {ehDoUsuario(autor, user) && <DropdownActions onExcluir={() => onExcluir(postagem.id)} />}
                         </div>
+                        {postagem.pai && <EmRespostaA pai={postagem.pai} comLink />}
                         <Link className="text-decoration-none text-body mt-1" to={`/postagem/${postagem.id}`}>
-                            {postagem.pai && <EmRespostaA pai={postagem.pai} />}
                             {postagem.legenda && <p className="legenda text-break pe-2">{postagem.legenda}</p>}
                             {postagem.imagem && <ImagemPostagem imagem={postagem.imagem} />}
                         </Link>
