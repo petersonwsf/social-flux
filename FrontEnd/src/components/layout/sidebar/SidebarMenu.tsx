@@ -31,7 +31,7 @@ function SidebarMenu({
     onAbrirNotificacoes,
 }: SidebarMenuProps) {
     return (
-        <ul className="nav nav-pills flex-column px-2">
+        <ul className="nav nav-pills flex-column gap-2 px-2">
             <li>
                 <NavLink to="/" end className="nav-link d-flex align-items-center">
                     <ion-icon name="home-outline"></ion-icon>
