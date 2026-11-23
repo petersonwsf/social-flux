@@ -75,11 +75,11 @@ social_flux/
 
 ## `<app>/.github/workflows/`
 
-Cada aplicação (os 5 serviços Spring e o `FrontEnd/`) guarda o seu próprio CI e CD em `<app>/.github/workflows/ci.yml` e `cd.yml`, independentes entre si (sem workflow compartilhado). Atenção: o GitHub só executa workflows de `.github/workflows/` na **raiz do repositório**; estes arquivos funcionam quando a pasta da aplicação é a raiz de um repositório (ou são copiados/ligados à raiz).
+Cada aplicação (os 5 serviços Spring e o `FrontEnd/`) guarda o seu próprio CI e CD em `<app>/.github/workflows/ci.yml` e `cd.yml`, independentes entre si (sem workflow compartilhado). Atenção: o GitHub só executa workflows de `.github/workflows/` na **raiz do repositório**; estes arquivos são os que rodam nos repositórios isolados de cada aplicação (`social-flux-*`). Nos serviços Spring, o workflow faz checkout do serviço e das libs (`social-flux-lib-events`/`-media`), instala as libs no Maven local e roda o Maven só no serviço (`mvn -f <serviço>/pom.xml test`); o build da imagem monta o layout do monorepo (`libs/*` e `<serviço>/` lado a lado) como contexto.
 
 | Arquivo | O que faz |
 | --- | --- |
-| `ci.yml` | Em cada **pull request**: lint e, só se passar, testes (`mvn -pl <serviço> -am test`; no frontend `lint` + `typecheck`, depois `build`, pois não há test runner) |
+| `ci.yml` | Em cada **pull request**: lint e, só se passar, testes (`mvn -f <serviço>/pom.xml test`; no frontend `lint` + `typecheck`, depois `build`, pois não há test runner) |
 | `cd.yml` | No **push na `main`** (merge): roda os testes de novo; se passarem, publica a imagem no GHCR (`ghcr.io/<dono>/social_flux_<serviço>`, tags `latest` e SHA) e atualiza o container na VPS por SSH (`docker compose pull` + `up -d`) |
 
 A publicação no GHCR usa o `GITHUB_TOKEN` (sem secret). Secrets usados pelo CD: `GHCR_USERNAME` e `GHCR_READ_TOKEN` (PAT só com `read:packages`, para a VPS fazer o pull), `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`, `VPS_PORT`, `SSH_PASSPHRASE`, `VPS_PROJECT_PATH`. O `docker-compose` da VPS deve ter serviços com o nome das pastas (`authentication_service`, ..., `frontend`) e `image: ghcr.io/<dono>/social_flux_<serviço>:latest`.
