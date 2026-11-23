@@ -30,11 +30,11 @@ function Notification({ notificacao, onAceitar, onRecusar }: NotificationProps) 
                 notificacao.vista ? 'viewed' : 'no-viewed'
             }`}
         >
-            <Link className="d-flex align-items-center text-decoration-none flex-grow-1 min-w-0" to={destinoDaNotificacao(notificacao)}>
-                <span className={`d-flex flex-shrink-0 ms-3 me-3 ${icone.className}`}>
-                    <ion-icon name={icone.name}></ion-icon>
-                </span>
-                <div className="d-flex align-items-center flex-shrink-0 me-3">
+            <Link className="d-block text-decoration-none flex-grow-1 min-w-0 ps-3" to={destinoDaNotificacao(notificacao)}>
+                <div className="d-flex align-items-center mb-1">
+                    <span className={`d-flex flex-shrink-0 me-3 ${icone.className}`}>
+                        <ion-icon name={icone.name}></ion-icon>
+                    </span>
                     {notificacao.atores.slice(0, 2).map((ator, indice) => (
                         <Avatar
                             key={ator.id}
@@ -45,18 +45,20 @@ function Notification({ notificacao, onAceitar, onRecusar }: NotificationProps) 
                         />
                     ))}
                 </div>
-                <div className="min-w-0 notification-text">
-                    <p className="mb-0">
-                        <span className="fw-medium">{nomesDosAtores(notificacao)}</span> {acaoDaNotificacao(notificacao)}
-                    </p>
-                    {notificacao.tipo === 'REPLY' && notificacao.trecho && (
-                        <p className="mb-0 text-muted text-truncate">{notificacao.trecho}</p>
-                    )}
+                <div className="d-flex align-items-start">
+                    <div className="min-w-0 flex-grow-1 notification-text">
+                        <p className="mb-0">
+                            <span className="fw-medium">{nomesDosAtores(notificacao)}</span> {acaoDaNotificacao(notificacao)}
+                        </p>
+                        {notificacao.tipo === 'REPLY' && notificacao.trecho && (
+                            <p className="mb-0 text-muted text-truncate">{notificacao.trecho}</p>
+                        )}
+                    </div>
+                    <small className="text-muted flex-shrink-0 ms-2 notification-time">
+                        {calcTempPost(notificacao.atualizada_em)}
+                    </small>
                 </div>
             </Link>
-            <small className="text-muted flex-shrink-0 align-self-start ms-2 notification-time">
-                {calcTempPost(notificacao.atualizada_em)}
-            </small>
             {ehSolicitacao && (
                 <div className="d-flex gap-1 ms-2 flex-shrink-0">
                     <button type="button" className="btn btn-primary btn-sm" onClick={() => onAceitar?.(notificacao)}>
