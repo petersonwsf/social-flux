@@ -37,6 +37,7 @@ function PostSecondary({ postagem, onExcluir }: PostSecondaryProps) {
                                     <span className="nome-limitado">{autor.nome}</span>
                                     <span className="ms-2 text-truncate username-muted">@{autor.username}</span>
                                 </Link>
+                                <span className="text-secondary me-2" aria-hidden="true">·</span>
                                 <span className="text-secondary">{calcTempPost(postagem.criado_em)}</span>
                             </div>
                             {ehDoUsuario(autor, user) && <DropdownActions onExcluir={() => onExcluir(postagem.id)} />}
