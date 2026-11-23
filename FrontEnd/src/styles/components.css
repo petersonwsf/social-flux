@@ -296,3 +296,13 @@
 .btn-emoji:hover {
     background: var(--sf-primary-soft);
 }
+
+/* Nome de usuário com limite: passou da largura máxima, termina em "...". */
+.nome-limitado {
+    display: block;
+    max-width: 14rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

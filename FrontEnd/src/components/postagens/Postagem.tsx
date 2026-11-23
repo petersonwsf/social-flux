@@ -37,7 +37,7 @@ function Postagem({ postagem, onExcluir, onResposta }: PostagemProps) {
                             className="d-flex text-decoration-none align-items-center w-75 text-truncate"
                             to={`/perfil/${autor.username}`}
                         >
-                            {autor.nome}
+                            <span className="nome-limitado">{autor.nome}</span>
                             <span className="mx-2 text-truncate username-muted">@{autor.username}</span>
                         </Link>
                         {ehDoUsuario(autor, user) && <DropdownActions onExcluir={() => onExcluir(postagem.id)} />}

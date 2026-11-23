@@ -34,7 +34,7 @@ function PostSecondary({ postagem, onExcluir }: PostSecondaryProps) {
                         <div className="d-flex infos-user justify-content-between w-100 align-items-center">
                             <div className="d-flex text-truncate align-items-center">
                                 <Link to={`/perfil/${autor.username}`} className="me-2 text-decoration-none d-flex text-truncate">
-                                    {autor.nome}
+                                    <span className="nome-limitado">{autor.nome}</span>
                                     <span className="ms-2 text-truncate username-muted">@{autor.username}</span>
                                 </Link>
                                 <span className="text-secondary">{calcTempPost(postagem.criado_em)}</span>
