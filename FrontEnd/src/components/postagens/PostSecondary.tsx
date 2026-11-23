@@ -4,6 +4,7 @@ import { calcTempPost } from '../../lib/dates'
 import { ehDoUsuario } from '../../lib/autoria'
 import { usePostagemInteracoes } from '../../hooks/usePostagemInteracoes'
 import Avatar from '../common/Avatar'
+import Deslizante from '../common/Deslizante'
 import FormComentar from '../forms/FormComentar'
 import DropdownActions from './DropdownActions'
 import EmRespostaA from './EmRespostaA'
@@ -53,13 +54,9 @@ function PostSecondary({ postagem, onExcluir }: PostSecondaryProps) {
                         </div>
                     </div>
                 </div>
-                {comentando && (
-                    <div className="slide-down px-2 px-lg-4 pb-2">
-                        <div className="slide-down-inner">
-                            <FormComentar user={user} idPostagem={postagem.id} onSubmit={comentar} />
-                        </div>
-                    </div>
-                )}
+                <Deslizante aberto={comentando} className="px-2 px-lg-4 pb-2">
+                    <FormComentar user={user} idPostagem={postagem.id} onSubmit={comentar} />
+                </Deslizante>
             </article>
             <hr />
         </>

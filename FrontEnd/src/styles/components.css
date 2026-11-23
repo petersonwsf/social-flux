@@ -214,16 +214,31 @@
     margin-right: 0;
 }
 
-/* Entrada com deslize para baixo (ex.: formulário de comentário): anima a altura de 0 até o conteúdo. */
-.slide-down {
+/* Deslize vertical (componente Deslizante): anima a altura de 0 até o conteúdo, na abertura e no fechamento. */
+.slide-down,
+.slide-up {
     display: grid;
-    animation: slide-down 0.25s ease-out;
+    animation-duration: 0.25s;
+    animation-timing-function: ease-out;
+    animation-fill-mode: forwards;
 }
 
-.slide-down > .slide-down-inner {
+.slide-down {
+    animation-name: slide-down;
+}
+
+.slide-up {
+    animation-name: slide-up;
+}
+
+.slide-inner {
     min-height: 0;
     overflow: hidden;
     padding: 0.25rem;
+}
+
+.slide-down.estavel > .slide-inner {
+    overflow: visible;
 }
 
 @keyframes slide-down {
@@ -238,8 +253,46 @@
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .slide-down {
-        animation: none;
+@keyframes slide-up {
+    from {
+        grid-template-rows: 1fr;
+        opacity: 1;
     }
+
+    to {
+        grid-template-rows: 0fr;
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .slide-down,
+    .slide-up {
+        animation-duration: 0.01ms;
+    }
+}
+
+/* Seletor de emojis */
+.seletor-emoji {
+    width: 17rem;
+}
+
+.seletor-emoji.show {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 0.1rem;
+}
+
+.btn-emoji {
+    --bs-btn-padding-x: 0;
+    --bs-btn-padding-y: 0.2rem;
+    --bs-btn-border-radius: 8px;
+    font-size: 1.25rem;
+    line-height: 1.4;
+    background: none;
+    border: 0;
+}
+
+.btn-emoji:hover {
+    background: var(--sf-primary-soft);
 }

@@ -20,6 +20,7 @@ Legenda da coluna **Usado em**: onde o componente é usado hoje (ajuda a medir o
 | `NotFoundMessage` | `src/components/common/NotFoundMessage.tsx` | Ilustração + mensagem de item não encontrado | `msg` | `Perfil`, `PostPage` |
 | `ProtectedContent` | `src/components/common/ProtectedContent.tsx` | Aviso de conteúdo protegido (perfil privado não seguido) | — | `Perfil` |
 | `TabMenu` | `src/components/common/TabMenu.tsx` | Menu de abas genérico e tipado pelo id da aba | `tabs` (`{ id, label }[]`), `active`, `onChange(id)` | `Perfil`, `Notifications` |
+| `Deslizante` | `src/components/common/Deslizante.tsx` | Mostra/oculta o conteúdo com deslize vertical (abre e fecha animado; só desmonta ao fim do fechamento) | `aberto`, `children`, `className?` | `Postagem`, `PostSecondary` (formulário de comentário) |
 
 ## `auth/` — telas de conta
 
@@ -38,7 +39,8 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `FormSignin` | `src/components/forms/FormSignin.tsx` | Login (e-mail e senha) com link para alternar ao cadastro | `onSubmit(LoginPayload)`, `toggleForm()` | `Login` |
 | `FormSignup` | `src/components/forms/FormSignup.tsx` | Cadastro (e-mail, telefone, sexo, nascimento, nome, username, senha + confirmação) | `onSubmit(RegisterPayload)`, `toggleForm()` | `Login` |
 | `FormCriarPostagem` | `src/components/forms/FormCriarPostagem.tsx` | Nova postagem: texto e/ou imagem (PNG, JPEG, WebP) ou GIF, com as regras de `lib/midia.ts` no cliente | `onSubmit(CriarPostagemPayload)` | `CriarPostagem` |
-| `FormComentar` | `src/components/forms/FormComentar.tsx` | Resposta a uma postagem (texto e/ou imagem/GIF por modal), com avatar do usuário e validação "texto ou imagem" | `user`, `idPostagem` (UUID; gera id de modal único), `onSubmit(CriarPostagemPayload)` | `Postagem`, `PostSecondary` |
+| `FormComentar` | `src/components/forms/FormComentar.tsx` | Resposta a uma postagem (texto, emojis na posição do cursor e/ou imagem/GIF por modal), com avatar do usuário e validação "texto ou imagem" | `user`, `idPostagem` (UUID; gera id de modal único), `onSubmit(CriarPostagemPayload)` | `Postagem`, `PostSecondary` |
+| `SeletorEmoji` | `src/components/forms/SeletorEmoji.tsx` | Botão com grade de emojis (dropdown do Bootstrap) | `onSelecionar(emoji)` | `FormComentar` |
 | `FormEditarPerfil` | `src/components/forms/FormEditarPerfil.tsx` | Edição de username, nome, biografia e conta privada | `user`, `onSubmit(EditarPerfilPayload)` | `EditarPerfil` |
 | `FormAlterarFotoPerfil` | `src/components/forms/FormAlterarFotoPerfil.tsx` | Envio de nova foto de perfil | `onSubmit(foto: File)` | `EditarPerfil` |
 
