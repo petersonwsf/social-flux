@@ -166,6 +166,14 @@
     color: var(--bs-body-color);
 }
 
+.notification-text {
+    font-size: 0.85rem;
+}
+
+.notification-time {
+    font-size: 0.75rem;
+}
+
 .notification.no-viewed {
     background: var(--sf-primary-soft);
 }

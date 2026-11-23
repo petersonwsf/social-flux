@@ -106,5 +106,5 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
 | --- | --- | --- | --- | --- |
-| `Notification` | `src/components/notifications/Notification.tsx` | Uma notificação (grupo): ícone por tipo, até 2 avatares, frase agrupada, trecho da resposta, tempo relativo e link para a postagem/perfil; em `FOLLOW_REQUEST`, botões **Aceitar/Recusar** | `notificacao`, `onAceitar?`, `onRecusar?` | `ListNotifications` |
+| `Notification` | `src/components/notifications/Notification.tsx` | Uma notificação (grupo): ícone por tipo, até 2 avatares, frase agrupada, trecho da resposta, tempo relativo (canto superior direito) e link para a postagem/perfil; em `FOLLOW_REQUEST`, botões **Aceitar/Recusar** | `notificacao`, `onAceitar?`, `onRecusar?` | `ListNotifications` |
 | `ListNotifications` | `src/components/notifications/ListNotifications.tsx` | Lista de notificações (mensagem de vazio e "Carregar mais") | `notifications`, `onAceitar?`, `onRecusar?`, `temMais?`, `carregando?`, `onCarregarMais?` | `Notifications`, `NotificationsSidebar` |
