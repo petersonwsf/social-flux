@@ -306,3 +306,17 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* Estado vazio (NoContent) */
+.no-content {
+    min-height: 50vh;
+}
+
+.no-content .no-content-icon {
+    color: var(--sf-primary-text);
+}
+
+.no-content .no-content-icon ion-icon {
+    font-size: 5rem;
+    margin: 0;
+}

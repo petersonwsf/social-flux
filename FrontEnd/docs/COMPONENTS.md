@@ -16,7 +16,7 @@ Legenda da coluna **Usado em**: onde o componente é usado hoje (ajuda a medir o
 | `Avatar` | `src/components/common/Avatar.tsx` | Foto de perfil circular com fallback para a imagem padrão; monta a URL com `getAvatarUrl` | `user?` (`foto_perfil`, `username`), `size?` (px ou CSS) + qualquer atributo de `<img>` | sidebar, cards de usuário/postagem, perfil, editar perfil |
 | `ButtonBack` | `src/components/common/ButtonBack.tsx` | Botão de ícone "voltar" (`navigate(-1)`) | — | quase todas as páginas autenticadas |
 | `Loading` | `src/components/common/Loading.tsx` | Animação de carregamento | `width?` (CSS, padrão `300px`) | `Perfil` |
-| `NoContent` | `src/components/common/NoContent.tsx` | Ilustração + mensagem para listas vazias | `msg` | `Home`, `PerfilPostagens` |
+| `NoContent` | `src/components/common/NoContent.tsx` | Ícone (cor do tema) + mensagem, centralizados, para listas vazias | `msg` | `Home`, `PerfilPostagens` |
 | `NotFoundMessage` | `src/components/common/NotFoundMessage.tsx` | Ilustração + mensagem de item não encontrado | `msg` | `Perfil`, `PostPage` |
 | `ProtectedContent` | `src/components/common/ProtectedContent.tsx` | Aviso de conteúdo protegido (perfil privado não seguido) | — | `Perfil` |
 | `TabMenu` | `src/components/common/TabMenu.tsx` | Menu de abas genérico e tipado pelo id da aba | `tabs` (`{ id, label }[]`), `active`, `onChange(id)` | `Perfil`, `Notifications` |
