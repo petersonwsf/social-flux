@@ -82,7 +82,7 @@ Cada aplicação (os 5 serviços Spring e o `FrontEnd/`) guarda o seu próprio C
 | `ci.yml` | Em cada **pull request**: lint e, só se passar, testes (`mvn -f <serviço>/pom.xml test`; no frontend `lint` + `typecheck`, depois `build`, pois não há test runner) |
 | `cd.yml` | No **push na `main`** (merge): roda os testes de novo; se passarem, publica a imagem no GHCR (`ghcr.io/<dono>/social_flux_<serviço>`, tags `latest` e SHA) e atualiza o container na VPS por SSH (`docker compose pull` + `up -d`) |
 
-A publicação no GHCR usa o `GITHUB_TOKEN` (sem secret). Secrets usados pelo CD: `GHCR_USERNAME` e `GHCR_READ_TOKEN` (PAT só com `read:packages`, para a VPS fazer o pull), `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`, `VPS_PORT`, `SSH_PASSPHRASE`, `VPS_PROJECT_PATH`. O `docker-compose` da VPS deve ter serviços com o nome das pastas (`authentication_service`, ..., `frontend`) e `image: ghcr.io/<dono>/social_flux_<serviço>:latest`.
+A publicação no GHCR usa o `GITHUB_TOKEN` (sem secret). Secrets usados pelo CD: `GHCR_USERNAME` e `GHCR_READ_TOKEN` (PAT só com `read:packages`, para a VPS fazer o pull), `VPS_HOST`, `VPS_USERNAME`, `VPS_SSH_KEY`, `VPS_PORT`, `VPS_PASSPHRASE`, `VPS_PROJECT_PATH`. O `docker-compose` da VPS deve ter serviços com o nome das pastas (`authentication_service`, ..., `frontend`) e `image: ghcr.io/<dono>/social_flux_<serviço>:latest`.
 
 ## `scripts/dev/`
 
