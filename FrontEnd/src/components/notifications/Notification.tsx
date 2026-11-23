@@ -19,7 +19,7 @@ interface NotificationProps {
     onRecusar?: (notificacao: Notificacao) => void
 }
 
-/** Uma notificação (grupo): ícone, até 2 avatares, "Ana, Bia e mais 3 curtiram…", trecho da resposta e, nas solicitações, os botões. */
+/** Uma notificação (grupo): ícone, até 2 avatares, "Ana, Bia e mais 3 curtiram…", trecho da resposta e, nas solicitações, os botões de ícone (aceitar/recusar). */
 function Notification({ notificacao, onAceitar, onRecusar }: NotificationProps) {
     const icone = ICONE_POR_TIPO[notificacao.tipo]
     const ehSolicitacao = notificacao.tipo === 'FOLLOW_REQUEST'
@@ -57,11 +57,23 @@ function Notification({ notificacao, onAceitar, onRecusar }: NotificationProps) 
             </Link>
             {ehSolicitacao && (
                 <div className="d-flex gap-1 ms-2 flex-shrink-0">
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => onAceitar?.(notificacao)}>
-                        Aceitar
+                    <button
+                        type="button"
+                        className="btn btn-primary btn-sm d-flex align-items-center p-1"
+                        aria-label="Aceitar solicitação"
+                        title="Aceitar"
+                        onClick={() => onAceitar?.(notificacao)}
+                    >
+                        <ion-icon name="checkmark-outline"></ion-icon>
                     </button>
-                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => onRecusar?.(notificacao)}>
-                        Recusar
+                    <button
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm d-flex align-items-center p-1"
+                        aria-label="Recusar solicitação"
+                        title="Recusar"
+                        onClick={() => onRecusar?.(notificacao)}
+                    >
+                        <ion-icon name="close-outline"></ion-icon>
                     </button>
                 </div>
             )}

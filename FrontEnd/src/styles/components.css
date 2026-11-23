@@ -209,3 +209,7 @@
 .notification-legenda {
     margin-left: 2.25rem;
 }
+
+.notification .btn ion-icon {
+    margin-right: 0;
+}
