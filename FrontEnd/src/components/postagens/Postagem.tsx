@@ -57,8 +57,10 @@ function Postagem({ postagem, onExcluir, onResposta }: PostagemProps) {
                 <CommentButton onClick={alternarComentario} />
             </div>
             {comentando && (
-                <div className="px-3 my-3">
-                    <FormComentar user={user} idPostagem={postagem.id} onSubmit={comentar} />
+                <div className="slide-down px-3 my-3">
+                    <div className="slide-down-inner">
+                        <FormComentar user={user} idPostagem={postagem.id} onSubmit={comentar} />
+                    </div>
                 </div>
             )}
             <hr />

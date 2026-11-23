@@ -213,3 +213,33 @@
 .notification .btn ion-icon {
     margin-right: 0;
 }
+
+/* Entrada com deslize para baixo (ex.: formulário de comentário): anima a altura de 0 até o conteúdo. */
+.slide-down {
+    display: grid;
+    animation: slide-down 0.25s ease-out;
+}
+
+.slide-down > .slide-down-inner {
+    min-height: 0;
+    overflow: hidden;
+    padding: 0.25rem;
+}
+
+@keyframes slide-down {
+    from {
+        grid-template-rows: 0fr;
+        opacity: 0;
+    }
+
+    to {
+        grid-template-rows: 1fr;
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .slide-down {
+        animation: none;
+    }
+}

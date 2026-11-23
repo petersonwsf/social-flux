@@ -51,13 +51,15 @@ function PostSecondary({ postagem, onExcluir }: PostSecondaryProps) {
                             <CommentButton onClick={alternarComentario} />
                             <span>{respostas.total}</span>
                         </div>
-                        {comentando && (
-                            <div className="w-100 mt-4 pe-2">
-                                <FormComentar user={user} idPostagem={postagem.id} onSubmit={comentar} />
-                            </div>
-                        )}
                     </div>
                 </div>
+                {comentando && (
+                    <div className="slide-down px-2 px-lg-4 pb-2">
+                        <div className="slide-down-inner">
+                            <FormComentar user={user} idPostagem={postagem.id} onSubmit={comentar} />
+                        </div>
+                    </div>
+                )}
             </article>
             <hr />
         </>
