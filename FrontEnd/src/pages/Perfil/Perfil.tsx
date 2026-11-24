@@ -66,11 +66,11 @@ function PerfilView({ perfil }: { perfil: Usuario }) {
                 onCancelarSolicitacao={() => void deixarDeSeguir()}
             />
             <TabMenu tabs={TABS} active={aba} onChange={setAba} />
-            <div className="mt-4 text-center">
+            <div className="mt-4">
                 {podeVerConteudo ? (
                     <PerfilPostagens perfil={perfil} filtro={aba} />
                 ) : (
-                    <div className="mt-5">
+                    <div className="mt-5 text-center">
                         <ProtectedContent />
                     </div>
                 )}
