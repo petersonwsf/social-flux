@@ -12,8 +12,8 @@ interface CarrosselImagensProps {
 }
 
 /**
- * Carrossel em tela cheia com as imagens completas (sem corte) de uma postagem. Fecha com Esc, no X ou clicando no fundo;
- * as setas do teclado e os botões trocam de imagem.
+ * Carrossel com as imagens completas (sem corte) de uma postagem: painel centralizado sobre um fundo escuro, com setas
+ * ao lado da imagem e pontos embaixo. Fecha com Esc, no X ou clicando no fundo; as setas do teclado também trocam de imagem.
  */
 function CarrosselImagens({ imagens, indice, onMudar, onFechar }: CarrosselImagensProps) {
     const total = imagens.length
@@ -44,43 +44,52 @@ function CarrosselImagens({ imagens, indice, onMudar, onFechar }: CarrosselImage
             aria-label={`Imagem ${indice + 1} de ${total}`}
             onClick={onFechar}
         >
-            <button type="button" className="carrossel-botao carrossel-fechar" aria-label="Fechar" onClick={onFechar}>
-                <ion-icon name="close-outline"></ion-icon>
-            </button>
-            {total > 1 && <span className="carrossel-contador">{indice + 1} / {total}</span>}
-            {indice > 0 && (
-                <button
-                    type="button"
-                    className="carrossel-botao carrossel-anterior"
-                    aria-label="Imagem anterior"
-                    onClick={(evento) => {
-                        evento.stopPropagation()
-                        onMudar(indice - 1)
-                    }}
-                >
-                    <ion-icon name="chevron-back-outline"></ion-icon>
+            <div className="carrossel-painel" onClick={(evento) => evento.stopPropagation()}>
+                <button type="button" className="carrossel-fechar" aria-label="Fechar" onClick={onFechar}>
+                    <ion-icon name="close-outline"></ion-icon>
                 </button>
-            )}
-            <img
-                key={atual.url}
-                src={getPostImageUrl(atual.url)}
-                alt={`Imagem ${indice + 1} de ${total}`}
-                className="carrossel-imagem"
-                onClick={(evento) => evento.stopPropagation()}
-            />
-            {indice < total - 1 && (
-                <button
-                    type="button"
-                    className="carrossel-botao carrossel-proxima"
-                    aria-label="Próxima imagem"
-                    onClick={(evento) => {
-                        evento.stopPropagation()
-                        onMudar(indice + 1)
-                    }}
-                >
-                    <ion-icon name="chevron-forward-outline"></ion-icon>
-                </button>
-            )}
+                <div className="carrossel-palco">
+                    <button
+                        type="button"
+                        className="carrossel-seta"
+                        aria-label="Imagem anterior"
+                        disabled={indice === 0}
+                        onClick={() => onMudar(indice - 1)}
+                    >
+                        <ion-icon name="chevron-back-outline"></ion-icon>
+                    </button>
+                    <img
+                        key={atual.url}
+                        src={getPostImageUrl(atual.url)}
+                        alt={`Imagem ${indice + 1} de ${total}`}
+                        className="carrossel-imagem"
+                    />
+                    <button
+                        type="button"
+                        className="carrossel-seta"
+                        aria-label="Próxima imagem"
+                        disabled={indice === total - 1}
+                        onClick={() => onMudar(indice + 1)}
+                    >
+                        <ion-icon name="chevron-forward-outline"></ion-icon>
+                    </button>
+                </div>
+                {total > 1 && (
+                    <div className="carrossel-pontos" role="tablist" aria-label="Imagens da postagem">
+                        {imagens.map((imagem, posicao) => (
+                            <button
+                                key={imagem.url}
+                                type="button"
+                                role="tab"
+                                aria-selected={posicao === indice}
+                                aria-label={`Ir para a imagem ${posicao + 1}`}
+                                className={`carrossel-ponto ${posicao === indice ? 'ativo' : ''}`.trim()}
+                                onClick={() => onMudar(posicao)}
+                            />
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>,
         document.body,
     )
