@@ -541,3 +541,8 @@
     right: 0.25rem;
     padding: 0.15rem;
 }
+
+/* Card de postagem inteiro é clicável (abre a postagem); os elementos com ação própria mantêm o cursor deles. */
+.post-secondary {
+    cursor: pointer;
+}
