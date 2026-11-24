@@ -41,7 +41,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `FormCriarPostagem` | `src/components/forms/FormCriarPostagem.tsx` | Nova postagem: texto e/ou imagem (PNG, JPEG, WebP) ou GIF, com as regras de `lib/midia.ts` no cliente | `onSubmit(CriarPostagemPayload)` | `CriarPostagem` |
 | `FormComentar` | `src/components/forms/FormComentar.tsx` | Resposta a uma postagem (texto, emojis na posição do cursor e/ou imagem/GIF por modal), com avatar do usuário e validação "texto ou imagem" | `user`, `idPostagem` (UUID; gera id de modal único), `onSubmit(CriarPostagemPayload)` | `Postagem`, `PostSecondary` |
 | `SeletorEmoji` | `src/components/forms/SeletorEmoji.tsx` | Botão com grade de emojis (dropdown do Bootstrap) | `onSelecionar(emoji)` | `FormComentar`, `FormField` (`emoji`) |
-| `FormEditarPerfil` | `src/components/forms/FormEditarPerfil.tsx` | Edição de username, nome e biografia (com emojis) | `user`, `onSubmit(EditarPerfilPayload)` | `EditarPerfil` |
+| `FormEditarPerfil` | `src/components/forms/FormEditarPerfil.tsx` | Edição de username, nome e biografia (com emojis); botão salvar com ícone de check e spinner | `user`, `onSubmit(EditarPerfilPayload)` | `EditarPerfil` |
 | `FormPrivacidade` | `src/components/forms/FormPrivacidade.tsx` | Opção "Conta privada" com botão "Salvar modificações" (ícone de check; spinner enquanto salva); usa `useConta` | `user` | `Settings` |
 | `FormAlterarFotoPerfil` | `src/components/forms/FormAlterarFotoPerfil.tsx` | Envio de nova foto de perfil | `onSubmit(foto: File)` | `EditarPerfil` |
 

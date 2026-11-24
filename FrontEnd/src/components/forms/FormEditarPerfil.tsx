@@ -30,7 +30,12 @@ function FormEditarPerfil({ user, onSubmit }: FormEditarPerfilProps) {
                     <FormField name="username" label="Username" />
                     <FormField name="nome" label="Nome" />
                     <FormField name="biografia" label="Biografia" as="textarea" height={150} emoji />
-                    <button type="submit" className="btn btn-primary mt-4" disabled={isSubmitting}>
+                    <button type="submit" className="btn btn-primary mt-4 d-flex align-items-center" disabled={isSubmitting}>
+                        {isSubmitting ? (
+                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        ) : (
+                            <ion-icon name="checkmark-outline"></ion-icon>
+                        )}
                         Salvar alterações
                     </button>
                 </Form>
