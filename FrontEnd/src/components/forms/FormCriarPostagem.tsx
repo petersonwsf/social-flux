@@ -32,7 +32,7 @@ function FormCriarPostagem({ onSubmit }: FormCriarPostagemProps) {
             {({ isSubmitting }) => (
                 <Form noValidate>
                     <FileField name="imagem" label="Imagem ou GIF (opcional)" accept={TIPOS_ACEITOS} />
-                    <FormField name="legenda" label="Legenda" as="textarea" height={150} />
+                    <FormField name="legenda" label="Legenda" as="textarea" height={150} emoji />
                     <button className="btn btn-primary" type="submit" disabled={isSubmitting}>
                         Postar
                     </button>

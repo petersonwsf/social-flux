@@ -120,7 +120,7 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `useConta.ts` | Ações da conta: editar perfil, trocar foto, alterar senha, sair de todos os dispositivos, reenviar verificação, excluir conta |
 | `usePerfil.ts` | Carrega um perfil por username (`naoEncontrado` em 404) |
 | `usePesquisaUsuarios.ts` | Busca de usuários com debounce |
-| `usePostagens.ts` | Listas paginadas por cursor (`carregarMais`, `temMais`, `carregandoMais`): `useFeed`, `usePostagensUsuario` (abas posts/interações/mídia; autor pelo UUID da conta) e `useRespostas` |
+| `usePostagens.ts` | Listas paginadas por cursor (`carregarMais`, `temMais`, `carregandoMais`): `useFeed` (minhas postagens e de quem sigo), `usePostagensUsuario` (abas posts/interações/mídia; autor pelo UUID da conta) e `useRespostas` | Recebem postagens criadas no modal via `useAoCriarPostagem`.
 | `usePostagemDetalhe.ts` | Postagem da página de detalhe e a cadeia de pais (`/ancestrais`); `naoEncontrada` em 404; versão das respostas para recarregar |
 | `usePostagemActions.ts` | `useCriarPostagem` (postagem ou resposta; devolve a postagem criada) e `useExcluirPostagem` |
 | `usePostagemInteracoes.ts` | Junta curtidas, número de respostas (vindo da postagem, +1 local ao comentar) e o envio de comentário de um card |
@@ -144,6 +144,8 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `dates.ts` | `calcTempPost` (tempo relativo curto) e `formatDate`, a partir de datas ISO-8601 (UTC) |
 | `imageUrl.ts` | `getAvatarUrl` (chave `av_…` → `/media/avatars/…`, pública) e `getPostImageUrl` (`imagem.url` da postagem → `/media/posts/…`, autenticada pelo cookie) |
 | `midia.ts` | Regras de anexo conferidas no cliente só por conveniência: tipos aceitos (PNG, JPEG, WebP, GIF), 5 MB/8 MB, texto ≤ 1.000, "texto ou imagem" |
+| `emoji.ts` | `inserirEmojiNoCampo`: insere o emoji na posição do cursor de um textarea e devolve o foco || `eventosPostagem.ts` | Aviso entre telas de postagem criada: `emitirPostagemCriada` e o hook `useAoCriarPostagem` (o feed e o perfil abertos mostram a nova postagem) |
+| `eventosPostagem.ts` | Aviso entre telas de postagem criada: `emitirPostagemCriada` e o hook `useAoCriarPostagem` (o feed e o perfil abertos mostram a nova postagem) |
 | `autoria.ts` | `ehDoUsuario(autor, user)`: compara o `id` (UUID da conta, o único id de usuário) |
 | `icons.ts` | Registra `<ion-icon>` e embute só os ícones usados (adicione aqui cada ícone novo) |
 | `bootstrapModal.ts` | `resetBootstrapModals`: remove backdrop/estado de modais que ficaram abertos ao desmontar a tela |

@@ -38,7 +38,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `FileField` | `src/components/forms/FormField.tsx` | Input de arquivo que grava o `File` no estado do Formik | `name`, `label`, `accept?` (padrão `image/*`), `id?` | `FormCriarPostagem`, `FormAlterarFotoPerfil` |
 | `FormSignin` | `src/components/forms/FormSignin.tsx` | Login (e-mail e senha) com link para alternar ao cadastro | `onSubmit(LoginPayload)`, `toggleForm()` | `Login` |
 | `FormSignup` | `src/components/forms/FormSignup.tsx` | Cadastro (e-mail, telefone, sexo, nascimento, nome, username, senha + confirmação) | `onSubmit(RegisterPayload)`, `toggleForm()` | `Login` |
-| `FormCriarPostagem` | `src/components/forms/FormCriarPostagem.tsx` | Nova postagem: texto e/ou imagem (PNG, JPEG, WebP) ou GIF, com as regras de `lib/midia.ts` no cliente | `onSubmit(CriarPostagemPayload)` | `CriarPostagem` |
+| `FormCriarPostagem` | `src/components/forms/FormCriarPostagem.tsx` | Nova postagem (página `/criarPost`, usada no mobile): texto com emojis e/ou imagem (PNG, JPEG, WebP) ou GIF, com as regras de `lib/midia.ts` no cliente | `onSubmit(CriarPostagemPayload)` | `CriarPostagem` |
 | `FormComentar` | `src/components/forms/FormComentar.tsx` | Resposta a uma postagem (texto, emojis na posição do cursor e/ou imagem/GIF por modal), com avatar do usuário e validação "texto ou imagem" | `user`, `idPostagem` (UUID; gera id de modal único), `onSubmit(CriarPostagemPayload)` | `Postagem`, `PostSecondary` |
 | `SeletorEmoji` | `src/components/forms/SeletorEmoji.tsx` | Botão com grade de emojis (dropdown do Bootstrap) | `onSelecionar(emoji)` | `FormComentar`, `FormField` (`emoji`) |
 | `FormEditarPerfil` | `src/components/forms/FormEditarPerfil.tsx` | Edição de username, nome e biografia (com emojis); botão salvar com ícone de check e spinner | `user`, `onSubmit(EditarPerfilPayload)` | `EditarPerfil` |
@@ -55,6 +55,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `ModalExcluirUsuario` | `src/components/modals/ModalExcluirUsuario.tsx` | Exclusão da conta com senha + confirmação; usa `useConta` | `id` | `Settings` |
 | `ModalImagemComentario` | `src/components/modals/ModalImagemComentario.tsx` | Escolha de imagem para anexar a um comentário | `id`, `onSelect(file \| null)` | `FormComentar` |
 
+| `ModalPostar` | `src/components/modals/ModalPostar.tsx` | Modal "Postar" (estilo rede social): texto com emojis, imagem/GIF com pré-visualização, contador e botão com spinner; ao publicar emite `emitirPostagemCriada` (feed e perfil abertos atualizam) | `user`; exporta `MODAL_POSTAR` (id) | `Sidebar` (botão em `SidebarMenu`) |
 ## `layout/` — casca das telas autenticadas
 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
@@ -63,7 +64,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `Brand` | `src/components/layout/Brand.tsx` | Logo + nome "Social Flux" com link para `/` | `className?` | sidebar, cabeçalho mobile |
 | `FooterBar` | `src/components/layout/FooterBar.tsx` | Barra de navegação fixa no rodapé (só mobile): início, busca, criar, notificações (com badge), perfil | `user` | `ProtectedLayout` |
 | `Sidebar` | `src/components/layout/sidebar/Sidebar.tsx` | Sidebar fixa (só desktop) que troca entre as visões menu, busca, solicitações e notificações; botão "Sair" (vermelho, contorno; abre a confirmação) no rodapé | `user` | `ProtectedLayout` |
-| `SidebarMenu` | `src/components/layout/sidebar/SidebarMenu.tsx` | Links da sidebar: Página inicial, Buscar usuário, Notificações, Solicitações, Meu perfil (com a foto no lugar do ícone) e Configurações; badges de solicitações (total real, também em tooltip: "N solicitações pendentes") e de não vistas | `user`, `solicitacoesPendentes`, `naoVistas`, `onAbrirSolicitacoes`, `onAbrirBusca`, `onAbrirNotificacoes` | `Sidebar` |
+| `SidebarMenu` | `src/components/layout/sidebar/SidebarMenu.tsx` | Links da sidebar: Página inicial, Buscar usuário, Notificações, Solicitações, Meu perfil (com a foto no lugar do ícone) e Configurações, mais o botão Postar (abre `ModalPostar`); badges de solicitações (total real, também em tooltip: "N solicitações pendentes") e de não vistas | `user`, `solicitacoesPendentes`, `naoVistas`, `onAbrirSolicitacoes`, `onAbrirBusca`, `onAbrirNotificacoes` | `Sidebar` |
 | `SearchUsuario` | `src/components/layout/sidebar/SearchUsuario.tsx` | Busca de usuários dentro da sidebar (input com lupa, debounce de 1 s e loading pequeno enquanto aguarda) | `onVoltar()` | `Sidebar` |
 | `SidebarRelacoes` | `src/components/layout/sidebar/SidebarRelacoes.tsx` | Solicitações de seguir dentro da sidebar | `solicitacoes`, `temMais`, `onVoltar`, `onCarregarMais`, `onAceitar(solicitacao)`, `onRecusar(solicitacao)` | `Sidebar` |
 | `NotificationsSidebar` | `src/components/layout/sidebar/NotificationsSidebar.tsx` | Notificações dentro da sidebar (marca a área como aberta: badge zerado e sem toast); marca como vistas ao voltar | `onVoltar()` | `Sidebar` |
