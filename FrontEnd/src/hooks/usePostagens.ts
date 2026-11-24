@@ -103,7 +103,7 @@ export function usePostagensUsuario(autor: string, filtro: postagemService.Filtr
     return usePostagensPaginadas(
         (cursor) => postagemService.buscarDoUsuario(autor, filtro, cursor),
         [autor, filtro],
-        (nova) => nova.autor.id === autor && nova.pai === null && (filtro !== 'midia' || nova.imagem !== null),
+        (nova) => nova.autor.id === autor && nova.pai === null && (filtro !== 'midia' || nova.imagens.length > 0),
     )
 }
 

@@ -35,7 +35,7 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
 | --- | --- | --- | --- | --- |
 | `FormField` | `src/components/forms/FormField.tsx` | Campo de texto/textarea com label flutuante e erro do Formik (usar dentro de `<Formik>`) | `name`, `label`, `type?`, `as?: 'textarea'`, `height?`, `emoji?` (seletor de emojis abaixo do textarea) | formulários, `ForgotPassword`, `ResetPassword`, modais de senha |
-| `FileField` | `src/components/forms/FormField.tsx` | Input de arquivo que grava o `File` no estado do Formik | `name`, `label`, `accept?` (padrão `image/*`), `id?` | `FormCriarPostagem`, `FormAlterarFotoPerfil` |
+| `FileField` | `src/components/forms/FormField.tsx` | Input de arquivo que grava o `File` (ou, com `multiple`, o `File[]`) no estado do Formik | `name`, `label`, `accept?` (padrão `image/*`), `id?`, `multiple?` | `FormCriarPostagem`, `FormAlterarFotoPerfil` |
 | `FormSignin` | `src/components/forms/FormSignin.tsx` | Login (e-mail e senha) com link para alternar ao cadastro | `onSubmit(LoginPayload)`, `toggleForm()` | `Login` |
 | `FormSignup` | `src/components/forms/FormSignup.tsx` | Cadastro (e-mail, telefone, sexo, nascimento, nome, username, senha + confirmação) | `onSubmit(RegisterPayload)`, `toggleForm()` | `Login` |
 | `FormCriarPostagem` | `src/components/forms/FormCriarPostagem.tsx` | Nova postagem (página `/criarPost`, usada no mobile): texto com emojis e/ou imagem (PNG, JPEG, WebP) ou GIF, com as regras de `lib/midia.ts` no cliente | `onSubmit(CriarPostagemPayload)` | `CriarPostagem` |
@@ -53,9 +53,9 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `ModalListUsers` | `src/components/modals/ModalListUsers.tsx` | Lista de usuários (`UsuarioResumo`) com avatar e link para o perfil; opcionalmente paginada ("Carregar mais"), com mensagem de erro no lugar da lista e botão "Remover" por item | `id`, `title`, `users`, `msgDefault` (lista vazia), `erro?`, `temMais?`, `carregando?`, `onCarregarMais?`, `onRemover?(usuario)` | `Perfil` (seguidores/seguidos), `RelacoesEmComum` |
 | `ModalAlterarSenha` | `src/components/modals/ModalAlterarSenha.tsx` | Troca de senha (atual, nova, confirmação); usa `useConta` | `id` | `Settings` |
 | `ModalExcluirUsuario` | `src/components/modals/ModalExcluirUsuario.tsx` | Exclusão da conta com senha + confirmação; usa `useConta` | `id` | `Settings` |
-| `ModalImagemComentario` | `src/components/modals/ModalImagemComentario.tsx` | Escolha de imagem para anexar a um comentário | `id`, `onSelect(file \| null)` | `FormComentar` |
+| `ModalImagemComentario` | `src/components/modals/ModalImagemComentario.tsx` | Escolha de imagens (até 5) ou um GIF para anexar a um comentário | `id`, `onSelect(files: File[])` | `FormComentar` |
 
-| `ModalPostar` | `src/components/modals/ModalPostar.tsx` | Modal "Postar" (estilo rede social): texto com emojis, imagem/GIF com pré-visualização, contador e botão com spinner; ao publicar emite `emitirPostagemCriada` (feed e perfil abertos atualizam) | `user`; exporta `MODAL_POSTAR` (id) | `Sidebar` (botão em `SidebarMenu`) |
+| `ModalPostar` | `src/components/modals/ModalPostar.tsx` | Modal "Postar" (estilo rede social): texto com emojis, até 5 imagens (ou um GIF) com miniaturas removíveis, contador e botão com spinner; ao publicar emite `emitirPostagemCriada` (feed e perfil abertos atualizam) | `user`; exporta `MODAL_POSTAR` (id) | `Sidebar` (botão em `SidebarMenu`) |
 ## `layout/` — casca das telas autenticadas
 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
@@ -77,7 +77,8 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | `Postagem` | `src/components/postagens/Postagem.tsx` | Card completo de uma postagem (página de detalhe): autor, texto, imagem/GIF, data, contadores, curtir, comentar, excluir (só o autor) | `postagem`, `onExcluir(id)`, `onResposta?()` | `PostPage` |
 | `PostSecondary` | `src/components/postagens/PostSecondary.tsx` | Card compacto para listas e para a cadeia de pais; contadores e "curti" vêm da própria postagem | `postagem`, `onExcluir(id)` | `ListarPostagens`, `PostPage` |
 | `ListarPostagens` | `src/components/postagens/ListarPostagens.tsx` | Lista de `PostSecondary` que remove da lista a postagem excluída e mostra "Carregar mais" quando há outra página | `postagens`, `setPostagens`, `temMais?`, `carregandoMais?`, `onCarregarMais?()` | `Home`, `PerfilPostagens`, `PostPage` |
-| `ImagemPostagem` | `src/components/postagens/ImagemPostagem.tsx` | Anexo da postagem (imagem ou GIF animado em `<img>`), com `width`/`height` da API para reservar o espaço e carregamento preguiçoso | `imagem` (`ImagemPostagem`), `className?` | `Postagem`, `PostSecondary` |
+| `GaleriaImagens` | `src/components/postagens/GaleriaImagens.tsx` | Anexos da postagem em grade (1 a 5 imagens; 1 aparece inteira, 2 ou mais ficam cortadas nos quadros); clicar abre o `CarrosselImagens` | `imagens` (`ImagemPostagem[]`), `className?` | `Postagem`, `PostSecondary` |
+| `CarrosselImagens` | `src/components/postagens/CarrosselImagens.tsx` | Carrossel em tela cheia com as imagens completas (setas, teclado, Esc, clique no fundo) | `imagens`, `indice`, `onMudar(i)`, `onFechar()` | `GaleriaImagens` |
 | `EmRespostaA` | `src/components/postagens/EmRespostaA.tsx` | "Em resposta a @fulano" (ou "a uma publicação" quando o pai não é visível) | `pai` (`PaiPostagem`), `comLink?` | `Postagem`, `PostSecondary` |
 | `LikeButton` | `src/components/postagens/PostActions.tsx` | Botão de curtir/descurtir (coração cheio quando curtido) | `curtido` (boolean), `onToggle()` | cards de postagem |
 | `CommentButton` | `src/components/postagens/PostActions.tsx` | Botão de comentar | `onClick()` | cards de postagem |

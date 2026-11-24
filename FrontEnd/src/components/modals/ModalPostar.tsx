@@ -3,7 +3,7 @@ import { Form, Formik, type FormikErrors } from 'formik'
 import { useCriarPostagem } from '../../hooks/usePostagemActions'
 import { emitirPostagemCriada } from '../../lib/eventosPostagem'
 import { inserirEmojiNoCampo } from '../../lib/emoji'
-import { MAX_LEGENDA, TIPOS_ACEITOS, temConteudo, validarAnexo } from '../../lib/midia'
+import { MAX_IMAGENS, MAX_LEGENDA, TIPOS_ACEITOS, temConteudo, validarAnexos } from '../../lib/midia'
 import Avatar from '../common/Avatar'
 import SeletorEmoji from '../forms/SeletorEmoji'
 import type { CriarPostagemPayload, Usuario } from '../../types/api'
@@ -11,13 +11,13 @@ import type { CriarPostagemPayload, Usuario } from '../../types/api'
 export const MODAL_POSTAR = 'modalPostar'
 
 function validar(values: CriarPostagemPayload): FormikErrors<CriarPostagemPayload> {
-    const erroAnexo = validarAnexo(values.imagem)
-    if (erroAnexo) return { imagem: erroAnexo }
+    const erroAnexo = validarAnexos(values.imagens)
+    if (erroAnexo) return { imagens: erroAnexo }
     if (values.legenda.length > MAX_LEGENDA) return { legenda: `O texto pode ter no máximo ${MAX_LEGENDA} caracteres` }
     return {}
 }
 
-/** Miniatura do anexo escolhido, com botão para removê-lo. */
+/** Miniatura de um anexo escolhido, com botão para removê-lo. */
 function PreviaImagem({ arquivo, onRemover }: { arquivo: File; onRemover: () => void }) {
     const [url, setUrl] = useState<string | null>(null)
 
@@ -29,8 +29,8 @@ function PreviaImagem({ arquivo, onRemover }: { arquivo: File; onRemover: () => 
 
     if (!url) return null
     return (
-        <div className="previa-imagem position-relative mt-2 ms-5 ps-2">
-            <img src={url} alt="Pré-visualização do anexo" className="rounded-4" />
+        <div className="previa-imagem position-relative">
+            <img src={url} alt="Pré-visualização do anexo" className="rounded-3" />
             <button
                 type="button"
                 className="btn btn-icon previa-imagem-remover"
@@ -43,7 +43,23 @@ function PreviaImagem({ arquivo, onRemover }: { arquivo: File; onRemover: () => 
     )
 }
 
-/** Modal "Postar": texto (com emojis) e/ou imagem ou GIF; ao publicar, avisa o feed e o perfil abertos. */
+/** Miniaturas dos anexos escolhidos (até 5), alinhadas ao texto. */
+function PreviaImagens({ arquivos, onRemover }: { arquivos: File[]; onRemover: (indice: number) => void }) {
+    if (arquivos.length === 0) return null
+    return (
+        <div className="previas-imagens mt-2 ms-5 ps-2">
+            {arquivos.map((arquivo, indice) => (
+                <PreviaImagem
+                    key={`${arquivo.name}-${arquivo.size}-${arquivo.lastModified}-${indice}`}
+                    arquivo={arquivo}
+                    onRemover={() => onRemover(indice)}
+                />
+            ))}
+        </div>
+    )
+}
+
+/** Modal "Postar": texto (com emojis) e/ou até 5 imagens ou um GIF; ao publicar, avisa o feed e o perfil abertos. */
 function ModalPostar({ user }: { user: Usuario }) {
     const { criarPostagem } = useCriarPostagem(emitirPostagemCriada)
     const [versao, setVersao] = useState(0)
@@ -82,7 +98,7 @@ function ModalPostar({ user }: { user: Usuario }) {
                         </button>
                         <Formik
                             key={versao}
-                            initialValues={{ legenda: '', imagem: null } as CriarPostagemPayload}
+                            initialValues={{ legenda: '', imagens: [] } as CriarPostagemPayload}
                             validate={validar}
                             validateOnBlur={false}
                             validateOnChange
@@ -105,16 +121,18 @@ function ModalPostar({ user }: { user: Usuario }) {
                                             onChange={(evento) => void setFieldValue('legenda', evento.target.value)}
                                         />
                                     </div>
-                                    {values.imagem && (
-                                        <PreviaImagem
-                                            arquivo={values.imagem}
-                                            onRemover={() => {
-                                                void setFieldValue('imagem', null)
-                                                if (arquivoRef.current) arquivoRef.current.value = ''
-                                            }}
-                                        />
+                                    <PreviaImagens
+                                        arquivos={values.imagens}
+                                        onRemover={(indice) =>
+                                            void setFieldValue(
+                                                'imagens',
+                                                values.imagens.filter((_, posicao) => posicao !== indice),
+                                            )
+                                        }
+                                    />
+                                    {typeof errors.imagens === 'string' && (
+                                        <div className="text-danger form-error ms-5 ps-2 mt-2">{errors.imagens}</div>
                                     )}
-                                    {errors.imagem && <div className="text-danger form-error ms-5 ps-2 mt-2">{errors.imagem}</div>}
                                     {errors.legenda && <div className="text-danger form-error ms-5 ps-2 mt-2">{errors.legenda}</div>}
                                     <hr className="my-2" />
                                     <div className="d-flex align-items-center">
@@ -123,14 +141,18 @@ function ModalPostar({ user }: { user: Usuario }) {
                                             type="file"
                                             hidden
                                             accept={TIPOS_ACEITOS}
-                                            onChange={(evento) =>
-                                                void setFieldValue('imagem', evento.currentTarget.files?.[0] ?? null)
-                                            }
+                                            multiple
+                                            onChange={(evento) => {
+                                                const novos = Array.from(evento.currentTarget.files ?? [])
+                                                evento.currentTarget.value = ''
+                                                void setFieldValue('imagens', [...values.imagens, ...novos])
+                                            }}
                                         />
                                         <button
                                             type="button"
                                             className="btn btn-icon"
-                                            aria-label="Anexar imagem ou GIF"
+                                            aria-label={`Anexar imagens (até ${MAX_IMAGENS}) ou um GIF`}
+                                            disabled={values.imagens.length >= MAX_IMAGENS}
                                             onClick={() => arquivoRef.current?.click()}
                                         >
                                             <ion-icon name="image-outline"></ion-icon>
@@ -151,7 +173,7 @@ function ModalPostar({ user }: { user: Usuario }) {
                                         <button
                                             type="submit"
                                             className="btn btn-primary d-flex align-items-center px-4"
-                                            disabled={isSubmitting || !temConteudo(values.legenda, values.imagem)}
+                                            disabled={isSubmitting || !temConteudo(values.legenda, values.imagens)}
                                         >
                                             {isSubmitting && (
                                                 <span

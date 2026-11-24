@@ -4,7 +4,7 @@ import Avatar from '../common/Avatar'
 import ModalImagemComentario from '../modals/ModalImagemComentario'
 import SeletorEmoji from './SeletorEmoji'
 import { inserirEmojiNoCampo } from '../../lib/emoji'
-import { MAX_LEGENDA, temConteudo, validarAnexo } from '../../lib/midia'
+import { MAX_IMAGENS, MAX_LEGENDA, temConteudo, validarAnexos } from '../../lib/midia'
 import type { CriarPostagemPayload, Usuario } from '../../types/api'
 
 interface FormComentarProps {
@@ -15,16 +15,16 @@ interface FormComentarProps {
 }
 
 function validar(values: CriarPostagemPayload): FormikErrors<CriarPostagemPayload> {
-    const erroAnexo = validarAnexo(values.imagem)
-    if (erroAnexo) return { imagem: erroAnexo }
+    const erroAnexo = validarAnexos(values.imagens)
+    if (erroAnexo) return { imagens: erroAnexo }
     if (values.legenda.length > MAX_LEGENDA) return { legenda: `O comentário pode ter no máximo ${MAX_LEGENDA} caracteres` }
-    if (!temConteudo(values.legenda, values.imagem)) return { legenda: 'Escreva um comentário ou anexe uma imagem' }
+    if (!temConteudo(values.legenda, values.imagens)) return { legenda: 'Escreva um comentário ou anexe uma imagem' }
     return {}
 }
 
 /** Resposta a uma postagem: texto e/ou imagem/GIF (escolhida num modal). */
 function FormComentar({ user, idPostagem, onSubmit }: FormComentarProps) {
-    const initialValues: CriarPostagemPayload = { legenda: '', imagem: null }
+    const initialValues: CriarPostagemPayload = { legenda: '', imagens: [] }
     const modalId = `modalImagemComentario-${idPostagem}`
     const campoRef = useRef<HTMLTextAreaElement>(null)
 
@@ -54,7 +54,7 @@ function FormComentar({ user, idPostagem, onSubmit }: FormComentarProps) {
                         />
                     </div>
                     <ErrorMessage name="legenda" component="div" className="text-danger form-error mb-2" />
-                    <ErrorMessage name="imagem" component="div" className="text-danger form-error mb-2" />
+                    <ErrorMessage name="imagens" component="div" className="text-danger form-error mb-2" />
                     <div className="d-flex w-100 justify-content-between align-items-center">
                         <div className="d-flex align-items-center">
                             <button
@@ -65,7 +65,7 @@ function FormComentar({ user, idPostagem, onSubmit }: FormComentarProps) {
                                 aria-label="Anexar imagem ou GIF"
                             >
                                 <ion-icon name="image-outline"></ion-icon>
-                                {values.imagem && <small className="ms-1">{values.imagem.name}</small>}
+                                {values.imagens.length > 0 && <small className="ms-1">{values.imagens.length}/{MAX_IMAGENS}</small>}
                             </button>
                             <SeletorEmoji
                                 onSelecionar={(emoji) =>
@@ -79,8 +79,8 @@ function FormComentar({ user, idPostagem, onSubmit }: FormComentarProps) {
                     </div>
                     <ModalImagemComentario
                         id={modalId}
-                        onSelect={(file) => {
-                            void setFieldValue('imagem', file)
+                        onSelect={(arquivos) => {
+                            void setFieldValue('imagens', arquivos)
                         }}
                     />
                 </Form>

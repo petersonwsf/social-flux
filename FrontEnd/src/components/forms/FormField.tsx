@@ -56,11 +56,13 @@ interface FileFieldProps {
     label: string
     accept?: string
     id?: string
+    /** Vários arquivos: grava um `File[]` no campo (em vez de um `File | null`). */
+    multiple?: boolean
 }
 
-/** Input de arquivo que grava o `File` selecionado no estado do Formik. */
-export function FileField({ name, label, accept = 'image/*', id = name }: FileFieldProps) {
-    const [, meta] = useField<File | null>(name)
+/** Input de arquivo que grava o `File` (ou, com `multiple`, o `File[]`) selecionado no estado do Formik. */
+export function FileField({ name, label, accept = 'image/*', id = name, multiple = false }: FileFieldProps) {
+    const [, meta] = useField<File | File[] | null>(name)
     const { setFieldValue, setFieldTouched } = useFormikContext()
 
     return (
@@ -73,8 +75,10 @@ export function FileField({ name, label, accept = 'image/*', id = name }: FileFi
                 className="form-control"
                 type="file"
                 accept={accept}
+                multiple={multiple}
                 onChange={(event) => {
-                    void setFieldValue(name, event.currentTarget.files?.[0] ?? null)
+                    const arquivos = Array.from(event.currentTarget.files ?? [])
+                    void setFieldValue(name, multiple ? arquivos : (arquivos[0] ?? null))
                 }}
                 onBlur={() => {
                     void setFieldTouched(name, true)

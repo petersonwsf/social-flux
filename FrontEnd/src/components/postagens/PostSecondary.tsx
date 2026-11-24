@@ -8,7 +8,7 @@ import Deslizante from '../common/Deslizante'
 import FormComentar from '../forms/FormComentar'
 import DropdownActions from './DropdownActions'
 import EmRespostaA from './EmRespostaA'
-import ImagemPostagem from './ImagemPostagem'
+import GaleriaImagens from './GaleriaImagens'
 import { CommentButton, LikeButton } from './PostActions'
 import type { Postagem } from '../../types/api'
 
@@ -45,8 +45,8 @@ function PostSecondary({ postagem, onExcluir }: PostSecondaryProps) {
                         {postagem.pai && <EmRespostaA pai={postagem.pai} comLink />}
                         <Link className="text-decoration-none text-body mt-1" to={`/postagem/${postagem.id}`}>
                             {postagem.legenda && <p className="legenda text-break pe-2">{postagem.legenda}</p>}
-                            {postagem.imagem && <ImagemPostagem imagem={postagem.imagem} />}
                         </Link>
+                        {postagem.imagens.length > 0 && <GaleriaImagens imagens={postagem.imagens} className="mt-1" />}
                         <div className="actions mt-1 d-flex align-items-center">
                             <LikeButton curtido={curtidas.curtido} onToggle={() => void curtidas.alternar()} />
                             <span className="me-3">{curtidas.total}</span>

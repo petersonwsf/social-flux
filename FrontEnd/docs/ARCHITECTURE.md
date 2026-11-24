@@ -143,7 +143,7 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `errors.ts` | `getErrorMessage` (texto de qualquer erro) e `getErrorStatus` (status HTTP do axios) |
 | `dates.ts` | `calcTempPost` (tempo relativo curto) e `formatDate`, a partir de datas ISO-8601 (UTC) |
 | `imageUrl.ts` | `getAvatarUrl` (chave `av_…` → `/media/avatars/…`, pública) e `getPostImageUrl` (`imagem.url` da postagem → `/media/posts/…`, autenticada pelo cookie) |
-| `midia.ts` | Regras de anexo conferidas no cliente só por conveniência: tipos aceitos (PNG, JPEG, WebP, GIF), 5 MB/8 MB, texto ≤ 1.000, "texto ou imagem" |
+| `midia.ts` | Regras de anexo conferidas no cliente só por conveniência: tipos aceitos (PNG, JPEG, WebP, GIF), até 5 imagens (GIF só sozinho), 5 MB/8 MB, texto ≤ 1.000, "texto ou imagem" |
 | `emoji.ts` | `inserirEmojiNoCampo`: insere o emoji na posição do cursor de um textarea e devolve o foco || `eventosPostagem.ts` | Aviso entre telas de postagem criada: `emitirPostagemCriada` e o hook `useAoCriarPostagem` (o feed e o perfil abertos mostram a nova postagem) |
 | `eventosPostagem.ts` | Aviso entre telas de postagem criada: `emitirPostagemCriada` e o hook `useAoCriarPostagem` (o feed e o perfil abertos mostram a nova postagem) |
 | `autoria.ts` | `ehDoUsuario(autor, user)`: compara o `id` (UUID da conta, o único id de usuário) |
