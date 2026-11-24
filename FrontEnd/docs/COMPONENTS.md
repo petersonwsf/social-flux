@@ -50,12 +50,13 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
 | --- | --- | --- | --- | --- |
 | `ModalAction` | `src/components/modals/ModalAction.tsx` | Confirmação genérica (confirmar/cancelar) | `id`, `title`, `titleAction`, `action()`, `danger?` (botão vermelho) | `Perfil` (deixar de seguir), `Settings` (sair de todos) |
-| `ModalListUsers` | `src/components/modals/ModalListUsers.tsx` | Lista de usuários (`UsuarioResumo`) com avatar e link para o perfil; opcionalmente paginada ("Carregar mais"), com mensagem de erro no lugar da lista e botão "Remover" por item | `id`, `title`, `users`, `msgDefault` (lista vazia), `erro?`, `temMais?`, `carregando?`, `onCarregarMais?`, `onRemover?(usuario)` | `Perfil` (seguidores/seguidos), `RelacoesEmComum` |
+| `ModalListUsers` | `src/components/modals/ModalListUsers.tsx` | Lista de usuários (`UsuarioResumo`) com avatar e link para o perfil; opcionalmente paginada ("Carregar mais"), com mensagem de erro no lugar da lista e botão "Remover" por item; ocupa a altura toda da tela; título pequeno e centralizado, itens compactos (foto 40px, username e nome abaixo) e, com `onBuscaChange`, campo de busca no topo (quem usa faz a busca, com debounce, p.ex. `useListaRelacoes`); loading pequeno no lugar da lista enquanto `buscando` | `id`, `title`, `users`, `msgDefault` (lista vazia), `erro?`, `temMais?`, `carregando?`, `onCarregarMais?`, `onRemover?(usuario)`, `busca?`, `onBuscaChange?(busca)`, `buscando?` | `Perfil` (seguidores/seguidos), `RelacoesEmComum` |
 | `ModalAlterarSenha` | `src/components/modals/ModalAlterarSenha.tsx` | Troca de senha (atual, nova, confirmação); usa `useConta` | `id` | `Settings` |
 | `ModalExcluirUsuario` | `src/components/modals/ModalExcluirUsuario.tsx` | Exclusão da conta com senha + confirmação; usa `useConta` | `id` | `Settings` |
+| `ModalFotoPerfil` | `src/components/modals/ModalFotoPerfil.tsx` | Foto de perfil ampliada no centro da tela, com fundo embaçado; fecha ao clicar fora ou em Esc | `id`, `user` (`foto_perfil`, `username`) | `InfoPerfil` |
 | `ModalImagemComentario` | `src/components/modals/ModalImagemComentario.tsx` | Escolha de imagens (até 5) ou um GIF para anexar a um comentário | `id`, `onSelect(files: File[])` | `FormComentar` |
-
 | `ModalPostar` | `src/components/modals/ModalPostar.tsx` | Modal "Postar" (estilo rede social): texto com emojis, até 5 imagens (ou um GIF) com miniaturas removíveis, contador e botão com spinner; ao publicar emite `emitirPostagemCriada` (feed e perfil abertos atualizam) | `user`; exporta `MODAL_POSTAR` (id) | `Sidebar` (botão em `SidebarMenu`) |
+
 ## `layout/` — casca das telas autenticadas
 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
@@ -88,9 +89,9 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
 | --- | --- | --- | --- | --- |
-| `InfoPerfil` | `src/components/perfil/InfoPerfil.tsx` | Cabeçalho do perfil: avatar, nome, bio, contadores, ações e seguidores em comum. Exporta os ids de modal `MODAL_SEGUIDORES`, `MODAL_SEGUIDOS`, `MODAL_DEIXAR_DE_SEGUIR` | `perfil`, `user`, `numeroSeguidores`, `numeroSeguidos`, `estado`, `onSeguir`, `onCancelarSolicitacao` | `Perfil` |
+| `InfoPerfil` | `src/components/perfil/InfoPerfil.tsx` | Cabeçalho do perfil: avatar (clicável, abre `ModalFotoPerfil`), nome, bio, contadores, ações e seguidores em comum. Exporta os ids de modal `MODAL_SEGUIDORES`, `MODAL_SEGUIDOS`, `MODAL_DEIXAR_DE_SEGUIR` | `perfil`, `user`, `numeroSeguidores`, `numeroSeguidos`, `carregandoContagens?`, `estado`, `onSeguir`, `onCancelarSolicitacao` | `Perfil` |
 | `ActionsProfile` | `src/components/perfil/ActionsProfile.tsx` | Botão conforme o estado da relação: editar perfil (próprio), seguir (`NENHUM`), solicitado (`SOLICITADO`, cancela) ou seguindo (`SEGUINDO`, abre confirmação) | `ehProprioPerfil`, `estado`, `onSeguir`, `onCancelarSolicitacao`, `modalDeixarDeSeguirId` | `InfoPerfil` |
-| `NumeroRelacoes` | `src/components/perfil/NumeroRelacoes.tsx` | Contador clicável (seguidores/seguindo) que abre um modal | `label`, `numero`, `modalId` | `InfoPerfil` |
+| `NumeroRelacoes` | `src/components/perfil/NumeroRelacoes.tsx` | Contador clicável (seguidores/seguindo) que abre um modal; com `carregando`, mostra um placeholder pulsante no lugar do número | `label`, `numero`, `modalId`, `carregando?` | `InfoPerfil` |
 
 ## `relacoes/`
 

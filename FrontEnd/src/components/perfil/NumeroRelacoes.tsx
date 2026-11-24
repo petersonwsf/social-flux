@@ -3,9 +3,11 @@ interface NumeroRelacoesProps {
     numero: number
     /** Id do modal (sem #) aberto ao clicar. */
     modalId: string
+    /** Mostra um placeholder pulsante no lugar do número enquanto a contagem não chega. */
+    carregando?: boolean
 }
 
-function NumeroRelacoes({ label, numero, modalId }: NumeroRelacoesProps) {
+function NumeroRelacoes({ label, numero, modalId, carregando = false }: NumeroRelacoesProps) {
     return (
         <button
             type="button"
@@ -13,7 +15,13 @@ function NumeroRelacoes({ label, numero, modalId }: NumeroRelacoesProps) {
             data-bs-toggle="modal"
             data-bs-target={`#${modalId}`}
         >
-            <span className="d-block numero-relacoes-valor fw-semibold mb-0">{numero}</span>
+            {carregando ? (
+                <span className="d-block placeholder-glow" aria-busy="true" aria-label="Carregando">
+                    <span className="placeholder rounded numero-relacoes-placeholder"></span>
+                </span>
+            ) : (
+                <span className="d-block numero-relacoes-valor fw-semibold mb-0">{numero}</span>
+            )}
             <span className="d-block numero-relacoes-label">{label}</span>
         </button>
     )

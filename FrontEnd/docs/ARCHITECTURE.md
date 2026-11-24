@@ -125,8 +125,8 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | `usePostagemActions.ts` | `useCriarPostagem` (postagem ou resposta; devolve a postagem criada) e `useExcluirPostagem` |
 | `usePostagemInteracoes.ts` | Junta curtidas, número de respostas (vindo da postagem, +1 local ao comentar) e o envio de comentário de um card |
 | `useCurtidas.ts` | `curtido`/`curtidas` iniciais vindos da postagem; curtir/descurtir (`PUT`/`DELETE …/curtida`) usam o estado devolvido (a notificação ao autor nasce no servidor, pelo evento `post.liked.v1`) |
-| `useRelacao.ts` | Relação entre o logado e o dono do perfil: `estado` (`NENHUM`/`SOLICITADO`/`SEGUINDO`), contadores e as ações seguir, deixar de seguir/cancelar e remover seguidor |
-| `useListaRelacoes.ts` | Lista paginada por cursor (seguidores/seguidos): a 1ª página só é buscada quando `ativo` vira `true`; `carregarMais`, `remover` e `erro` (ex.: conta privada) |
+| `useRelacao.ts` | Relação entre o logado e o dono do perfil: `estado` (`NENHUM`/`SOLICITADO`/`SEGUINDO`), contadores (com `carregandoContagens` até a primeira resposta) e as ações seguir, deixar de seguir/cancelar e remover seguidor |
+| `useListaRelacoes.ts` | Lista paginada por cursor (seguidores/seguidos) com busca no servidor: a 1ª página só é buscada quando `ativo` vira `true`; `busca`/`setBusca` recomeçam a lista após 1 s sem digitar (`buscando` vale até a resposta); `carregarMais`, `remover` e `erro` (ex.: conta privada) |
 | `useModalAberto.ts` | Diz se um modal do Bootstrap já foi aberto (evento `show.bs.modal`), para carregar o conteúdo só sob demanda |
 | `useRelacoesEmComum.ts` | Seguidores em comum entre o logado e outro usuário (`itens` + `total`; `limite` opcional) |
 | `useRelacoesPendentes.ts` | Solicitações de seguir recebidas (paginadas), com aceitar/recusar, `carregarMais` e `total` (número real de pendentes, vindo do servidor) |

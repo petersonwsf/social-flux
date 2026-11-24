@@ -259,6 +259,35 @@
     max-width: 160px;
 }
 
+/* Modal de seguidores/seguidos: altura da tela menos a margem padrão do Bootstrap (modal-dialog-scrollable); só o corpo rola. */
+.modal-lista-usuarios .list-users {
+    max-height: none;
+}
+
+.numero-relacoes-placeholder {
+    display: inline-block;
+    width: 1.75rem;
+    height: 1rem;
+    vertical-align: middle;
+}
+
+.foto-perfil-botao {
+    max-width: 160px;
+    cursor: zoom-in;
+}
+
+/* Foto ampliada: o próprio .modal (tela cheia) embaça o que está atrás, incluindo o backdrop. */
+.modal-foto-perfil {
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+}
+
+.foto-perfil-ampliada {
+    width: min(86vw, 420px);
+    height: min(86vw, 420px);
+    object-fit: cover;
+}
+
 .perfil-username {
     font-size: clamp(1.05rem, 3vw, 1.5rem);
     font-weight: 600;
@@ -277,6 +306,21 @@
 .follow {
     padding: 0 0.5rem;
     color: inherit;
+}
+
+/* Contadores compactos em telas pequenas, para ficarem na mesma linha do username. */
+.numero-relacoes-valor {
+    font-size: clamp(0.85rem, 3.4vw, 1rem);
+}
+
+.numero-relacoes-label {
+    font-size: clamp(0.62rem, 2.8vw, 0.875rem);
+}
+
+@media (max-width: 575.98px) {
+    .follow {
+        padding: 0 0.3rem;
+    }
 }
 
 .relacao-em-comum {
@@ -308,21 +352,6 @@
 /* ---------- Busca e relações ---------- */
 .foto-search {
     width: 40px;
-/* Contadores compactos em telas pequenas, para ficarem na mesma linha do username. */
-.numero-relacoes-valor {
-    font-size: clamp(0.85rem, 3.4vw, 1rem);
-}
-
-.numero-relacoes-label {
-    font-size: clamp(0.62rem, 2.8vw, 0.875rem);
-}
-
-@media (max-width: 575.98px) {
-    .follow {
-        padding: 0 0.3rem;
-    }
-}
-
 }
 
 .search-username {
