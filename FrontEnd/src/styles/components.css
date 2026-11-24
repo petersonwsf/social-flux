@@ -103,6 +103,11 @@
     font-weight: 600;
 }
 
+.perfil-bio {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
 .perfil-nome,
 .perfil-bio {
     font-size: clamp(0.9rem, 2vw, 1.1rem);

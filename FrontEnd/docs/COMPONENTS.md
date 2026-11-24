@@ -34,13 +34,13 @@ Cada formulário define o próprio esquema Yup e recebe `onSubmit` assíncrono; 
 
 | Componente | Caminho | Para que serve | Props principais | Usado em |
 | --- | --- | --- | --- | --- |
-| `FormField` | `src/components/forms/FormField.tsx` | Campo de texto/textarea com label flutuante e erro do Formik (usar dentro de `<Formik>`) | `name`, `label`, `type?`, `as?: 'textarea'`, `height?` | formulários, `ForgotPassword`, `ResetPassword`, modais de senha |
+| `FormField` | `src/components/forms/FormField.tsx` | Campo de texto/textarea com label flutuante e erro do Formik (usar dentro de `<Formik>`) | `name`, `label`, `type?`, `as?: 'textarea'`, `height?`, `emoji?` (seletor de emojis abaixo do textarea) | formulários, `ForgotPassword`, `ResetPassword`, modais de senha |
 | `FileField` | `src/components/forms/FormField.tsx` | Input de arquivo que grava o `File` no estado do Formik | `name`, `label`, `accept?` (padrão `image/*`), `id?` | `FormCriarPostagem`, `FormAlterarFotoPerfil` |
 | `FormSignin` | `src/components/forms/FormSignin.tsx` | Login (e-mail e senha) com link para alternar ao cadastro | `onSubmit(LoginPayload)`, `toggleForm()` | `Login` |
 | `FormSignup` | `src/components/forms/FormSignup.tsx` | Cadastro (e-mail, telefone, sexo, nascimento, nome, username, senha + confirmação) | `onSubmit(RegisterPayload)`, `toggleForm()` | `Login` |
 | `FormCriarPostagem` | `src/components/forms/FormCriarPostagem.tsx` | Nova postagem: texto e/ou imagem (PNG, JPEG, WebP) ou GIF, com as regras de `lib/midia.ts` no cliente | `onSubmit(CriarPostagemPayload)` | `CriarPostagem` |
 | `FormComentar` | `src/components/forms/FormComentar.tsx` | Resposta a uma postagem (texto, emojis na posição do cursor e/ou imagem/GIF por modal), com avatar do usuário e validação "texto ou imagem" | `user`, `idPostagem` (UUID; gera id de modal único), `onSubmit(CriarPostagemPayload)` | `Postagem`, `PostSecondary` |
-| `SeletorEmoji` | `src/components/forms/SeletorEmoji.tsx` | Botão com grade de emojis (dropdown do Bootstrap) | `onSelecionar(emoji)` | `FormComentar` |
+| `SeletorEmoji` | `src/components/forms/SeletorEmoji.tsx` | Botão com grade de emojis (dropdown do Bootstrap) | `onSelecionar(emoji)` | `FormComentar`, `FormField` (`emoji`) |
 | `FormEditarPerfil` | `src/components/forms/FormEditarPerfil.tsx` | Edição de username, nome, biografia e conta privada | `user`, `onSubmit(EditarPerfilPayload)` | `EditarPerfil` |
 | `FormAlterarFotoPerfil` | `src/components/forms/FormAlterarFotoPerfil.tsx` | Envio de nova foto de perfil | `onSubmit(foto: File)` | `EditarPerfil` |
 

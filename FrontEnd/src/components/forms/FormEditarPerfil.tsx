@@ -4,10 +4,10 @@ import { FormField } from './FormField'
 import type { EditarPerfilPayload, Usuario } from '../../types/api'
 
 const validationSchema = Yup.object({
-    id: Yup.number().required(),
+    id: Yup.string().required(),
     username: Yup.string().required('Campo obrigatório'),
     nome: Yup.string().required('Campo obrigatório'),
-    biografia: Yup.string().defined(),
+    biografia: Yup.string().max(500, 'A biografia pode ter no máximo 500 caracteres').defined(),
     privado: Yup.boolean().required(),
 })
 
@@ -31,7 +31,7 @@ function FormEditarPerfil({ user, onSubmit }: FormEditarPerfilProps) {
                 <Form noValidate>
                     <FormField name="username" label="Username" />
                     <FormField name="nome" label="Nome" />
-                    <FormField name="biografia" label="Biografia" as="textarea" height={150} />
+                    <FormField name="biografia" label="Biografia" as="textarea" height={150} emoji />
                     <div className="form-check form-switch">
                         <Field className="form-check-input" name="privado" type="checkbox" id="privado" role="switch" />
                         <label className="form-check-label" htmlFor="privado">

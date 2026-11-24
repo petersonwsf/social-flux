@@ -1,4 +1,7 @@
+import { useRef } from 'react'
 import { ErrorMessage, Field, useField, useFormikContext } from 'formik'
+import { inserirEmojiNoCampo } from '../../lib/emoji'
+import SeletorEmoji from './SeletorEmoji'
 
 interface FormFieldProps {
     name: string
@@ -7,23 +10,43 @@ interface FormFieldProps {
     as?: 'textarea'
     /** Altura em px (útil para textarea com label flutuante). */
     height?: number
+    /** Só com `as="textarea"`: mostra o seletor de emojis abaixo do campo. */
+    emoji?: boolean
 }
 
 /** Campo de texto com label flutuante e mensagem de erro do Formik. */
-export function FormField({ name, label, type = 'text', as, height }: FormFieldProps) {
+export function FormField({ name, label, type = 'text', as, height, emoji = false }: FormFieldProps) {
+    const campoRef = useRef<HTMLTextAreaElement>(null)
+    const [{ value }, , { setValue }] = useField<string>(name)
+    const comEmoji = emoji && as === 'textarea'
+
     return (
-        <div className="form-floating mb-3">
-            <Field
-                id={name}
-                name={name}
-                type={as ? undefined : type}
-                as={as}
-                placeholder={label}
-                className="form-control"
-                style={height ? { height } : undefined}
-            />
-            <label htmlFor={name}>{label}</label>
-            <ErrorMessage name={name} component="div" className="text-danger form-error" />
+        <div className="mb-3">
+            <div className="form-floating">
+                <Field
+                    id={name}
+                    name={name}
+                    type={as ? undefined : type}
+                    as={as}
+                    innerRef={campoRef}
+                    placeholder={label}
+                    className="form-control"
+                    style={height ? { height } : undefined}
+                />
+                <label htmlFor={name}>{label}</label>
+            </div>
+            <div className="d-flex justify-content-between align-items-start">
+                <ErrorMessage name={name} component="div" className="text-danger form-error" />
+                {comEmoji && (
+                    <div className="ms-auto">
+                        <SeletorEmoji
+                            onSelecionar={(emojiEscolhido) =>
+                                inserirEmojiNoCampo(campoRef.current, value, emojiEscolhido, (texto) => void setValue(texto))
+                            }
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
