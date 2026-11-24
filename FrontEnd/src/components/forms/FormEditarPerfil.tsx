@@ -1,4 +1,4 @@
-import { Field, Form, Formik } from 'formik'
+import { Form, Formik } from 'formik'
 import * as Yup from 'yup'
 import { FormField } from './FormField'
 import type { EditarPerfilPayload, Usuario } from '../../types/api'
@@ -8,7 +8,6 @@ const validationSchema = Yup.object({
     username: Yup.string().required('Campo obrigatório'),
     nome: Yup.string().required('Campo obrigatório'),
     biografia: Yup.string().max(500, 'A biografia pode ter no máximo 500 caracteres').defined(),
-    privado: Yup.boolean().required(),
 })
 
 interface FormEditarPerfilProps {
@@ -22,7 +21,6 @@ function FormEditarPerfil({ user, onSubmit }: FormEditarPerfilProps) {
         username: user.username,
         nome: user.nome,
         biografia: user.biografia ?? '',
-        privado: user.privado,
     }
 
     return (
@@ -32,12 +30,6 @@ function FormEditarPerfil({ user, onSubmit }: FormEditarPerfilProps) {
                     <FormField name="username" label="Username" />
                     <FormField name="nome" label="Nome" />
                     <FormField name="biografia" label="Biografia" as="textarea" height={150} emoji />
-                    <div className="form-check form-switch">
-                        <Field className="form-check-input" name="privado" type="checkbox" id="privado" role="switch" />
-                        <label className="form-check-label" htmlFor="privado">
-                            Conta privada
-                        </label>
-                    </div>
                     <button type="submit" className="btn btn-primary mt-4" disabled={isSubmitting}>
                         Salvar alterações
                     </button>

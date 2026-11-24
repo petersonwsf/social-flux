@@ -194,7 +194,8 @@ export interface EditarPerfilPayload {
     username: string
     nome: string
     biografia: string
-    privado: boolean
+    /** Omitido = não alterar (a tela de edição não envia; quem altera é Configurações). */
+    privado?: boolean
 }
 
 export interface CriarPostagemPayload {
