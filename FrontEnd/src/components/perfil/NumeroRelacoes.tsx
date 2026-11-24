@@ -9,12 +9,12 @@ function NumeroRelacoes({ label, numero, modalId }: NumeroRelacoesProps) {
     return (
         <button
             type="button"
-            className="btn follow text-center mx-2 mx-lg-4"
+            className="btn follow text-center mx-0 mx-sm-2 mx-lg-4"
             data-bs-toggle="modal"
             data-bs-target={`#${modalId}`}
         >
-            <span className="d-block fs-6 fw-semibold mb-0">{numero}</span>
-            <span className="d-block small">{label}</span>
+            <span className="d-block numero-relacoes-valor fw-semibold mb-0">{numero}</span>
+            <span className="d-block numero-relacoes-label">{label}</span>
         </button>
     )
 }

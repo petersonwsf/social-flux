@@ -35,12 +35,12 @@ function InfoPerfil({
                 <Avatar user={perfil} className="foto-perfil" />
             </div>
             <div className="col-9 d-flex flex-column ps-2 ps-lg-4">
-                <div className="d-flex justify-content-between w-100 flex-wrap">
-                    <div className="d-flex flex-column">
-                        <p className="perfil-username mb-0">{perfil.username}</p>
-                        <p className="perfil-nome text-secondary">{perfil.nome}</p>
+                <div className="d-flex justify-content-between align-items-start w-100 gap-1">
+                    <div className="d-flex flex-column min-w-0">
+                        <p className="perfil-username text-truncate mb-0">{perfil.username}</p>
+                        <p className="perfil-nome text-secondary text-truncate">{perfil.nome}</p>
                     </div>
-                    <div className="d-flex">
+                    <div className="d-flex flex-shrink-0">
                         <NumeroRelacoes numero={numeroSeguidores} label="Seguidores" modalId={MODAL_SEGUIDORES} />
                         <NumeroRelacoes numero={numeroSeguidos} label="Seguidos" modalId={MODAL_SEGUIDOS} />
                     </div>

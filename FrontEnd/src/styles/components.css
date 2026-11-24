@@ -308,6 +308,21 @@
 /* ---------- Busca e relações ---------- */
 .foto-search {
     width: 40px;
+/* Contadores compactos em telas pequenas, para ficarem na mesma linha do username. */
+.numero-relacoes-valor {
+    font-size: clamp(0.85rem, 3.4vw, 1rem);
+}
+
+.numero-relacoes-label {
+    font-size: clamp(0.62rem, 2.8vw, 0.875rem);
+}
+
+@media (max-width: 575.98px) {
+    .follow {
+        padding: 0 0.3rem;
+    }
+}
+
 }
 
 .search-username {
