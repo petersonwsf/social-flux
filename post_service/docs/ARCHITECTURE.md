@@ -74,7 +74,7 @@ post_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `PostService.java` | Regras: criar (valida, processa o anexo fora da transação, transação curta com o pai travado, compensação do objeto), ler, feed, lista do autor (403 `conta_privada`), respostas, ancestrais, excluir (trava pai → postagem; 403/404) |
+| `PostService.java` | Regras: criar (valida, processa o anexo fora da transação, transação curta com o pai travado, compensação do objeto), ler, feed (minhas postagens e de quem sigo), lista do autor (403 `conta_privada`), respostas, ancestrais, excluir (trava pai → postagem; 403/404) |
 | `LikeService.java` | Curtir/descurtir idempotentes com a postagem travada e limite por hora |
 | `PostWriter.java` | Mecanismos na transação do chamador (`MANDATORY`): inserir + contador do pai + `post.created.v1`; excluir subárvore + contador + `post.deleted.v1` por nó + remoção de imagens após o commit; curtir/descurtir + contador + evento |
 | `PostMediaService.java` | Processa e grava o anexo, compensação, remoção após o commit, entrega com checagem de visibilidade e 304, varredura de órfãos |

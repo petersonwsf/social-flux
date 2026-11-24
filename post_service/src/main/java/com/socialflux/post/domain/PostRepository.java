@@ -97,11 +97,13 @@ public class PostRepository {
                 .param("viewer", viewer).param("id", id).query(VIEW).optional();
     }
 
-    /** Feed: postagens (não respostas) de quem {@code viewer} segue, mais novas primeiro. */
+    /** Feed: postagens (não respostas) do próprio {@code viewer} e de quem ele segue, mais novas primeiro. */
     public List<PostView> feed(UUID viewer, Cursor cursor, int limit) {
         String sql = "select " + VIEW_COLUMNS + VIEW_FROM
-                + " join follow_edge e on e.followee_id = p.author_id and e.follower_id = :viewer"
-                + " where p.parent_id is null and a.status = 'ACTIVE'" + (cursor == null ? "" : AFTER_CURSOR) + ORDER_PAGE;
+                + " where p.parent_id is null and a.status = 'ACTIVE'"
+                + " and (p.author_id = :viewer or exists (select 1 from follow_edge e"
+                + " where e.followee_id = p.author_id and e.follower_id = :viewer))"
+                + (cursor == null ? "" : AFTER_CURSOR) + ORDER_PAGE;
         return page(jdbc.sql(sql).param("viewer", viewer), cursor, limit);
     }
 

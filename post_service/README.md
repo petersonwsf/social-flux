@@ -30,7 +30,7 @@ Plano e decisões: [`../docs/plano-dominio-postagens-servico-proprio.md`](../doc
 | `POST /api/postagens` (multipart: `legenda`, `imagem`, `pai`) | 201 + postagem | 422 `postagem_vazia` / `texto_muito_longo` / `imagem_invalida` / `imagem_animada` / `gif_invalido`, 413 `imagem_muito_grande`, 404 `postagem_nao_encontrada` (pai), 400 `parametro_invalido`, 429, 503 `perfil_indisponivel` / `servidor_ocupado` |
 | `GET /api/postagens/{id}` | 200 | 404 `postagem_nao_encontrada` (inexistente, invisível ou de conta excluída: igual) |
 | `DELETE /api/postagens/{id}` | 204 | 404; 403 `forbidden` (visível, mas de outra pessoa) |
-| `GET /api/postagens/feed?cursor&limite` | 200 (só raízes de quem eu sigo) | 400 `parametro_invalido` |
+| `GET /api/postagens/feed?cursor&limite` | 200 (só raízes, minhas e de quem eu sigo) | 400 `parametro_invalido` |
 | `GET /api/postagens?autor&filtro&cursor&limite` | 200 | 404 `usuario_nao_encontrado`, 403 `conta_privada`, 400 |
 | `GET /api/postagens/{id}/respostas?cursor&limite` | 200 | 404 se a postagem não é visível |
 | `GET /api/postagens/{id}/ancestrais` | 200 (até 10 níveis, da mais antiga à mais próxima, parando no primeiro invisível) | 404 |
