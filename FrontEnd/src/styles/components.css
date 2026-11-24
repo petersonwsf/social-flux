@@ -103,7 +103,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0.75rem;
-    max-width: min(100%, 720px);
+    max-width: min(100%, 820px);
     padding: 1.25rem 1rem 1rem;
     background: var(--sf-surface);
     border: 1px solid var(--sf-border);
@@ -122,8 +122,8 @@
 .carrossel-imagem {
     display: block;
     min-width: 0;
-    max-width: min(60vw, 520px);
-    max-height: 60vh;
+    max-width: min(68vw, 620px);
+    max-height: 68vh;
     object-fit: contain;
     border-radius: 12px;
 }
