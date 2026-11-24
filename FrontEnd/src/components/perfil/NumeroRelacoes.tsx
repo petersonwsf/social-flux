@@ -13,8 +13,8 @@ function NumeroRelacoes({ label, numero, modalId }: NumeroRelacoesProps) {
             data-bs-toggle="modal"
             data-bs-target={`#${modalId}`}
         >
-            <span className="d-block h4 mb-0">{numero}</span>
-            <span className="d-block">{label}</span>
+            <span className="d-block fs-6 fw-semibold mb-0">{numero}</span>
+            <span className="d-block small">{label}</span>
         </button>
     )
 }
