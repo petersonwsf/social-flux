@@ -108,7 +108,7 @@ Cada contexto tem um arquivo `xxxContext.ts` (tipo + `createContext`) e um `XxxP
 | --- | --- |
 | `authContext.ts` / `AuthProvider.tsx` | Sessão: `user` (perfil), `account` (UUID, e-mail), `emailVerified`, `carregando`, `login`, `register`, `logout`, `applyAuth`, `updateUser`, `refreshUser`. Restaura a sessão pelos cookies ao abrir, apaga o token antigo do `localStorage` e volta ao login quando a sessão não pode ser renovada |
 | `themeContext.ts` / `ThemeProvider.tsx` | Tema claro/escuro via `data-bs-theme` do Bootstrap, persistido no `localStorage` (migra a chave antiga do redux-persist) |
-| `toastContext.ts` / `ToastProvider.tsx` | Fila de toasts (`success`, `error` e `notify` para `{ mensagem, sucesso }`) renderizada em `.toast-stack` |
+| `toastContext.ts` / `ToastProvider.tsx` | Fila de toasts (`success`, `error`, `notify` para `{ mensagem, sucesso }` e `notificar` para uma notificação em tempo real, exibida com `ToastNotificacao`) renderizada em `.toast-stack` |
 | `notificationsContext.ts` / `NotificationsProvider.tsx` | Notificações do usuário logado (agrupadas, paginadas), contador de não vistas, aceitar/recusar solicitação direto da notificação e o **tempo real**: carrega a primeira página e liga o stream (`lib/notificacoesTempoReal.ts`); eventos `notificacao`/`removida`/`contagem`/`recarregar` atualizam a lista; toast quando chega algo fora da área de notificações (`abrirArea` marca a área aberta); montado dentro do `ProtectedLayout` |
 
 ### `src/hooks/`
