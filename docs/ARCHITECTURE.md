@@ -93,6 +93,7 @@ A publicação no GHCR usa o `GITHUB_TOKEN` (sem secret). Secrets usados pelo CD
 | `run-graph.ps1` / `run-graph.sh` | Instala `libs/socialflux-events` e roda o `social_graph_service` no host (porta 8083), com JWKS do auth e RabbitMQ |
 | `run-post.ps1` / `run-post.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `post_service` no host (porta 8084), com JWKS do auth, RabbitMQ e mídia no RustFS (`localhost:9000`) |
 | `run-notification.ps1` / `run-notification.sh` | Instala `libs/socialflux-events` e roda o `notification_service` no host (porta 8085), com JWKS do auth e RabbitMQ |
+| `seed-relacoes.ps1` | Só dev: cria contas de teste (`mock_seguidor_NN` seguem você, `mock_seguido_NN` você segue) pela API do gateway, para encher as listas de seguidores/seguidos; pede a sua senha no prompt |
 | `run-profile.ps1` / `run-profile.sh` | Instala `libs/socialflux-events` e `libs/socialflux-media` e roda o `profile_service` no host (porta 8082), com JWKS do auth e avatares no RustFS (`localhost:9000`) |
 
 ## Comunicação entre as peças
