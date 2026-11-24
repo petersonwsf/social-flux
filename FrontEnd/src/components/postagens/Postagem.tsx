@@ -34,7 +34,7 @@ function Postagem({ postagem, onExcluir, onResposta }: PostagemProps) {
                 <div className="w-100 ps-3 d-flex flex-column min-w-0">
                     <div className="d-flex infos-user mb-1 justify-content-between">
                         <Link
-                            className="d-flex text-decoration-none align-items-center w-75 text-truncate"
+                            className="d-flex text-decoration-none align-items-center min-w-0 flex-grow-1 text-truncate"
                             to={`/perfil/${autor.username}`}
                         >
                             <span className="nome-limitado">{autor.nome}</span>

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useNotificacoes } from '../../hooks/useNotificacoes'
 import { useRelacoesPendentes } from '../../hooks/useRelacoesPendentes'
 import Avatar from '../common/Avatar'
@@ -13,19 +13,23 @@ function FooterBar({ user }: { user: Usuario }) {
     const { naoVistas, zerarContador } = useNotificacoes()
     const { total: solicitacoesPendentes } = useRelacoesPendentes(user)
     const pendencias = naoVistas + solicitacoesPendentes
+    // Na própria página de criar postagem o botão flutuante seria redundante (e cobriria o formulário).
+    const mostrarBotaoPostar = useLocation().pathname !== '/criarPost'
 
     return (
         <>
-            <button
-                type="button"
-                className="btn btn-primary fab-postar d-lg-none"
-                aria-label="Postar"
-                title="Postar"
-                data-bs-toggle="modal"
-                data-bs-target={`#${MODAL_POSTAR}`}
-            >
-                <ion-icon name="create-outline"></ion-icon>
-            </button>
+            {mostrarBotaoPostar && (
+                <button
+                    type="button"
+                    className="btn btn-primary fab-postar d-lg-none"
+                    aria-label="Postar"
+                    title="Postar"
+                    data-bs-toggle="modal"
+                    data-bs-target={`#${MODAL_POSTAR}`}
+                >
+                    <ion-icon name="create-outline"></ion-icon>
+                </button>
+            )}
             <footer className="fixed-bottom d-lg-none">
                 <nav className="d-flex justify-content-between nav nav-pills p-2 footer-bar" aria-label="Navegação principal">
                     <NavLink to="/" end className="nav-link d-flex align-items-center" aria-label="Página inicial" title="Página inicial">

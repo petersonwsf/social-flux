@@ -72,6 +72,11 @@ ion-icon {
     margin-right: 0.5rem;
 }
 
+/* Títulos grandes (display-5) encolhem em telas pequenas, em vez de ocupar a linha toda. */
+.display-5 {
+    font-size: clamp(1.6rem, 6.5vw, 3rem);
+}
+
 /* ---------- Componentes do Bootstrap na paleta ---------- */
 .btn {
     --bs-btn-border-radius: 999px;
@@ -171,7 +176,7 @@ ion-icon {
 
 /* ---------- Layout ---------- */
 .sidebar {
-    width: 380px;
+    width: clamp(280px, 30vw, 380px);
     height: 100vh;
     top: 0;
     background: var(--sf-surface);
@@ -277,8 +282,9 @@ ion-icon {
         background: var(--sf-surface);
     }
 
+    /* Espaço extra no fim para a barra inferior e o botão flutuante "Postar" não cobrirem o último item. */
     .container-main {
-        padding: 0 0 4.5rem;
+        padding: 0 0 7.5rem;
     }
 
     .main {
