@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import ButtonBack from '../../components/common/ButtonBack'
 import Loading from '../../components/common/Loading'
 import NotFoundMessage from '../../components/common/NotFoundMessage'
@@ -50,12 +50,7 @@ function PerfilView({ perfil }: { perfil: Usuario }) {
 
     return (
         <div className="perfil">
-            <div className="w-100 d-flex justify-content-between align-items-center">
-                <ButtonBack />
-                <Link to="/settings" className="d-flex d-lg-none btn btn-icon" aria-label="Configurações">
-                    <ion-icon name="settings-outline"></ion-icon>
-                </Link>
-            </div>
+            <ButtonBack />
             <InfoPerfil
                 perfil={perfil}
                 user={user}
