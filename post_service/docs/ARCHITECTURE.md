@@ -27,13 +27,14 @@ post_service/
     ├── main/java/com/socialflux/post/
     │   ├── config/               propriedades e relógio
     │   ├── security/             resource server JWT e defesa CSRF
+    │   ├── moderation/           moderação de conteúdo (texto e imagens): moderador, política de scores e porta de entrada para o serviço
     │   ├── web/                  controllers, DTOs e erros
     │   ├── service/              regras, escrita transacional, mídia, sincronização, rotinas
     │   ├── domain/               repositórios JDBC e registros
     │   └── events/               filas, listeners e tratadores de eventos consumidos
     ├── main/resources/
     │   ├── application.yml       datasource, multipart (8/9 MB), Tomcat (swallow 16 MB), RabbitMQ, socialflux.events/media e bloco `post.*`
-    │   └── db/migration/        V1__post.sql e V2__remove_legacy_id.sql (remove `author_snapshot.legacy_id`)
+    │   └── db/migration/        V1__post.sql, V2__remove_legacy_id.sql (remove `author_snapshot.legacy_id`) e V3__post_images.sql (`post_image`: até 5 imagens por postagem)
     └── test/java/com/socialflux/post/
 ```
 
@@ -59,13 +60,26 @@ post_service/
 | `JwtAuthorities.java` | Só token de usuário (`sub` UUID) ganha `ROLE_*`; token de serviço fica sem autoridade |
 | `OriginCheckFilter.java` | Defesa CSRF em métodos não seguros (`Sec-Fetch-Site` e `Origin`) |
 
+### `moderation/`
+
+| Arquivo | O que representa |
+| --- | --- |
+| `ContentGuard.java` | Usado por `PostService.create` (texto) e `PostMediaService.storeAll` (imagens, em paralelo): consulta o moderador e traduz o resultado em 422 `conteudo_proibido` / `conteudo_automutilacao`; se o provedor falhar, libera ou recusa com 503 conforme `fail-closed-text` / `fail-closed-images`. Nunca loga o conteúdo |
+| `ContentModerator.java` | Interface: `checkText(texto)` e `checkImage(imagem)` devolvem um `Verdict` ou lançam `ModerationUnavailableException` |
+| `ModerationImage.java` / `ModerationImages.java` | Imagem a analisar (bytes + tipo) e o preparo da mídia já processada: estática vai como está; GIF vai pelo primeiro quadro, em JPEG |
+| `OpenAiContentModerator.java` | Chama `POST /v1/moderations` (`RestClient`, timeout curto; imagem como data URL base64) e lê só os scores das categorias usadas |
+| `NoopContentModerator.java` | Moderador desligado: aprova tudo |
+| `ModerationPolicy.java` | Regras puras sobre os scores de texto e de imagem (limiares de `post.moderation.thresholds`); automutilação tem prioridade |
+| `Verdict.java` / `ModerationUnavailableException.java` | Resultado (`ALLOWED`, `FORBIDDEN`, `SELF_HARM`, com a categoria só para log) e falha do provedor |
+| `ModerationConfig.java` | Escolhe o moderador; ligado sem `POST_MODERATION_API_KEY` falha ao subir |
+
 ### `web/`
 
 | Arquivo | O que representa |
 | --- | --- |
 | `PostController.java` | `/api/postagens`: criar (multipart), ler, excluir, feed, lista do autor, respostas, ancestrais, curtir/descurtir; quem age vem do token; id malformado = 404 |
 | `MediaController.java` | `GET /media/posts/{chave}`: bytes com tipo fixo, `nosniff`, cache privado imutável, `ETag`/304 |
-| `Dtos.java` | Corpos: `Post` (com `Author`, `Image`, `Parent`), `PageView`, `AncestorsView`, `LikeView` |
+| `Dtos.java` | Corpos: `Post` (com `Author`, `Image` e a lista `imagens`, `Parent`), `PageView`, `AncestorsView`, `LikeView` |
 | `MediaErrors.java` | Tradução de `MediaException` para `imagem_invalida`, `imagem_animada`, `gif_invalido`, `imagem_muito_grande`, `servidor_ocupado` |
 | `ApiError.java` / `ApiException.java` | Corpo `{ mensagem, sucesso, codigo }` e erro de negócio com status (inclui 404 uniforme de postagem e 429 com `Retry-After`) |
 | `GlobalExceptionHandler.java` | Converte exceções (negócio, mídia, upload grande, parâmetros, métodos) no corpo padrão; 500 genérico com log |
@@ -74,10 +88,10 @@ post_service/
 
 | Arquivo | O que representa |
 | --- | --- |
-| `PostService.java` | Regras: criar (valida, processa o anexo fora da transação, transação curta com o pai travado, compensação do objeto), ler, feed, lista do autor (403 `conta_privada`), respostas, ancestrais, excluir (trava pai → postagem; 403/404) |
+| `PostService.java` | Regras: criar (valida, processa o anexo fora da transação, transação curta com o pai travado, compensação do objeto), ler, feed (minhas postagens e de quem sigo), lista do autor (403 `conta_privada`), respostas, ancestrais, excluir (trava pai → postagem; 403/404) |
 | `LikeService.java` | Curtir/descurtir idempotentes com a postagem travada e limite por hora |
 | `PostWriter.java` | Mecanismos na transação do chamador (`MANDATORY`): inserir + contador do pai + `post.created.v1`; excluir subárvore + contador + `post.deleted.v1` por nó + remoção de imagens após o commit; curtir/descurtir + contador + evento |
-| `PostMediaService.java` | Processa e grava o anexo, compensação, remoção após o commit, entrega com checagem de visibilidade e 304, varredura de órfãos |
+| `PostMediaService.java` | Processa e grava os anexos (até 5; GIF só sozinho), compensação, remoção após o commit, entrega com checagem de visibilidade e 304, varredura de órfãos |
 | `ProfileSyncService.java` | Aplica `profile.*` em `author_snapshot` (versão, túmulo); exclusão marca `DELETED`, apaga arestas e agenda o `AccountPurger` |
 | `FollowSyncService.java` | Aplica `follow.created/removed.v1` em `follow_edge`/`follow_removed` (fora de ordem tolerado) |
 | `AccountPurger.java` | Limpeza de conta excluída em transações curtas `REQUIRES_NEW`: postagens (subárvores), curtidas dadas, arestas |
@@ -90,7 +104,8 @@ post_service/
 | Arquivo | O que representa |
 | --- | --- |
 | `PostRepository.java` | Consultas com o fragmento de visibilidade em SQL: postagem visível, feed, lista do autor (filtros), respostas, ancestrais (CTE recursiva), mídia por chave; escrita: travas (`for update of p`), inserção, contadores, subárvore travada pai → filho, exclusão; curtidas; órfãos; reconciliação |
-| `PostView.java` | Postagem como o viewer a vê (autor, contadores, "curti", resumo do pai) |
+| `PostView.java` | Postagem como o viewer a vê (autor, contadores, "curti", resumo do pai, capa e `images`) |
+| `PostImage.java` | Uma imagem da postagem (chave, tipo, dimensões, posição 0–4) |
 | `AuthorRepository.java` | `author_snapshot`: leitura (com `for share`/`for update`), "segue?", inserção/atualização, contas excluídas com sobras |
 | `AuthorSnapshot.java` | Cópia pública do perfil de um autor (`ACTIVE`/`DELETED`) |
 | `FollowEdgeRepository.java` | `follow_edge` (upsert pela aresta mais nova, remoção só do mesmo vínculo) e `follow_removed` (túmulos, poda) |
@@ -120,6 +135,9 @@ post_service/
 | `ConcurrencyTest.java` | Curtir × descurtir, curtir × excluir, responder × excluir o pai, respostas simultâneas, exclusões simultâneas na mesma árvore |
 | `MediaTest.java` | Re-codificação e redução, entrega com cabeçalhos e 304, revalidação confere visibilidade, GIF intacto, recusas com códigos, exclusão da árvore apaga objetos, chaves inválidas, varredura de órfãos |
 | `EventsTest.java` | Payloads `post.*` sem dado pessoal, um `deleted` por nó, broker fora do ar, reconciliador, manutenção |
+| `ContentModerationTest.java` | Moderação na criação (moderador falso): texto e imagens proibidos ou de automutilação recusados sem gravar nada (inclusive 1 entre 5 imagens, GIF pelo primeiro quadro e respostas), 503 com o provedor fora do ar |
+| `moderation/ModerationPolicyTest.java` / `ContentGuardTest.java` / `ModerationImagesTest.java` | Limiares e prioridades da política (texto e imagem); erros 422/503, política de falha e paralelismo das imagens; preparo do GIF (sem Spring) |
+| `moderation/OpenAiContentModeratorTest.java` | Cliente contra um servidor HTTP local: cabeçalho e corpo, scores → veredito, erro HTTP, resposta ilegível e timeout |
 | `LimitsTest.java` | 429 de postagens e curtidas com `Retry-After`, tamanho do texto configurável |
 
 ## `.github/workflows/`

@@ -12,7 +12,8 @@ Plano e decisões: [`../docs/plano-dominio-postagens-servico-proprio.md`](../doc
 | Regra | Detalhe |
 | --- | --- |
 | Identidade | Sempre do `sub` do token. Nenhuma rota aceita autor, `id_usuario` ou id de curtida do cliente; `{id}` é só o alvo |
-| Conteúdo | Texto (≤ `POST_MAX_BODY` = 1.000 caracteres, sem ser só espaços; bordas aparadas) **e/ou** um anexo (imagem ou GIF); pelo menos um |
+| Conteúdo | Texto (≤ `POST_MAX_BODY` = 1.000 caracteres, sem ser só espaços; bordas aparadas) **e/ou** anexos (até 5 imagens PNG/JPEG/WebP, ou um GIF sozinho); pelo menos um |
+| Moderação | O **texto** e as **imagens** de postagens e respostas passam pela API de moderação da OpenAI antes de qualquer objeto ser gravado (o texto, antes até de processar as imagens; as imagens, depois do processamento e antes do `put`). Imagem: bloqueia pornografia (`sexual`), violência gráfica e automutilação; GIF é analisado pelo **primeiro quadro**; as imagens da postagem são consultadas em paralelo. Bloqueia ódio (`hate`, `hate/threatening`), ameaça ou desejo de morte a alguém (`harassment/threatening`), violência gráfica (`violence/graphic`) e automutilação (`self-harm*`); ofensa comum (`harassment`) e `violence` sozinho (pega brincadeira e notícia) passam. Recusa de qualquer imagem recusa a postagem inteira, com 422 e nada gravado. Desligada por padrão |
 | Resposta | O pai precisa existir **e** ser visível para quem responde; senão 404 igual a "não existe" |
 | Visibilidade (D6) | Dono, autor público ou aresta "eu sigo o autor" (cópia local de `follow.*`). Vale para postagem avulsa, feed, perfil, respostas, ancestrais, curtir e a imagem. Conta excluída = invisível |
 | Respostas | Cada resposta é filtrada pela visibilidade do **seu** autor |
@@ -27,10 +28,10 @@ Plano e decisões: [`../docs/plano-dominio-postagens-servico-proprio.md`](../doc
 
 | Rota | Sucesso | Erros |
 | --- | --- | --- |
-| `POST /api/postagens` (multipart: `legenda`, `imagem`, `pai`) | 201 + postagem | 422 `postagem_vazia` / `texto_muito_longo` / `imagem_invalida` / `imagem_animada` / `gif_invalido`, 413 `imagem_muito_grande`, 404 `postagem_nao_encontrada` (pai), 400 `parametro_invalido`, 429, 503 `perfil_indisponivel` / `servidor_ocupado` |
+| `POST /api/postagens` (multipart: `legenda`, `imagens` (até 5, campo repetido; o antigo `imagem` continua aceito), `pai`) | 201 + postagem | 422 `postagem_vazia` / `imagens_demais` / `gif_deve_ficar_sozinho` / `texto_muito_longo` / `imagem_invalida` / `imagem_animada` / `gif_invalido` / `conteudo_proibido` / `conteudo_automutilacao` (mensagem de apoio com o CVV, 188), 413 `imagem_muito_grande`, 404 `postagem_nao_encontrada` (pai), 400 `parametro_invalido`, 429, 503 `perfil_indisponivel` / `servidor_ocupado` / `moderacao_indisponivel` (provedor de moderação fora do ar: imagens por padrão; texto só com `POST_MODERATION_FAIL_CLOSED_TEXT=true`) |
 | `GET /api/postagens/{id}` | 200 | 404 `postagem_nao_encontrada` (inexistente, invisível ou de conta excluída: igual) |
 | `DELETE /api/postagens/{id}` | 204 | 404; 403 `forbidden` (visível, mas de outra pessoa) |
-| `GET /api/postagens/feed?cursor&limite` | 200 (só raízes de quem eu sigo) | 400 `parametro_invalido` |
+| `GET /api/postagens/feed?cursor&limite` | 200 (só raízes, minhas e de quem eu sigo) | 400 `parametro_invalido` |
 | `GET /api/postagens?autor&filtro&cursor&limite` | 200 | 404 `usuario_nao_encontrado`, 403 `conta_privada`, 400 |
 | `GET /api/postagens/{id}/respostas?cursor&limite` | 200 | 404 se a postagem não é visível |
 | `GET /api/postagens/{id}/ancestrais` | 200 (até 10 níveis, da mais antiga à mais próxima, parando no primeiro invisível) | 404 |
@@ -46,19 +47,21 @@ Parâmetros: `limite` 1–100 (padrão 20); `filtro` ∈ `posts` (padrão: só r
   "id": "0192f3c4-7a1e-7b2d-9c10-5e8f4a1b2c3d",
   "legenda": "texto",
   "imagem": { "url": "/media/posts/po_….jpg", "tipo": "IMAGE", "largura": 1200, "altura": 800 },
+  "imagens": [ { "url": "/media/posts/po_….jpg", "tipo": "IMAGE", "largura": 1200, "altura": 800 } ],
   "criado_em": "2026-11-15T14:03:22.123456Z",
   "autor": { "id": "<uuid da conta>", "username": "ana", "nome": "Ana", "foto_perfil": "av_….jpg", "foto_url": "/media/avatars/av_….jpg", "privado": false },
   "pai": { "id": "…", "autor_username": "bia" },
   "curtidas": 3, "curtido": true, "respostas": 2
 }
 ```
-`legenda` e `imagem` podem ser `null` (nunca os dois); `pai` é `null` em postagem raiz e `pai.autor_username` é `null` quando
+`legenda` pode ser `null`; `imagem` (a primeira) é `null` e `imagens` é `[]` sem anexo (nunca sem legenda e sem imagem ao mesmo tempo); `imagens` traz até 5 anexos em ordem, ou um GIF sozinho; `pai` é `null` em postagem raiz e `pai.autor_username` é `null` quando
 quem pede não pode ver o pai. **Lista:** `{ "itens": [...], "proximoCursor": "…" | null }`. **Ancestrais:** `{ "itens": [...] }`.
 Erros: `{ "mensagem", "sucesso": false, "codigo" }`.
 
 ## Mídia (D8, D9, D16)
 
-- Anexo processado pela biblioteca **fora** da transação: PNG/JPEG/WebP → reduzido (lado maior ≤ 1.600 px), orientação EXIF
+- Até 5 anexos por postagem: todos são processados antes de gravar qualquer um (recusa = nada gravado) e um GIF só vale sozinho.
+- Cada anexo é processado pela biblioteca **fora** da transação: PNG/JPEG/WebP → reduzido (lado maior ≤ 1.600 px), orientação EXIF
   aplicada, re-codificado em JPEG (ou PNG com transparência), sem metadados; GIF → validado e regravado (≤ 8 MB, ≤ 1.280 px,
   ≤ 300 quadros), sem redimensionar. PNG/WebP animados → 422 `imagem_animada`.
 - Gravado no bucket `POST_MEDIA_BUCKET` com chave `po_<uuidv7>.<jpg|png|gif>`; se a transação falhar, o objeto é apagado.
@@ -83,11 +86,11 @@ Consome (idempotente por inbox; tipos desconhecidos e `aggregateVersion` antigo 
 | `post-service.profile-events` | `profile.#` | `profile.created/updated/privacy-changed/deleted.v1` → `author_snapshot` (exclusão deixa túmulo e dispara a limpeza) |
 | `post-service.follow-events` | `follow.#` | `follow.created.v1` / `follow.removed.v1` → `follow_edge` (só vale a aresta mais nova do par; `removed` deixa túmulo em `follow_removed` por 7 dias). Solicitações são ignoradas |
 
-## Tabelas (`V1__post.sql`)
+## Tabelas (`V1__post.sql`, `V3__post_images.sql`)
 
 `author_snapshot` (cópia pública dos perfis), `follow_edge` e `follow_removed` (cópia das arestas e túmulos), `post`
 (UUIDv7, `parent_id` com `on delete cascade`, `body ≤ 1000`, `image_key/kind/width/height`, `likes_count`, `replies_count`),
-`post_like` (PK `(post_id, user_id)`), `outbox_event`, `processed_message`.
+`post_image` (até 5 imagens por postagem, com `position`; a 1ª também fica em `post.image_*`), `post_like` (PK `(post_id, user_id)`), `outbox_event`, `processed_message`.
 
 ## Rotinas agendadas
 
@@ -113,10 +116,16 @@ Consome (idempotente por inbox; tipos desconhecidos e `aggregateVersion` antigo 
 | `POST_MEDIA_MAX_CONCURRENT` | `4` | Processamentos de imagem simultâneos (sem vaga em ~5 s → 503 `servidor_ocupado`) |
 | `POST_MEDIA_ORPHAN_GRACE` | `PT1H` | Idade mínima de um objeto sem postagem para ser apagado |
 | `RUSTFS_ENDPOINT`, `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`, `RUSTFS_REGION` | `http://localhost:9000`… | Armazenamento S3 compatível. Hoje a credencial **raiz** do RustFS (credencial por bucket pendente, D18) |
+| `POST_MODERATION_ENABLED` | `false` | Liga a moderação de texto. Ligada, exige `POST_MODERATION_API_KEY` (falha ao subir sem ela) |
+| `POST_MODERATION_API_KEY` | vazio | Chave da API da OpenAI. Segredo: só no `.env` (gitignored) |
+| `POST_MODERATION_BASE_URL` / `POST_MODERATION_MODEL` / `POST_MODERATION_TIMEOUT` | `https://api.openai.com` / `omni-moderation-latest` / `PT3S` | Provedor, modelo e tempo máximo da chamada |
+| `POST_MODERATION_FAIL_CLOSED_TEXT` | `false` | Provedor fora do ar: `false` deixa o texto passar (aviso no log); `true` recusa com 503 |
+| `POST_MODERATION_FAIL_CLOSED_IMAGES` | `true` | Provedor fora do ar: `true` recusa as imagens com 503; `false` deixa passar (aviso no log) |
+| `POST_MODERATION_HATE` / `_HATE_THREATENING` / `_HARASSMENT_THREATENING` / `_SEXUAL` / `_SELF_HARM` / `_SELF_HARM_IMAGE` / `_VIOLENCE_GRAPHIC` | `0.30` / `0.30` / `0.65` / `0.70` / `0.50` / `0.25` / `0.70` | Score (0 a 1) a partir do qual cada categoria bloqueia. Os scores não são probabilidades: valores iniciais calibrados com frases em português (ofensa comum fica com `hate` ≤ 0,18); ajuste com exemplos reais |
 | `POST_MAINTENANCE_ENABLED` / `POST_MAINTENANCE_INTERVAL` / `POST_TOMBSTONE_RETENTION` / `POST_PURGE_BATCH` | `true` / `PT1H` / `P7D` / `200` | Rotinas de manutenção |
 | `POST_RECONCILER_ENABLED` / `POST_RECONCILER_INTERVAL` / `POST_RECONCILER_BATCH` | `true` / `PT1H` / `500` | Reconciliador de contadores |
 
-Multipart: `max-file-size` 8 MB / `max-request-size` 9 MB (os limites finos ficam na biblioteca de mídia).
+Multipart: `max-file-size` 8 MB / `max-request-size` 30 MB, para até 5 imagens de 5 MB (os limites finos ficam na biblioteca de mídia).
 
 ## Rodando e testando
 
@@ -126,6 +135,13 @@ mvn -pl post_service -am test    # na raiz: PostgreSQL embutido, JWKS local, mí
 ```
 
 ## Limites conhecidos
+
+- **Moderação:** o modelo erra preconceito sutil (ex.: "mulher tem que lavar louça" fica com `hate` ≈ 0,18, abaixo do que separa ofensa comum) e racismo velado; só um classificador com prompt próprio pegaria. O provedor **não avalia ódio em imagem** (nem texto dentro da imagem); o limiar `sexual` ainda não foi calibrado com
+  imagens reais; o de automutilação em imagem (0,25) é baixo de propósito e pode barrar fotos de cicatrizes antigas, tatuagens
+  ou arte corporal (falso positivo); GIF só é analisado pelo primeiro quadro (um conteúdo proibido só em quadros posteriores passa); postagens
+  antigas, avatares e bio não são revisados. O texto e as imagens das postagens (inclusive de contas privadas) são enviados à OpenAI quando ligada: mencione isso na política de privacidade. O texto
+  analisado nunca vai para o log (só a categoria que bloqueou). Docker Compose ainda não repassa as variáveis `POST_MODERATION_*`
+  ao container (rodando o serviço no host, elas vêm do `.env`).
 
 - A **revogação imediata** do token (logout geral, troca de senha) é aplicada pelo gateway (`forward_auth`); o serviço só valida
   assinatura e validade do JWT. Não o exponha sem o gateway.

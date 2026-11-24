@@ -131,6 +131,19 @@ Abra **http://localhost:5173**. O Vite encaminha `/auth`, `/api` e `/media` para
 5. Sessão deslizante: reinicie o serviço com `JWT_ACCESS_TTL=PT2M JWT_RENEW_WINDOW=PT1M JWT_REFRESH_GRACE=PT2M`, entre,
    espere mais de 1 minuto e faça uma ação: aparece `POST /auth/refresh` (200) na aba Network.
 
+## Dados de teste: seguidores e seguidos
+
+Com tudo no ar (infra, auth, profile, graph, e post/notification se quiser que também conheçam as contas), crie contas de teste e
+relações com a sua conta (30 de cada por padrão, suficiente para testar "Carregar mais"):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/dev/seed-relacoes.ps1 -Email seu@email.com
+```
+
+O script pede a sua senha no prompt (não vai para o histórico nem para o disco). Cria `mock_seguidor_NN` (seguem você) e
+`mock_seguido_NN` (você segue) pelo gateway, com senhas aleatórias descartadas. Rodar de novo falha nas contas que já existem.
+Opções: `-Quantidade 10`, `-Gateway http://localhost:8080`.
+
 ## Problemas comuns
 
 | Sintoma | Causa provável |
